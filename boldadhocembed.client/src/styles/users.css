@@ -1,0 +1,56 @@
+/* users.css - Updated with new palette */
+
+.modern-grid .e-gridheader {
+  background: var(--surface);
+  border-bottom: 2px solid var(--neutral-200);
+}
+
+.modern-grid .e-headertext {
+  font-weight: 600;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.modern-grid .e-rowcell {
+  color: var(--text-strong);
+  border-bottom: 1px solid var(--neutral-100);
+  padding: 12px 16px;
+}
+
+.dark .modern-grid .e-rowcell {
+  border-bottom-color: var(--neutral-500);
+}
+
+.modern-grid .e-hover > .e-rowcell {
+  background: rgba(255, 72, 0, 0.05); /* Orange tint */
+}
+
+.modern-grid .e-active > .e-rowcell {
+  background: rgba(255, 72, 0, 0.12);
+}
+
+.modern-grid .e-gridtoolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--neutral-200);
+  padding: 12px 16px;
+}
+
+.modern-grid .e-toolbar-item {
+  border-radius: 6px;
+  margin: 0 4px;
+}
+
+/* Command buttons in Actions column */
+.e-commandcolumn .e-flat {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted);
+  padding: 6px !important;
+}
+
+.e-commandcolumn .e-flat:hover {
+  background: rgba(255, 72, 0, 0.1) !important;
+  color: var(--brand-500);
+}

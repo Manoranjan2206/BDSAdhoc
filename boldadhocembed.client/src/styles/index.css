@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-400 text-neutral-white px-4 py-2 rounded-lg font-medium hover:bg-primary-600 transition-colors;
+  }
+  
+  .btn-brand {
+    @apply bg-brand-orange text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+  }
+  
+  .btn-secondary-red {
+    @apply bg-secondary-red text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+  }
+  
+  .btn-secondary-green {
+    @apply bg-secondary-green text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+  }
+
+  .btn-secondary-blue {
+    @apply bg-secondary-blue text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+  }
+  
+  .btn-outline {
+    @apply border border-neutral-200 text-neutral-700 px-4 py-2 rounded-lg font-medium hover:bg-neutral-50 transition-colors dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700;
+  }
+  
+  .btn-secondary {
+    @apply bg-neutral-200 text-neutral-700 px-4 py-2 rounded-lg font-medium hover:bg-neutral-300 transition-colors dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600;
+  }
+
+  /* Badge components */
+  .badge-primary {
+    @apply inline-block bg-primary-400 text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-brand {
+    @apply inline-block bg-brand-orange text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-success {
+    @apply inline-block bg-secondary-green text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-danger {
+    @apply inline-block bg-secondary-red text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-warning {
+    @apply inline-block bg-secondary-yellow text-neutral-700 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-info {
+    @apply inline-block bg-secondary-blue text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  /* Card component */
+  .card {
+    @apply bg-neutral-white rounded-lg shadow-md p-6 dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600;
+  }
+
+  .card-primary {
+    @apply card border-l-4 border-l-primary-400;
+  }
+
+  .card-brand {
+    @apply card border-l-4 border-l-brand-orange;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  @apply bg-neutral-50 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-100 transition-colors;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="search"],
+textarea,
+select {
+  @apply border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-white;
+}
+
+/* ??????????????????????????????????????????????????????????? */
+/* BOLD REPORTS & SYNCFUSION DIALOG CRITICAL FIX               */
+/* ??????????????????????????????????????????????????????????? */
+
+/* Designer container – MUST stay at bottom */
+#reportdesigner-container {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Dialog overlay/backdrop – ABOVE designer, BELOW dialog */
+.e-dlg-overlay,
+.e-popup-overlay,
+.e-modal-overlay,
+.e-modal {
+  z-index: 50000 !important;
+  pointer-events: auto !important;
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Dialog content – TOPMOST */
+.e-dialog,
+.e-popup,
+.e-dropdown-popup,
+.e-dialog-container,
+.e-publish-dialog,
+.e-save-dialog,
+.ej-dialog,
+.bold-report-dialog,
+.bold-report-publish-dialog,
+.bold-report-save-dialog {
+  z-index: 50001 !important;
+  position: fixed !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Popup inside designer */
+.e-popup.e-popup-open {
+  z-index: 50001 !important;
+}
+
+/* Prevent body scroll when dialog is open */
+body.e-popup-open,
+body.e-dialog-open {
+  overflow: hidden !important;
+}
+
+/* Ensure nothing blocks dialogs */
+.e-popup-open {
+  overflow: hidden !important;
+}
+
+/* Dialog styling */
+.e-dialog .e-dlg-header {
+  background: #f8f9fa !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.e-dialog .e-dlg-content {
+  padding: 1.5rem !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+.e-dialog .e-dlg-footer {
+  border-top: 1px solid #e5e7eb !important;
+  background: #f8f9fa !important;
+}
+
+/* Buttons in dialogs */
+.e-dialog .e-btn,
+.e-dialog button,
+.e-popup .e-btn {
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+}
+
+.e-dialog .e-btn.e-primary,
+.e-dialog button.e-primary {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+/* Inputs in dialogs */
+.e-dialog input,
+.e-dialog .e-input-group {
+  border-radius: 6px !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.e-dialog input:focus,
+.e-dialog .e-input-group:focus-within {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Labels in dialogs */
+.e-dialog label,
+.e-dialog .e-label {
+  color: #111827 !important;
+  font-size: 0.875rem !important;
+}
+
+/* Dropdowns in dialogs */
+.e-dialog .e-ddl,
+.e-dialog .e-dropdownlist {
+  border-radius: 6px !important;
+}

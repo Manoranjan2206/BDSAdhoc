@@ -1,0 +1,46 @@
+/* schedules.css - Minimal overrides (most from reports.css) */
+
+.fixed.inset-0 {
+  backdrop-filter: blur(4px);
+}
+
+.motion-div.bg-\[var(--surface)\] {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-strong);
+  margin-bottom: 0.375rem;
+  display: block;
+}
+
+/* Better select/input focus ring using brand color */
+select:focus,
+input:focus {
+  outline: none;
+  ring: 2px solid var(--brand-500);
+  ring-offset: 2px;
+}
+
+/* Status badges consistency */
+.rounded-full {
+  font-weight: 500;
+}
+
+/* View mode toggle buttons */
+button.rounded-md {
+  transition: all 0.2s ease;
+}
+
+button.rounded-md:hover:not(.bg-\[var(--brand-100)\]) {
+  background: var(--brand-100);
+  color: var(--brand-500);
+}
+
+/* Card hover lift effect */
+.hover\:shadow-lg:hover {
+  transform: translateY(-2px);
+}

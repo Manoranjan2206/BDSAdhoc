@@ -1,0 +1,39 @@
+/* App.css - Updated Syncfusion overrides with new palette */
+
+/* Removed Syncfusion CSS imports */
+
+th, td {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Global Syncfusion overrides */
+.e-grid {
+  background: var(--surface) !important;
+  color: var(--text-strong) !important;
+}
+
+.e-grid .e-headercell {
+  background: var(--surface) !important;
+  color: var(--text-strong) !important;
+  border-color: var(--neutral-200) !important;
+}
+
+.e-grid .e-rowcell {
+  color: var(--text-strong) !important;
+}
+
+.e-grid .e-toolbar {
+  background: var(--surface) !important;
+  border-color: var(--neutral-200) !important;
+}
+
+.e-btn.e-primary {
+  background: var(--brand-500) !important;
+  border-color: var(--brand-500) !important;
+  color: #FFFFFF !important;
+}
+
+.e-btn.e-primary:hover {
+  background: color-mix(in srgb, var(--brand-500) 90%, black) !important;
+}

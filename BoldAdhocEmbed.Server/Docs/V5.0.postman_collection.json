@@ -1,0 +1,3403 @@
+{
+	"info": {
+		"_postman_id": "39d72f1d-429f-42fe-86ef-f805bd0c5549",
+		"name": "V5.0",
+		"description": "# Bold Reports REST API v5.0 Overview\n\nThis Postman collection provides a comprehensive set of API endpoints for interacting with the Bold Reports Enterprise Edition v5.0, designed to facilitate robust integration and management of reporting functionalities within your server environment. The collection aligns with the official Bold Reports [REST API v5.0](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#section/Introduction) documentation, enabling developers to authenticate, manage users, groups, items, permissions, settings, attributes, and audit logs efficiently.\n\n## Key Features\n\n- **Authentication**: Securely obtain a Bearer token using username and password credentials to authenticate API requests.\n    \n- **User Management**: Add, retrieve, update, delete, and activate/deactivate users, with support for bulk user imports via CSV and automatic addition to default groups.\n    \n- **Group Management**: Create, retrieve, update, delete, and manage user memberships within groups for streamlined access control.\n    \n- **Item Management**: Manage reports, datasets, data sources, categories, and schedules, including operations like moving, copying, exporting, and checking item name existence.\n    \n- **Permission Management**: Assign and manage multiple permissions for users and groups on specific items, ensuring granular access control.\n    \n- **Settings Configuration**: Update account settings, email settings, branding, and IP whitelisting, and generate embed secret keys.\n    \n- **Attribute Management**: Add, update, retrieve, and delete site, user, and group attributes with encryption support.\n    \n- **Audit Logs**: Retrieve detailed activity logs for users, groups, permissions, comments, schedules, system settings, and items.\n    \n\n## Collection Structure\n\nThe collection is organized into the following key sections, each corresponding to critical API functionalities:\n\n1. **Password Authentication**:\n    \n    - **Authenticate User**: POST request to retrieve a Bearer token using the `/token` endpoint.\n        \n2. **Items**:\n    \n    - **Get Specific Item Detail**: GET request to retrieve details of a specific item by ID.\n        \n    - **Move Report**: POST request to move a report to a specified folder.\n        \n    - **Get Version History**: GET request to retrieve the version history of a specific item.\n        \n    - **Add Category**: POST request to create a new category.\n        \n    - **Update Category**: PUT request to update a category.\n        \n    - **Check Item Name Exists**: POST request to verify if an item name exists in a category.\n        \n    - **Add Datasource**: POST request to create a new data source with detailed configuration.\n        \n    - **Update Datasource**: PUT request to update a specific data source.\n        \n    - **Add Dataset**: POST request to create a new dataset.\n        \n    - **Update Dataset**: PUT request to update a specific dataset.\n        \n    - **Update Report**: PUT request to update a specific report with detailed mapping.\n        \n    - **Download Items**: POST request to download multiple items by ID.\n        \n    - **Get Schedule Items**: GET request to retrieve a list of scheduled items.\n        \n    - **Get All Tags**: GET request to retrieve all tags used in items.\n        \n    - **Get Items**: GET request to retrieve a list of items filtered by `itemType`.\n        \n    - **Delete Item**: DELETE request to remove a specific item using `itemType` and `serverPath`.\n        \n    - **Add Schedule**: POST request to create a schedule with recurrence and S3 export options.\n        \n    - **Get Specific Schedule Detail**: GET request to fetch details of a specific schedule by ID or name.\n        \n    - **Update Schedule**: PUT request to update a schedule's details.\n        \n    - **Run Specific Schedule**: GET request to immediately execute a specific schedule.\n        \n    - **Get Item Location**: GET request to retrieve the location of a report, data source, or dataset.\n        \n    - **Export Report**: POST request to export a report to a specified format (e.g., PDF) with optional filters.\n        \n    - **Copy Report**: POST request to copy a report to a specified folder with dataset and sub-report mapping.\n        \n3. **Users**:\n    \n    - **Add User(s) to Default Group**: POST request to create users and add them to the default group.\n        \n    - **Get List of Users**: GET request to retrieve all users.\n        \n    - **Activate or Deactivate User**: POST request to toggle user activation status.\n        \n    - **Get Specific User Detail by Email or Username**: GET request to retrieve user details by email or username.\n        \n    - **Edit User**: PUT request to update user details.\n        \n    - **Delete User**: DELETE request to remove a specific user.\n        \n    - **Add CSV User**: POST request to upload users via CSV content.\n        \n4. **Groups**:\n    \n    - **Add Group**: POST request to create a new group.\n        \n    - **Get List of Groups**: GET request to retrieve all groups.\n        \n    - **Get Specific Group Detail**: GET request to fetch details of a specific group by ID.\n        \n    - **Edit Group**: PUT request to update group details.\n        \n    - **Delete Group**: DELETE request to remove a group.\n        \n    - **Get List of Users from Group**: GET request to retrieve users in a specific group.\n        \n    - **Delete User(s) from Group**: DELETE request to remove users from a group.\n        \n    - **Add User(s) to Group**: POST request to add users to a specific group.\n        \n5. **Settings**:\n    \n    - **Update Account Settings**: PUT request to configure account settings like activation mode and default group.\n        \n    - **Get IP Whitelisting Settings**: GET request to retrieve IP whitelisting settings.\n        \n    - **Update IP Whitelisting Settings**: POST request to update IP whitelisting rules.\n        \n    - **Generate Embed Secret Key**: POST request to generate an embed secret key.\n        \n    - **Update Branding**: PUT request to update branding settings.\n        \n    - **Update Email Settings**: PUT request to configure email settings.\n        \n6. **Attributes**:\n    \n    - **Add Site Attribute**: POST request to add a site attribute with encryption option.\n        \n    - **Get Site Attributes**: GET request to retrieve all site attributes.\n        \n    - **Update Site Attribute**: PUT request to update a site attribute.\n        \n    - **Delete Site Attributes**: DELETE request to remove a site attribute by ID.\n        \n    - **Add User Attribute**: POST request to add an attribute to a user.\n        \n    - **Update User Attribute**: PUT request to update a user attribute.\n        \n    - **Get User Attribute**: GET request to retrieve attributes for a specific user.\n        \n    - **Delete User Attribute**: DELETE request to remove user attributes.\n        \n    - **Add Group Attribute**: POST request to add an attribute to a group.\n        \n    - **Update Group Attribute**: PUT request to update a group attribute.\n        \n    - **Get Group Attribute**: GET request to retrieve attributes for a specific group.\n        \n    - **Delete Group Attribute**: DELETE request to remove group attributes.\n        \n7. **Permission**:\n    \n    - **Add Multiple User Permissions**: POST request to assign multiple permissions to users for specific items.\n        \n    - **Add Multiple Group Permissions**: POST request to assign multiple permissions to groups for specific items.\n        \n    - **Get List of User Permissions**: GET request to retrieve permissions for a specific user.\n        \n    - **Delete User Permission**: DELETE request to remove a user’s permission for an item.\n        \n    - **Get List of Group Permissions**: GET request to retrieve permissions for a specific group.\n        \n    - **Delete Group Permission**: DELETE request to remove a group’s permission for an item.\n        \n8. **Audit Logs**:\n    \n    - **All Activity Logs**: GET request to retrieve all activity logs with optional filters.\n        \n    - **Group Activity Logs**: GET request to fetch group-related activity logs.\n        \n    - **Group Permission Activity Logs**: GET request for group permission logs.\n        \n    - **User Activity Logs**: GET request for user-related activity logs.\n        \n    - **User Permission Activity Logs**: GET request for user permission logs.\n        \n    - **Comment Activity Logs**: GET request for comment-related logs.\n        \n    - **Schedule Activity Logs**: GET request for schedule-related logs.\n        \n    - **System Settings Activity Logs**: GET request for system settings logs.\n        \n    - **Item Activity Logs**: GET request for item-related activity logs.\n        \n\n## Getting Started\n\nTo use this collection:\n\n1. **Set Up Environment Variables**: Configure `base_url`, `tenant_name`, `username`, `password`, `access_token`, `id`, `itemType`, `serverPath`, `scheduleId`, `user_mail`, `groupID`, `groupName`, `userID`, `SiteAttributeID`, and `activitymodule`, `activity`, `itemtype` in your Postman environment for seamless API calls.\n    \n2. **Authenticate**: Start with the \"Authenticate User\" request to obtain a Bearer token, required for all subsequent requests.\n    \n3. **Explore Endpoints**: Use the structured requests to manage users, groups, items, permissions, settings, attributes, or audit logs as needed.\n    \n4. **Refer to Documentation**: For detailed endpoint specifications, consult the official Bold Reports REST API v5.0 documentation at [Bold Reports Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#section/Introduction).\n    \n\n## Notes\n\n- Ensure the `access_token` is updated regularly, as tokens may expire based on server configurations.\n    \n- The API endpoints follow the structure `{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/{endpoint}`, as outlined in the Bold Reports documentation.\n    \n- For testing, you can use the public demo server credentials provided in the Bold Reports documentation to generate an access token.\n    \n- The v5.0 API introduces advanced attribute management for sites, users, and groups, with encryption support, and enhanced schedule management with S3 export capabilities.\n    \n- The `serverPath` parameter for reports requires a format like `/{category name}/{report name}`, while other item types use the item name.\n    \n\nThis collection simplifies interaction with the Bold Reports v5.0 REST API, enabling developers to efficiently manage reporting resources. For further assistance, refer to the linked documentation or contact the Bold Reports support team.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44139475",
+		"_collection_link": "https://bold-report-api.postman.co/workspace/Bold-Report-API~14013b55-86d9-4f4c-8a1b-f92d02544e40/collection/44139475-39d72f1d-429f-42fe-86ef-f805bd0c5549?action=share&source=collection_link&creator=44139475"
+	},
+	"item": [
+		{
+			"name": "Password Authentication",
+			"item": [
+				{
+					"name": "Authenticate User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"username\": \"{{username}}\",\r\n  \"password\": \"{{password}}\",\r\n  \"grant_type\": \"password\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"token"
+							]
+						},
+						"description": "This endpoint allows you to obtain a Bearer token for authentication by providing a username and password. The token is required for all subsequent API requests in the Bold Reports v5.0 REST API. This endpoint is part of the Password Authentication flow and is essential for securing access to other API operations.\n\nFor more details, refer to the [V5.0 - Authenticate User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/PasswordAuthentication)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Password Authentication\" in the Bold Reports v5.0 Postman collection contains a single endpoint designed to facilitate secure authentication for accessing the Bold Reports Enterprise Edition API. This folder is critical for initiating API interactions, as it provides the mechanism to obtain a Bearer token required for all authenticated requests in the v5.0 API."
+		},
+		{
+			"name": "Items",
+			"item": [
+				{
+					"name": "Get Specific Item Detail",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items/{{id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items",
+								"{{id}}"
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific item (e.g., report, dataset) identified by its ID.\n\nFor more details, refer to the [V5.0 - Get Specific Item Detail Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_GetItemDetail)."
+					},
+					"response": []
+				},
+				{
+					"name": "Move Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"CategoryId\": \"string\",\r\n  \"ItemId\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items/move",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items",
+								"move"
+							]
+						},
+						"description": "This endpoint moves a report to a specified folder using the report’s ID and target category ID.\n\nFor more details, refer to the [V5.0 - Move Report Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_MoveReport)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Version History",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ItemId\": \"string\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items/version-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items",
+								"version-history"
+							]
+						},
+						"description": "This endpoint retrieves the version history of a specific item identified by its ID.\n\nFor more details, refer to the [V5.0 - Get Version History Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_VersionHistory)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Category",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"categories"
+							]
+						},
+						"description": "This endpoint creates a new category for organizing reports and other items.\n\nFor more details, refer to the [V5.0 - Add Category Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_AddCategory)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"CategoryId\": \"string\",\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"categories"
+							]
+						},
+						"description": "This endpoint updates the details of an existing category.\n\nFor more details, refer to the [V5.0 - Update Category Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_UpdateCategory)."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Item name exists",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ItemName\": \"string\",\r\n  \"CategoryName\": \"string\",\r\n  \"ItemType\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items/is-name-exists",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items",
+								"is-name-exists"
+							]
+						},
+						"description": "This endpoint verifies if an item name already exists within a specified category.\n\nFor more details, refer to the [V5.0 - Check Item Name Exists Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_IsItemNameExists)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Datasource",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"DataSourceDefinition\": {\r\n    \"ConnectString\": \"string\",\r\n    \"CredentialRetrieval\": \"string\",\r\n    \"Password\": \"string\",\r\n    \"Prompt\": \"string\",\r\n    \"UserName\": \"string\",\r\n    \"WindowsCredentials\": true,\r\n    \"ServerType\": \"string\",\r\n    \"CustomProperties\": [\r\n      {\r\n        \"Name\": \"string\",\r\n        \"Value\": \"string\"\r\n      }\r\n    ],\r\n    \"WebApiDatasource\": {\r\n      \"SecurityType\": \"string\",\r\n      \"BasicHttpAuthentication\": {\r\n        \"UserName\": \"string\",\r\n        \"Password\": \"string\"\r\n      },\r\n      \"URL\": \"string\",\r\n      \"MethodType\": \"string\",\r\n      \"Headers\": [\r\n        {\r\n          \"Key\": \"string\",\r\n          \"Value\": \"string\"\r\n        }\r\n      ],\r\n      \"BodyType\": \"string\",\r\n      \"RequestBody\": {\r\n        \"Parameters\": [\r\n          {\r\n            \"Key\": \"string\",\r\n            \"Value\": \"string\"\r\n          }\r\n        ],\r\n        \"RawData\": {}\r\n      },\r\n      \"DataFormat\": \"string\",\r\n      \"Separator\": \"string\",\r\n      \"Delimiter\": \"string\",\r\n      \"ParameterConnectionData\": {\r\n        \"url\": \"string\",\r\n        \"headers\": [\r\n          {\r\n            \"key\": \"string\",\r\n            \"value\": \"string\"\r\n          }\r\n        ],\r\n        \"username\": \"string\",\r\n        \"password\": \"string\",\r\n        \"parameters\": [\r\n          {\r\n            \"key\": \"string\",\r\n            \"value\": \"string\"\r\n          }\r\n        ],\r\n        \"rawdata\": \"string\"\r\n      }\r\n    }\r\n  }\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/data-sources",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"data-sources"
+							]
+						},
+						"description": "This endpoint creates a new data source with detailed configuration, including connection strings and authentication.\n\nFor more details, refer to the [V5.0 - Add Datasource Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_AddDataSource)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Datasource",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ItemId\": \"string\",\r\n  \"DataSourceName\": \"string\",\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"VersionComment\": \"string\",\r\n  \"DataSourceDefinition\": {\r\n    \"ConnectString\": \"string\",\r\n    \"CredentialRetrieval\": \"string\",\r\n    \"Password\": \"string\",\r\n    \"Prompt\": \"string\",\r\n    \"UserName\": \"string\",\r\n    \"WindowsCredentials\": true,\r\n    \"ServerType\": \"string\",\r\n    \"CustomProperties\": [\r\n      {\r\n        \"Name\": \"string\",\r\n        \"Value\": \"string\"\r\n      }\r\n    ],\r\n    \"WebApiDatasource\": {\r\n      \"SecurityType\": \"string\",\r\n      \"BasicHttpAuthentication\": {\r\n        \"UserName\": \"string\",\r\n        \"Password\": \"string\"\r\n      },\r\n      \"URL\": \"string\",\r\n      \"MethodType\": \"string\",\r\n      \"Headers\": [\r\n        {\r\n          \"Key\": \"string\",\r\n          \"Value\": \"string\"\r\n        }\r\n      ],\r\n      \"BodyType\": \"string\",\r\n      \"RequestBody\": {\r\n        \"Parameters\": [\r\n          {\r\n            \"Key\": \"string\",\r\n            \"Value\": \"string\"\r\n          }\r\n        ],\r\n        \"RawData\": {}\r\n      },\r\n      \"DataFormat\": \"string\",\r\n      \"Separator\": \"string\",\r\n      \"Delimiter\": \"string\",\r\n      \"ParameterConnectionData\": {\r\n        \"url\": \"string\",\r\n        \"headers\": [\r\n          {\r\n            \"key\": \"string\",\r\n            \"value\": \"string\"\r\n          }\r\n        ],\r\n        \"username\": \"string\",\r\n        \"password\": \"string\",\r\n        \"parameters\": [\r\n          {\r\n            \"key\": \"string\",\r\n            \"value\": \"string\"\r\n          }\r\n        ],\r\n        \"rawdata\": \"string\"\r\n      }\r\n    }\r\n  }\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/data-sources",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"data-sources"
+							]
+						},
+						"description": "This endpoint updates an existing data source with specified details.\n\nFor more details, refer to the [V5.0 - Update Datasource Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_UpdateDataSource)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Dataset",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"DataSourceMappingInfo\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"DataSourceId\": \"string\",\r\n      \"DataSourceName\": \"string\"\r\n    }\r\n  ],\r\n  \"ItemContent\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/datasets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"datasets"
+							]
+						},
+						"description": "This endpoint creates a new dataset with specified details and data source mappings.\n\nFor more details, refer to the [V5.0 - Add Dataset Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_AddDataSet)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Dataset",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ItemId\": \"string\",\r\n  \"DataSetName\": \"string\",\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"VersionComment\": \"string\",\r\n  \"DataSourceMappingInfo\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"DataSourceId\": \"string\",\r\n      \"DataSourceName\": \"string\"\r\n    }\r\n  ],\r\n  \"ItemContent\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/datasets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"datasets"
+							]
+						},
+						"description": "This endpoint updates an existing dataset with specified details.\n\nFor more details, refer to the [V5.0 - Update Dataset Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_UpdateDataSet)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ItemId\": \"string\",\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CategoryId\": \"string\",\r\n  \"VersionComment\": \"string\",\r\n  \"ServerPath\": \"string\",\r\n  \"IsPublic\": true,\r\n  \"Tags\": [\r\n    \"string\"\r\n  ],\r\n  \"DataSetMappingInfo\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"DataSetId\": \"string\",\r\n      \"DataSetName\": \"string\"\r\n    }\r\n  ],\r\n  \"DataSourceMappingInfo\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"DataSourceId\": \"string\",\r\n      \"DataSourceName\": \"string\"\r\n    }\r\n  ],\r\n  \"ItemContent\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports"
+							]
+						},
+						"description": "This endpoint updates an existing report with specified details, including data source and dataset mappings.\n\nFor more details, refer to the [V5.0 - Update Report Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_UpdateReport)."
+					},
+					"response": []
+				},
+				{
+					"name": "Download Items",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"ItemIds\":[\"sample-item-id-1\",\"sample-item-id-2\"]}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/v5.0/items/download",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"v5.0",
+								"items",
+								"download"
+							]
+						},
+						"description": "This endpoint downloads multiple items (e.g., reports, datasets) by their IDs.\n\nFor more details, refer to the [V5.0 - Download Items Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_DownloadReport)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get ScheduleItems",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/schedule/items",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"schedule",
+								"items"
+							]
+						},
+						"description": "This endpoint retrieves a list of all scheduled items in the system.\n\nFor more details, refer to the [V5.0 - Get Schedule Items Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_GetScheduleItems)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Tags",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/Tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"Tags"
+							]
+						},
+						"description": "This endpoint retrieves all tags used across items in the Bold Reports system.\n\nFor more details, refer to the [V5.0 - Get All Tags Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Report_Tags)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items?itemType={{itemType}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Values allowed are Category, Report, Datasource, Dataset, and Schedule"
+								},
+								{
+									"key": "serverPath",
+									"value": null,
+									"description": "Category path",
+									"disabled": true
+								},
+								{
+									"key": "tags",
+									"value": null,
+									"description": "Provide the report tag name(s).\nNote: If there are multiple tag names, they should be passed as comma-separated values i.e tags=tag1,tag2,tag3\nIt is possible to obtain report details without using the tag query parameter.",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves a list of items filtered by the specified itemType.\n\nFor more details, refer to the [V5.0 - Get Items Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_GetItems)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items?itemType={{itemType}}&serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Valid values are Category, Report, Datasource, Dataset, Schedule"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "To delete the report provide your report path like /{category name}/{report name}.\nAnd to delete the Category, Datasource, Dataset, Schedule simply provide the name of the item."
+								}
+							]
+						},
+						"description": "This endpoint deletes a specific item using the itemType and serverPath query parameters.\n\nFor more details, refer to the [V5.0 - Delete Item Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_DeleteItemV3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"ItemType\": \"string\",\r\n  \"ItemId\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"StartTime\": \"string\",\r\n  \"NeverEnd\": true,\r\n  \"EndAfterOccurrence\": 0,\r\n  \"EndDate\": \"string\",\r\n  \"UserList\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupList\": [\r\n    0\r\n  ],\r\n  \"ExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"ScheduleType\": \"string\",\r\n  \"HourlySchedule\": {\r\n    \"ScheduleInterval\": \"string\"\r\n  },\r\n  \"DailySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"EveryNdays\": 0,\r\n    \"EveryWeekday\": true\r\n  },\r\n  \"WeeklySchedule\": {\r\n    \"RecurrenceWeeks\": 0,\r\n    \"RecurrenceDays\": [\r\n      \"string\"\r\n    ]\r\n  },\r\n  \"MonthlySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"DayRecurrence\": {\r\n      \"DayInterval\": 0,\r\n      \"MonthInterval\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthInterval\": 0\r\n    }\r\n  },\r\n  \"YearlySchedule\": {\r\n    \"YearInterval\": 0,\r\n    \"RecurrenceType\": \"string\",\r\n    \"MonthRecurrence\": {\r\n      \"MonthOfYear\": \"string\",\r\n      \"DayOfMonth\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthOfYear\": \"string\"\r\n    }\r\n  },\r\n  \"Enabled\": true,\r\n  \"EnableS3Export\": \"string\",\r\n  \"S3ExportLocation\": [\r\n    {\r\n      \"S3Accesskey\": \"string\",\r\n      \"S3SecretKey\": \"string\",\r\n      \"S3BucketName\": \"string\",\r\n      \"S3Region\": \"string\"\r\n    }\r\n  ],\r\n  \"ReportParameter\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"Values\": [\r\n        \"string\"\r\n      ]\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/schedule",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"schedule"
+							]
+						},
+						"description": "This endpoint creates a new schedule for an item with recurrence and S3 export options.\n\nFor more details, refer to the [V5.0 - Add Schedule Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_AddSchedule)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific Schedule Detail",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/schedule?scheduleId={{scheduleId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"schedule"
+							],
+							"query": [
+								{
+									"key": "scheduleId",
+									"value": "{{scheduleId}}",
+									"description": "Schedule ID or Schedule Name"
+								}
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific schedule by its ID or name.\n\nFor more details, refer to the [V5.0 - Get Specific Schedule Detail Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_GetScheduleItemDetailV3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"ItemId\": \"string\",\r\n  \"ItemType\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"StartTime\": \"string\",\r\n  \"NeverEnd\": true,\r\n  \"EndAfterOccurrence\": 0,\r\n  \"EndDate\": \"string\",\r\n  \"UserList\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupList\": [\r\n    0\r\n  ],\r\n  \"ExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveUserList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveGroupList\": [\r\n    0\r\n  ],\r\n  \"RemoveExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"ScheduleType\": \"string\",\r\n  \"HourlySchedule\": {\r\n    \"ScheduleInterval\": \"string\"\r\n  },\r\n  \"DailySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"EveryNdays\": 0,\r\n    \"EveryWeekday\": true\r\n  },\r\n  \"WeeklySchedule\": {\r\n    \"RecurrenceWeeks\": 0,\r\n    \"RecurrenceDays\": [\r\n      \"string\"\r\n    ]\r\n  },\r\n  \"MonthlySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"DayRecurrence\": {\r\n      \"DayInterval\": 0,\r\n      \"MonthInterval\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthInterval\": 0\r\n    }\r\n  },\r\n  \"YearlySchedule\": {\r\n    \"YearInterval\": 0,\r\n    \"RecurrenceType\": \"string\",\r\n    \"MonthRecurrence\": {\r\n      \"MonthOfYear\": \"string\",\r\n      \"DayOfMonth\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthOfYear\": \"string\"\r\n    }\r\n  },\r\n  \"ExportFileSettingsInfo\": \"string\",\r\n  \"Enabled\": true,\r\n  \"EnableS3Export\": \"string\",\r\n  \"S3ExportLocation\": [\r\n    {\r\n      \"S3Accesskey\": \"string\",\r\n      \"S3SecretKey\": \"string\",\r\n      \"S3BucketName\": \"string\",\r\n      \"S3Region\": \"string\"\r\n    }\r\n  ],\r\n  \"ReportParameter\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"Values\": [\r\n        \"string\"\r\n      ]\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/schedule/{{scheduleID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"schedule",
+								"{{scheduleID}}"
+							]
+						},
+						"description": "This endpoint updates the details of an existing schedule for an item.\n\nFor more details, refer to the [V5.0 - Update Schedule Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_UpdateSchedule)."
+					},
+					"response": []
+				},
+				{
+					"name": "Run Specific Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/schedules/run?scheduleId={{scheduleId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"schedules",
+								"run"
+							],
+							"query": [
+								{
+									"key": "scheduleId",
+									"value": "{{scheduleId}}",
+									"description": "Schedule ID or Schedule Name"
+								}
+							]
+						},
+						"description": "This endpoint triggers the immediate execution of a specific schedule.\n\nFor more details, refer to the [V5.0 - Run Specific Schedule Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_RunScheduleReportV3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Item Location",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/items/location?itemType={{itemType}}&serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"items",
+								"location"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Valid values are Report, Datasource, Dataset"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "To get the reports location provide your report path like /{category name}/{report name}.\nAnd to get the Datasource and Dataset location simply provide the name of the item."
+								}
+							]
+						},
+						"description": "This endpoint retrieves the location of a specific item (e.g., Report, Datasource, Dataset) using itemType and serverPath.\n\nFor more details, refer to the [V5.0 - Get Item Location Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_GetItemLocationV3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Export Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ReportId\": \"string\",\r\n  \"ServerPath\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"FilterParameters\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/reports/export",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"reports",
+								"export"
+							]
+						},
+						"description": "This endpoint exports a report to a specified format (e.g., PDF) with optional filters.\n\nFor more details, refer to the [V5.0 - Export Report Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_ExportReportV3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Copy Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"IsOverwrite\": true,\r\n  \"CategoryId\": \"string\",\r\n  \"CategoryName\": \"string\",\r\n  \"CopyDataSetMappingInfo\": [\r\n    {\r\n      \"SharedDataSetName\": \"string\",\r\n      \"SharedDataSetId\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ],\r\n  \"CopyDataSourceMappingInfo\": [\r\n    {\r\n      \"SharedDataSourceName\": \"string\",\r\n      \"SharedDataSourceId\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ],\r\n  \"CopySubReportMappingInfo\": [\r\n    {\r\n      \"SubReportPath\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/report/copy?serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"report",
+								"copy"
+							],
+							"query": [
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "Provide the report path like /{category name}/{report name}"
+								}
+							]
+						},
+						"description": "This endpoint copies a report to a specified folder with options for data source and dataset inclusion.\n\nFor more details, refer to the [V5.0 - Copy Report Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Items_CopyReport)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Items\" in the Bold Reports v5.0 Postman collection contains fourteen endpoints focused on managing reporting items such as reports, datasets, data sources, categories, and schedules within the Bold Reports Enterprise Edition. These endpoints enable developers to create, retrieve, update, delete, move, export, and schedule items, as well as manage version history and tags, providing comprehensive control over reporting resources."
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Add User(s) to Default Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Email\": \"string\",\r\n  \"FirstName\": \"string\",\r\n  \"Lastname\": \"string\",\r\n  \"Password\": \"string\",\r\n  \"IsAddtoDefaultGroup\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users"
+							]
+						},
+						"description": "This endpoint creates one or more users and automatically adds them to the default group in the Bold Reports system.\n\nFor more details, refer to the [V5.0 - Add User(s) to Default Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_AddUserToDefaultGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get List Of Users",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users"
+							]
+						},
+						"description": "This endpoint retrieves a list of all users registered in the Bold Reports system.\n\nFor more details, refer to the [V5.0 - Get List of Users Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_GetUsers)."
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Or Deactivate User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Activate\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users/{{user_mail}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users",
+								"{{user_mail}}"
+							]
+						},
+						"description": "This endpoint toggles the activation status of a specific user identified by their email or username.\n\nFor more details, refer to the [V5.0 - Activate or Deactivate User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_ActivateDeactivateuser)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific User Detail by Email or Username",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users/{{user_mail}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users",
+								"{{user_mail}}"
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific user identified by their email or username.\n\nFor more details, refer to the [V5.0 - Get Specific User Detail by Email or Username Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_GetUserDetail)."
+					},
+					"response": []
+				},
+				{
+					"name": "Edit User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ContactNumber\": \"string\",\r\n  \"Email\": \"string\",\r\n  \"FirstName\": \"string\",\r\n  \"Lastname\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users/{{user_mail}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users",
+								"{{user_mail}}"
+							]
+						},
+						"description": "This endpoint updates the details of an existing user identified by their email or username.\n\nFor more details, refer to the [V5.0 - Edit User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_EditUser)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users/{{user_mail}}{base_url}}/reporting/api/v5.0/users/sample-user-id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users",
+								"{{user_mail}}{base_url}}",
+								"reporting",
+								"api",
+								"v5.0",
+								"users",
+								"sample-user-id"
+							]
+						},
+						"description": "This endpoint deletes a specific user account identified by their email or username.\n\nFor more details, refer to the [V5.0 - Delete User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_DeleteUser)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add CSV User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"CsvFileContent\": \"string\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/csv-users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"csv-users"
+							]
+						},
+						"description": "This endpoint imports multiple users into the Bold Reports system via CSV content.\n\nFor more details, refer to the [V5.0 - Add CSV User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_CsvUserImport)."
+					},
+					"response": []
+				},
+				{
+					"name": "Download CSV Template",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/csv-users/download-template",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"csv-users",
+								"download-template"
+							]
+						},
+						"description": "This endpoint downloads a CSV template for bulk user imports, providing a standardized format for user data.\n\nFor more details, refer to the [V5.0 - Download CSV Template Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_DownloadCsvTemplate)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Group Details Of Particular User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/users/{{user_mail}}/groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"users",
+								"{{user_mail}}",
+								"groups"
+							]
+						},
+						"description": "This endpoint retrieves group membership details for a specific user identified by their email or username.\n\nFor more details, refer to the [V5.0 - Get Group Details Of Particular User Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Users_GetGroupsOfUser)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Users\" in the Bold Reports v5.0 Postman collection contains seven endpoints focused on managing user accounts within the Bold Reports Enterprise Edition. These endpoints enable developers to create, retrieve, update, delete, and manage user activation, as well as support bulk user imports via CSV and automatic addition to default groups, streamlining user administration."
+		},
+		{
+			"name": "Groups",
+			"item": [
+				{
+					"name": "Add Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups"
+							]
+						},
+						"description": "This endpoint creates a new group in the Bold Reports system with a specified name and description.\n\nFor more details, refer to the [V5.0 - Add Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_AddGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get List of Groups",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups"
+							]
+						},
+						"description": "This endpoint retrieves a list of all groups in the Bold Reports system.\n\nFor more details, refer to the [V5.0 - Get List of Groups Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_GetGroupsV2)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific Group Detail",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Get Specific Group Detail Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_GetGroupDetail)."
+					},
+					"response": []
+				},
+				{
+					"name": "Edit Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint updates the details of an existing group identified by its ID.\n\nFor more details, refer to the [V5.0 - Edit Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_EditGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint deletes a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Delete Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_DeleteGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get List Of Users From Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupID}}/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupID}}",
+								"users"
+							]
+						},
+						"description": "This endpoint retrieves a list of users who are members of a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Get List of Users from Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_GetUsesFromGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User(s) from the Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Id\": [\r\n    0\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupID}}/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupID}}",
+								"users"
+							]
+						},
+						"description": "This endpoint removes one or more users from a specific group identified by its name.\n\nFor more details, refer to the [V5.0 - Delete User(s) from Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_DeleteUserFromGroup)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add user(s) to the particular group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Id\": [\r\n    0\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/groups/{{groupName}}/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"groups",
+								"{{groupName}}",
+								"users"
+							]
+						},
+						"description": "This endpoint adds one or more users, identified by their IDs, to a specific group identified by its name.\n\nFor more details, refer to the [V5.0 - Add User(s) to the Particular Group Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Groups_AddUserToGroup)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Groups\" in the Bold Reports v5.0 Postman collection contains seven endpoints focused on managing groups within the Bold Reports Enterprise Edition. These endpoints enable developers to create, retrieve, update, delete, and manage user memberships for groups, facilitating efficient group-based access control and collaboration for reporting resources."
+		},
+		{
+			"name": "Settings",
+			"item": [
+				{
+					"name": "Update Account Settings",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ActivationMode\": \"string\",\r\n  \"IsUserEmailRequired\": \"string\",\r\n  \"UserDefaultGroup\": 0\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/settings/account",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"settings",
+								"account"
+							]
+						},
+						"description": "This endpoint updates general account settings, such as activation modes and default group configurations, for the Bold Reports instance.\n\nFor more details, refer to the [V5.0 - Update Account Settings Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Settings_EditAccountsSettingsOfSite)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get IP Whitelisting Settings",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}v5.0/settings/security/networking/ip-whitelist",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}v5.0",
+								"settings",
+								"security",
+								"networking",
+								"ip-whitelist"
+							]
+						},
+						"description": "This endpoint retrieves the current IP whitelisting rules configured for the Bold Reports instance.\n\nFor more details, refer to the [V5.0 - Get IP Whitelisting Settings Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Administartion_GetIPWhitelistingSettings)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update IP Whitelisting Settings",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"IsEnabled\": true,\r\n  \"IPWhitelistingRules\": [\r\n    {\r\n      \"RuleName\": \"string\",\r\n      \"IPAddress\": \"string\",\r\n      \"IPAddressType\": \"string\"\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}v5.0/settings/security/networking/ip-whitelist",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}v5.0",
+								"settings",
+								"security",
+								"networking",
+								"ip-whitelist"
+							]
+						},
+						"description": "This endpoint updates the IP whitelisting rules for the Bold Reports instance, enhancing security by restricting access to specified IP addresses.\n\nFor more details, refer to the [V5.0 - Update IP Whitelisting Settings Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Administartion_UpdateIPWhitelistingSettings)."
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Embed Secret Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/settings/generate-embed-secret",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"settings",
+								"generate-embed-secret"
+							]
+						},
+						"description": "This endpoint generates a secret key for embedding reports in external applications, enabling secure integration.\n\nFor more details, refer to the [V5.0 - Generate Embed Secret Key Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Settings_GenerateEmbedSecretKey)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Branding",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\r\n  {\r\n    \"Key\": \"string\",\r\n    \"Value\": \"string\",\r\n    \"FileFormat\": \"string\"\r\n  }\r\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}v5.0/settings/site",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}v5.0",
+								"settings",
+								"site"
+							]
+						},
+						"description": "This endpoint updates the branding settings for the Bold Reports instance, allowing customization of logos, themes, and other visual elements.\n\nFor more details, refer to the [V5.0 - Update Branding Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/settings_update_branding)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Email Settings",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"SMTPServer\": \"string\",\r\n  \"SMTPPort\": \"string\",\r\n  \"SenderName\": \"string\",\r\n  \"SenderEmailAddress\": \"string\",\r\n  \"AuthenticationType\": \"string\",\r\n  \"Username\": \"string\",\r\n  \"Password\": \"string\",\r\n  \"EnableSSL\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/settings/email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"settings",
+								"email"
+							]
+						},
+						"description": "This endpoint updates the email configuration settings for the Bold Reports instance, enabling customization of notification and report delivery options.\n\nFor more details, refer to the [V5.0 - Update Email Settings Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Settings_EditEmailSettingsOfSite)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Settings\" in the Bold Reports v5.0 Postman collection contains five endpoints focused on managing configuration settings for the Bold Reports Enterprise Edition. These endpoints enable developers to update account settings, manage IP whitelisting, generate embed secret keys, configure email settings, and customize branding, facilitating system customization and security."
+		},
+		{
+			"name": "Attributes",
+			"item": [
+				{
+					"name": "Add Site Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/site",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"site"
+							]
+						},
+						"description": "This endpoint adds a new attribute to the Bold Reports site, with an option to encrypt the value.\n\nFor more details, refer to the [V5.0 - Add Site Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_AddSiteAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Site Attributes",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/site",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"site"
+							]
+						},
+						"description": "This endpoint retrieves all attributes associated with the Bold Reports site.\n\nFor more details, refer to the [V5.0 - Get Site Attributes Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_GetSiteAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Site Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Id\": 0,\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/site",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"site"
+							]
+						},
+						"description": "This endpoint updates an existing site attribute identified by its ID.\n\nFor more details, refer to the [V5.0 - Update Site Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_UpdateSiteAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Site Attributes",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/site/{{SiteAttributeID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"site",
+								"{{SiteAttributeID}}"
+							]
+						},
+						"description": "This endpoint deletes a specific site attribute identified by its ID.\n\nFor more details, refer to the [V5.0 - Delete Site Attributes Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_DeleteSiteAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add User Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true,\r\n  \"UserId\": 0\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/user",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"user"
+							]
+						},
+						"description": "This endpoint adds an attribute to a specific user identified by their ID.\n\nFor more details, refer to the [V5.0 - Add User Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_SaveUserAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Id\": 0,\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true,\r\n  \"UserId\": 0\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/user",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"user"
+							]
+						},
+						"description": "This endpoint updates an existing attribute for a specific user identified by their ID.\n\nFor more details, refer to the [V5.0 - Update User Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_UpdateUserAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/user/{{userID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"user",
+								"{{userID}}"
+							]
+						},
+						"description": "This endpoint retrieves all attributes for a specific user identified by their ID.\n\nFor more details, refer to the [V5.0 - Get User Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_GetUserAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/user/{{userID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"user",
+								"{{userID}}"
+							]
+						},
+						"description": "This endpoint deletes attributes for a specific user identified by their ID.\n\nFor more details, refer to the [V5.0 - Delete User Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_DeleteUserAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Group Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true,\r\n  \"GroupId\": 0\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/group",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"group"
+							]
+						},
+						"description": "This endpoint adds an attribute to a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Add Group Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_AddGroupAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Group Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Id\": 0,\r\n  \"Name\": \"string\",\r\n  \"Value\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CanEncrypt\": true,\r\n  \"GroupId\": 0\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/group",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"group"
+							]
+						},
+						"description": "This endpoint updates an existing attribute for a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Update Group Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_UpdateGroupAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Group Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/group/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"group",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint retrieves all attributes for a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Get Group Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_GetGroupAttributes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Group Attribute",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/attribute/group/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"attribute",
+								"group",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint deletes attributes for a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Delete Group Attribute Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Attributes_DeleteGroupAttributes)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Attributes\" in the Bold Reports v5.0 Postman collection contains twelve endpoints focused on managing attributes for sites, users, and groups within the Bold Reports Enterprise Edition. These endpoints enable developers to add, update, retrieve, and delete attributes, with support for encryption, facilitating flexible metadata management for enhanced system customization and integration."
+		},
+		{
+			"name": "Permission",
+			"item": [
+				{
+					"name": "Add Multiple User Permissions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\r\n  {\r\n    \"PermissionAccess\": [\r\n      \"string\"\r\n    ],\r\n    \"UserId\": 0,\r\n    \"PermissionEntity\": [\r\n      \"string\"\r\n    ],\r\n    \"ItemId\": \"string\"\r\n  }\r\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"users"
+							]
+						},
+						"description": "This endpoint assigns multiple permissions to groups for specific items, enabling group-based access control.\n\nFor more details, refer to the [V5.0 - Add Multiple Group Permissions Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_AddUserPermission)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Multiple Group Permissions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\r\n  {\r\n    \"PermissionAccess\": [\r\n      \"string\"\r\n    ],\r\n    \"GroupId\": 0,\r\n    \"PermissionEntity\": [\r\n      \"string\"\r\n    ],\r\n    \"ItemId\": \"string\"\r\n  }\r\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"groups"
+							]
+						},
+						"description": "This endpoint assigns multiple permissions to groups for specific items, enabling group-based access control.\n\nFor more details, refer to the [V5.0 - Add Multiple Group Permissions Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_AddGroupPermission)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get List of User Permissions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/users/{{userID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"users",
+								"{{userID}}"
+							]
+						},
+						"description": "This endpoint retrieves all permissions assigned to a specific user identified by their ID.\n\nFor more details, refer to the [V5.0 - Get List of User Permissions Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_GetUserPermission)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User Permission",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/users/{{userID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"users",
+								"{{userID}}"
+							]
+						},
+						"description": "This endpoint removes a specific user’s permission for a designated item.\n\nFor more details, refer to the [V5.0 - Delete User Permission Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_DeleteUserPermission)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get List Of Permissions Of Group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/groups/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"groups",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint retrieves all permissions assigned to a specific group identified by its ID.\n\nFor more details, refer to the [V5.0 - Get List of Group Permissions Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_GetGroupPermission)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Group Permission",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/permissions/groups/{{groupID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"permissions",
+								"groups",
+								"{{groupID}}"
+							]
+						},
+						"description": "This endpoint removes a specific group’s permission for a designated item.\n\nFor more details, refer to the [V5.0 - Delete Group Permission Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Permission_DeleteGroupPermission)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Permission\" in the Bold Reports v5.0 Postman collection contains six endpoints focused on managing permissions for users and groups within the Bold Reports Enterprise Edition. These endpoints enable developers to assign, retrieve, and delete permissions for specific items, facilitating granular access control and secure resource management."
+		},
+		{
+			"name": "Audit Logs",
+			"item": [
+				{
+					"name": "All Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "{{activitymodule}}",
+									"description": "Module in which the activity performed.\nValid Values are Group, GroupPermission, User, UserPermission, Comment, Schedule, System, Item",
+									"disabled": true
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of the activity performed (It depends on ActivityModule).\nValid ValuesAdded, Updated, Deleted, Synchronized, Imported, Visited, UserAdded, UserRemoved, PermissionAdded, PermissionRemoved, Edited, Replied, UserMentioned, Success, Failed, Run, Activated, Retried, Enabled, Disabled, Visited, Moved, Copied, Cloned, Restored, Rollbacked",
+									"disabled": true
+								},
+								{
+									"key": "itemtype",
+									"value": "{{itemtype}}",
+									"description": "Type of the Item (Only for Item module)\nValid values are Category, Report, Datasource, Dataset, Schedule",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves all activity logs in the Bold Reports system, with optional filters for specific modules and activities.\n\nFor more details, refer to the [V5.0 - All Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_AllActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Group Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=group",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "group"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of group activity performed.\nValues allowed are Added, Updated, Deleted, Synchronized, Imported, Visited, UserAdded, UserRemoved",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for group-related actions, such as creation, update, or deletion.\n\nFor more details, refer to the [V5.0 - Group Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_GroupActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Group Permission Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=GroupPermission",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "GroupPermission"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of group permission activity performed.\nValues allowed are PermissionAdded, PermissionRemoved",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for group permission changes, such as adding or removing permissions.\n\nFor more details, refer to the [V5.0 - Group Permission Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_GroupPermissionActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "User Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=user",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "user"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of user activity performed.\nValues allowed are Added, Updated, Deleted, Synchronized, Imported, Visited",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for user-related actions, such as creation, update, or activation.\n\nFor more details, refer to the [V5.0 - User Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_UserActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "User Permission Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=userpermission",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "userpermission"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"disabled": true
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for user permission changes, such as adding or removing permissions.\n\nFor more details, refer to the [V5.0 - User Permission Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_UserPermissionActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Comment Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=userpermission&activity={{activity}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "userpermission"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of comment activity performed.\nValues allowed are Added, Edited, Deleted, Replied, UserMentioned"
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for comment-related activities, such as adding, editing, or deleting comments.\n\nFor more details, refer to the [V5.0 - Comment Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_CommentActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Schedule Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=userpermission&activity={{activity}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "userpermission"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of schedule activity performed.\nValues allowed are Success, Failed, Run"
+								}
+							]
+						},
+						"description": "Retrieve activity logs for schedules."
+					},
+					"response": []
+				},
+				{
+					"name": "System Settings Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=system&activity={{activity}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "system"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of system settings activity performed.\nValues allowed are Added, Updated, Deleted, Activated, Retried, Enabled, Disabled, Visited"
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for system settings changes, such as updates or activations.\n\nFor more details, refer to the [V5.0 - System Settings Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_SystemSettingsActivityLogs)."
+					},
+					"response": []
+				},
+				{
+					"name": "Item Activity Logs",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v5.0/activity-logs?activitymodule=userpermission&activity={{activity}}&itemtype={{itemtype}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v5.0",
+								"activity-logs"
+							],
+							"query": [
+								{
+									"key": "activitymodule",
+									"value": "userpermission"
+								},
+								{
+									"key": "activity",
+									"value": "{{activity}}",
+									"description": "Type of item activity performed.\nValues allowed are Added, Edited, Deleted, Moved, Copied, Cloned, Restored, Rollbacked, Visited"
+								},
+								{
+									"key": "itemtype",
+									"value": "{{itemtype}}",
+									"description": "Type of the item.\nValues allowed are Category, Report, Datasource, Dataset, Schedule"
+								}
+							]
+						},
+						"description": "This endpoint retrieves activity logs for item-related activities, such as creation, editing, or deletion of reports, datasets, or other items.\n\nFor more details, refer to the [V5.0 - Item Activity Logs Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v5.0/server-api-reference/#operation/Audit-Logs_ItemActivityLogs)."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Audit Logs\" in the Bold Reports v5.0 Postman collection contains eight endpoints focused on retrieving activity logs for various actions within the Bold Reports Enterprise Edition. These endpoints enable administrators to monitor and review user actions, group activities, permissions, comments, schedules, system settings, and item-related activities, ensuring accountability and transparency in the system."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

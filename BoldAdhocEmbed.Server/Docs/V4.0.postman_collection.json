@@ -1,0 +1,362 @@
+{
+	"info": {
+		"_postman_id": "ba125d86-8a1c-4024-9d92-656414882a12",
+		"name": "V4.0",
+		"description": "# Bold Reports REST API v4.0 Overview\n\nThis Postman collection provides a curated set of API endpoints for interacting with the Bold Reports Enterprise Edition v4.0, designed to streamline integration and management of reporting functionalities within your server environment. The collection is structured to align with the official Bold Reports [REST API v4.0](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v4.0/server-api-reference/#section/Introduction) documentation, enabling developers to authenticate, manage users, and handle items such as reports and schedules efficiently.\n\n## Key Features\n\n- **Authentication**: Securely obtain a Bearer token using username and password credentials to authenticate API requests.\n    \n- **User Management**: Add new users and retrieve specific user details by email or username.\n    \n- **Item Management**: Copy reports with detailed mapping for datasets, data sources, and sub-reports, and retrieve lists of items with optional filters like tags.\n    \n- **Schedule Management**: Create and update schedules for automated reporting tasks, with support for S3 export capabilities.\n    \n\n## Collection Structure\n\nThe collection is organized into the following key sections, each corresponding to critical API functionalities:\n\n1. **Password Authentication**:\n    \n    - **Authenticate User**: POST request to retrieve a Bearer token using the `/token` endpoint.\n        \n2. **Items**:\n    \n    - **Copy Report**: POST request to copy a report to a specified folder, including options to overwrite and map datasets, data sources, and sub-reports.\n        \n    - **Get Items**: GET request to retrieve a list of items (e.g., reports, datasets, data sources, schedules) with filters for `itemType`, `serverPath`, and `tags`.\n        \n    - **Add Schedule**: POST request to create a new schedule for an item, supporting detailed recurrence options and S3 export settings.\n        \n    - **Update Schedule**: PUT request to update an existing schedule, including recurrence, recipients, and S3 export configurations.\n        \n3. **Users**:\n    \n    - **Add User**: POST request to create a new user with details like email, username, and password.\n        \n    - **Get Specific User Detail by Email or Username**: GET request to retrieve details of a specific user by their email or username.\n        \n\n## Getting Started\n\nTo use this collection:\n\n1. **Set Up Environment Variables**: Configure `base_url`, `tenant_name`, `username`, `password`, `access_token`, `serverPath`, `itemType`, `tags`, `scheduleID`, `Email`, `FirstName`, `Lastname`, `Password`, `UserName`, and `user_mail` in your Postman environment for seamless API calls.\n    \n2. **Authenticate**: Start with the \"Authenticate User\" request to obtain a Bearer token, required for all subsequent requests.\n    \n3. **Explore Endpoints**: Use the structured requests to manage users, items, or schedules as needed.\n    \n4. **Refer to Documentation**: For detailed endpoint specifications, consult the official Bold Reports REST API v4.0 documentation at [Bold Reports Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v4.0/server-api-reference/#section/Introduction).\n    \n\n## Notes\n\n- Ensure the `access_token` is updated regularly, as tokens may expire based on server configurations.\n    \n- The API endpoints follow the structure `{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/{endpoint}`, as outlined in the Bold Reports documentation.\n    \n- For testing, you can use the public demo server credentials provided in the Bold Reports documentation to generate an access token.\n    \n- The `serverPath` parameter for reports requires a format like `/{category name}/{report name}`, while other item types use the item name.\n    \n- The v4.0 API introduces enhanced schedule management with S3 export support, requiring proper configuration of S3 access keys and bucket details.\n    \n\nThis collection simplifies interaction with the Bold Reports v4.0 REST API, enabling developers to efficiently manage reporting resources. For further assistance, refer to the linked documentation or contact the Bold Reports support team.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44139475",
+		"_collection_link": "https://bold-report-api.postman.co/workspace/Bold-Report-API~14013b55-86d9-4f4c-8a1b-f92d02544e40/collection/44139475-ba125d86-8a1c-4024-9d92-656414882a12?action=share&source=collection_link&creator=44139475"
+	},
+	"item": [
+		{
+			"name": "Password Authentication",
+			"item": [
+				{
+					"name": "Authenticate User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"username\": \"{{username}}\",\r\n  \"password\": \"{{password}}\",\r\n  \"grant_type\": \"password\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"token"
+							]
+						},
+						"description": "Obtain a Bearer token for authentication using username and password."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Items",
+			"item": [
+				{
+					"name": "Copy Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"IsOverwrite\": true,\r\n  \"CategoryId\": \"string\",\r\n  \"CategoryName\": \"string\",\r\n  \"CopyDataSetMappingInfo\": [\r\n    {\r\n      \"SharedDataSetName\": \"string\",\r\n      \"SharedDataSetId\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ],\r\n  \"CopyDataSourceMappingInfo\": [\r\n    {\r\n      \"SharedDataSourceName\": \"string\",\r\n      \"SharedDataSourceId\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ],\r\n  \"CopySubReportMappingInfo\": [\r\n    {\r\n      \"SubReportPath\": \"string\",\r\n      \"Name\": \"string\"\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/report/copy?serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v4.0",
+								"report",
+								"copy"
+							],
+							"query": [
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "Provide the report path like /{category name}/{report name}"
+								}
+							]
+						},
+						"description": "Copy a report to a specified folder."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/items?itemType={{itemType}}&serverPath={{serverPath}}&tags={{tags}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v4.0",
+								"items"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Values allowed are Category, Report, Datasource, Dataset, and Schedule"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "Values allowed are Category, Report, Datasource, Dataset, and Schedule"
+								},
+								{
+									"key": "tags",
+									"value": "{{tags}}",
+									"description": "Provide the report tag name(s).\nNote: If there are multiple tag names, they should be passed as comma-separated values i.e tags=tag1,tag2,tag3\nIt is possible to obtain report details without using the tag query parameter."
+								}
+							]
+						},
+						"description": "Retrieve a list of items (e.g., reports, datasets) with optional filters."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"ItemType\": \"string\",\r\n  \"ItemId\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"StartTime\": \"string\",\r\n  \"NeverEnd\": true,\r\n  \"EndAfterOccurrence\": 0,\r\n  \"EndDate\": \"string\",\r\n  \"UserList\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupList\": [\r\n    0\r\n  ],\r\n  \"ExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"ScheduleType\": \"string\",\r\n  \"HourlySchedule\": {\r\n    \"ScheduleInterval\": \"string\"\r\n  },\r\n  \"DailySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"EveryNdays\": 0,\r\n    \"EveryWeekday\": true\r\n  },\r\n  \"WeeklySchedule\": {\r\n    \"RecurrenceWeeks\": 0,\r\n    \"RecurrenceDays\": [\r\n      \"string\"\r\n    ]\r\n  },\r\n  \"MonthlySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"DayRecurrence\": {\r\n      \"DayInterval\": 0,\r\n      \"MonthInterval\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthInterval\": 0\r\n    }\r\n  },\r\n  \"YearlySchedule\": {\r\n    \"YearInterval\": 0,\r\n    \"RecurrenceType\": \"string\",\r\n    \"MonthRecurrence\": {\r\n      \"MonthOfYear\": \"string\",\r\n      \"DayOfMonth\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthOfYear\": \"string\"\r\n    }\r\n  },\r\n  \"Enabled\": true,\r\n  \"EnableS3Export\": \"string\",\r\n  \"S3ExportLocation\": [\r\n    {\r\n      \"S3Accesskey\": \"string\",\r\n      \"S3SecretKey\": \"string\",\r\n      \"S3BucketName\": \"string\",\r\n      \"S3Region\": \"string\"\r\n    }\r\n  ],\r\n  \"ReportParameter\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"Values\": [\r\n        \"string\"\r\n      ]\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/reports/schedule",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v4.0",
+								"reports",
+								"schedule"
+							]
+						},
+						"description": "Add a schedule for an item."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"ItemId\": \"string\",\r\n  \"ItemType\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"StartTime\": \"string\",\r\n  \"NeverEnd\": true,\r\n  \"EndAfterOccurrence\": 0,\r\n  \"EndDate\": \"string\",\r\n  \"UserList\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupList\": [\r\n    0\r\n  ],\r\n  \"ExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveUserList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveGroupList\": [\r\n    0\r\n  ],\r\n  \"RemoveExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"ScheduleType\": \"string\",\r\n  \"HourlySchedule\": {\r\n    \"ScheduleInterval\": \"string\"\r\n  },\r\n  \"DailySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"EveryNdays\": 0,\r\n    \"EveryWeekday\": true\r\n  },\r\n  \"WeeklySchedule\": {\r\n    \"RecurrenceWeeks\": 0,\r\n    \"RecurrenceDays\": [\r\n      \"string\"\r\n    ]\r\n  },\r\n  \"MonthlySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"DayRecurrence\": {\r\n      \"DayInterval\": 0,\r\n      \"MonthInterval\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthInterval\": 0\r\n    }\r\n  },\r\n  \"YearlySchedule\": {\r\n    \"YearInterval\": 0,\r\n    \"RecurrenceType\": \"string\",\r\n    \"MonthRecurrence\": {\r\n      \"MonthOfYear\": \"string\",\r\n      \"DayOfMonth\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthOfYear\": \"string\"\r\n    }\r\n  },\r\n  \"ExportFileSettingsInfo\": \"string\",\r\n  \"Enabled\": true,\r\n  \"EnableS3Export\": \"string\",\r\n  \"S3ExportLocation\": [\r\n    {\r\n      \"S3Accesskey\": \"string\",\r\n      \"S3SecretKey\": \"string\",\r\n      \"S3BucketName\": \"string\",\r\n      \"S3Region\": \"string\"\r\n    }\r\n  ],\r\n  \"ReportParameter\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"Values\": [\r\n        \"string\"\r\n      ]\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/reports/schedule/{{scheduleID}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v4.0",
+								"reports",
+								"schedule",
+								"{{scheduleID}}"
+							]
+						},
+						"description": "Update a schedule for an item."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Add User",
+					"request": {
+						"auth": {
+							"type": "bearer"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Email\": \"{{Email}}\",\r\n  \"FirstName\": \"{{FirstName}}\",\r\n  \"Lastname\": \"{{Lastname}}\",\r\n  \"Password\": \"{{Password}}\",\r\n  \"UserName\": \"{{UserName}}\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/4.0/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"4.0",
+								"users"
+							]
+						},
+						"description": "Add a new user to the system."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific User Detail by Email or Username",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v4.0/users/{{user_mail}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v4.0",
+								"users",
+								"{{user_mail}}"
+							]
+						},
+						"description": "Retrieve details of a specific user by email or username."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

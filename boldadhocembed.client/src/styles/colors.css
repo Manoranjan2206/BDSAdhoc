@@ -1,0 +1,65 @@
+/* colors.css - Updated palette variables */
+
+:root {
+  /* Brand Colors */
+  --color-brand-orange: #FF4800;
+
+  /* Primary Colors */
+  --color-primary-25: #FFFFFF;
+  --color-primary-400: #283A5E;
+  --color-primary-600: #131F3B;
+
+  /* Secondary Colors */
+  --color-secondary-red: #D22222;
+  --color-secondary-green: #108910;
+  --color-secondary-blue: #006CDD;
+  --color-secondary-yellow: #FFAA00;
+  --color-secondary-cyan: #00D5FF;
+  --color-secondary-purple: #6C32E8;
+  --color-secondary-violet: #9825AE;
+  --color-secondary-magenta: #BE2452;
+
+  /* Neutral Colors */
+  --color-neutral-white: #FFFFFF;
+  --color-neutral-50: #F3F3F7;
+  --color-neutral-100: #DDE0EB;
+  --color-neutral-200: #B5BACA;
+  --color-neutral-300: #7C84A1;
+  --color-neutral-400: #505875;
+  --color-neutral-500: #424A64;
+  --color-neutral-600: #30364D;
+  --color-neutral-700: #181C2C;
+  --color-neutral-black: #000000;
+}
+
+/* Usage examples remain the same, but update colors in Tailwind config if needed */
+
+/* Color Swatches for Reference */
+.color-swatch {
+  display: inline-block;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  margin: 10px;
+  border: 1px solid #ddd;
+}
+
+.swatch-brand-orange { background-color: #FF4800; }
+.swatch-primary-400 { background-color: #283A5E; }
+.swatch-primary-600 { background-color: #131F3B; }
+.swatch-secondary-red { background-color: #D22222; }
+.swatch-secondary-green { background-color: #108910; }
+.swatch-secondary-blue { background-color: #006CDD; }
+.swatch-secondary-yellow { background-color: #FFAA00; }
+.swatch-secondary-cyan { background-color: #00D5FF; }
+.swatch-secondary-purple { background-color: #6C32E8; }
+.swatch-secondary-violet { background-color: #9825AE; }
+.swatch-secondary-magenta { background-color: #BE2452; }
+.swatch-neutral-50 { background-color: #F3F3F7; }
+.swatch-neutral-100 { background-color: #DDE0EB; }
+.swatch-neutral-200 { background-color: #B5BACA; }
+.swatch-neutral-300 { background-color: #7C84A1; }
+.swatch-neutral-400 { background-color: #505875; }
+.swatch-neutral-500 { background-color: #424A64; }
+.swatch-neutral-600 { background-color: #30364D; }
+.swatch-neutral-700 { background-color: #181C2C; }

@@ -1,0 +1,279 @@
+{
+	"info": {
+		"_postman_id": "264bb97e-b2c3-42a0-97b8-41e6fd800be7",
+		"name": "V2.0",
+		"description": "# Bold Reports REST API v2.0 Overview\n\nThis Postman collection provides a comprehensive set of API endpoints for interacting with the Bold Reports Enterprise Edition v2.0, designed to facilitate seamless integration and management of reporting functionalities within your server environment. The collection is structured to align with the official Bold Reports [REST API v2.0 ](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#section/Introduction) documentation, enabling developers to authenticate, manage groups, handle items, and configure permissions efficiently.\n\n## Key Features\n\n- **Authentication**: Securely obtain a Bearer token using username and password credentials to authenticate API requests.\n    \n- **Group Management**: Add users to specific groups to streamline access control and collaboration.\n    \n- **Item Operations**: Copy reports to designated folders, including options to replicate associated data sources and datasets.\n    \n- **Permission Management**: Assign granular permissions to users or groups for specific items, ensuring precise access control.\n    \n\n## Collection Structure\n\nThe collection is organized into the following key sections, each corresponding to critical API functionalities:\n\n1. **Password Authentication**:\n    \n    - **Authenticate User**: POST request to retrieve a Bearer token for authentication using the `/token` endpoint.\n        \n2. **Groups**:\n    \n    - **Add User(s) to Group**: POST request to add one or more users to a specified group, enhancing group-based access management.\n        \n3. **Items**:\n    \n    - **Copy Report**: POST request to duplicate a report to a specified folder, with options to include data sources and datasets.\n        \n4. **Permission**:\n    \n    - **Add User Permission**: POST request to assign permissions to a user for a specific item.\n        \n    - **Add Group Permission**: POST request to assign permissions to a group for a specific item.\n        \n\n## Getting Started\n\nTo use this collection:\n\n1. **Set Up Environment Variables**: Configure `base_url`, `tenant_name`, `username`, `password`, `access_token`, `group-name`, and `reportID` in your Postman environment for seamless API calls.\n    \n2. **Authenticate**: Start with the \"Authenticate User\" request to obtain a Bearer token, which is required for all subsequent requests.\n    \n3. **Explore Endpoints**: Use the structured requests to manage groups, copy reports, or assign permissions as needed.\n    \n4. **Refer to Documentation**: For detailed endpoint specifications, consult the official Bold Reports REST API v2.0 documentation at [Bold Reports Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#section/Introduction).\n    \n\n## Notes\n\n- Ensure the `access_token` is updated regularly, as tokens may expire based on server configurations.\n    \n- The API endpoints follow the structure `{{base_url}}/reporting/api/site/{{tenant_name}}/v2.0/{endpoint}`, as outlined in the Bold Reports documentation.\n    \n- For testing, you can use the public demo server credentials provided in the Bold Reports documentation to generate an access token.\n    \n\nThis collection simplifies interaction with the Bold Reports v2.0 REST API, enabling developers to efficiently manage reporting resources. For further assistance, refer to the linked documentation or contact the Bold Reports support team.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44139475",
+		"_collection_link": "https://bold-report-api.postman.co/workspace/Bold-Report-API~14013b55-86d9-4f4c-8a1b-f92d02544e40/collection/44139475-264bb97e-b2c3-42a0-97b8-41e6fd800be7?action=share&source=collection_link&creator=44139475"
+	},
+	"item": [
+		{
+			"name": "Password Authentication",
+			"item": [
+				{
+					"name": "Authenticate User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"username\": \"{{username}}\",\r\n  \"password\": \"{{password}}\",\r\n  \"grant_type\": \"password\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"token"
+							]
+						},
+						"description": "This endpoint allows you to obtain a Bearer token for authentication by providing a username and password. The token is required for all subsequent API requests in the Bold Reports v2.0 REST API. This endpoint is part of the Password Authentication flow and is essential for securing access to other API operations.\n\nFor more details, refer to the [V2.0 - Authenticate User](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#tag/Password-Authentication) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Password Authentication\" in the Bold Reports v2.0 Postman collection contains a single endpoint designed to facilitate secure authentication for accessing the Bold Reports Enterprise Edition API. This folder is critical for initiating API interactions, as it provides the mechanism to obtain a Bearer token required for all authenticated requests in the v2.0 API."
+		},
+		{
+			"name": "Groups",
+			"item": [
+				{
+					"name": "Add user(s) to the particular group",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"UserEmail\": [\r\n    \"string\"\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v2.0/groups/{{group-name}}/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v2.0",
+								"groups",
+								"{{group-name}}",
+								"users"
+							]
+						},
+						"description": "The \"Add User(s) to the Particular Group\" endpoint of the Bold Reports v2.0 Postman collection, enables developers to add one or more users to a specific group within the Bold Reports Enterprise Edition. This endpoint facilitates efficient group-based access control, allowing administrators to manage user permissions and collaboration for reporting resources.\n\nFor more details, refer to the [V2.0 - Add user(s) to the particular group](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#operation/Groups_AddUserToGroup) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Groups\" folder in the Bold Reports v2.0 Postman collection contains a single endpoint focused on managing group memberships within the Bold Reports Enterprise Edition. This endpoint enables developers to add users to specific groups, facilitating efficient access control and collaboration for reporting resources."
+		},
+		{
+			"name": "Items",
+			"item": [
+				{
+					"name": "Copy report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"CategoryId\": \"string\",\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"IsPublic\": true,\r\n  \"IsCopyDatasource\": true,\r\n  \"IsCopyDataset\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v2.0/report/{{reportID}}/copy",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v2.0",
+								"report",
+								"{{reportID}}",
+								"copy"
+							]
+						},
+						"description": "The \"Copy Report\" endpoint of the Bold Reports v2.0 Postman collection, provides functionality to duplicate a report to a specified folder within the Bold Reports Enterprise Edition. This endpoint is designed to streamline report management by allowing developers to create copies of existing reports, with options to include associated data sources and datasets.\n\nFor more details, refer to the [V2.0 - Copy report](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#operation/Items_CopyReport) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Items\" in the Bold Reports v2.0 Postman collection contains a single endpoint focused on managing reports within the Bold Reports Enterprise Edition. This endpoint is designed to facilitate the duplication of reports, allowing developers to create copies of existing reports with customizable options for data sources and datasets."
+		},
+		{
+			"name": "Permission",
+			"item": [
+				{
+					"name": "Add User Permission",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"PermissionAccess\": [\r\n    \"string\"\r\n  ],\r\n  \"UserId\": 0,\r\n  \"PermissionEntity\": [\r\n    \"string\"\r\n  ],\r\n  \"ItemId\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v2.0/permissions/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v2.0",
+								"permissions",
+								"users"
+							]
+						},
+						"description": "The \"Add User Permission\" endpoint of the Bold Reports v2.0 Postman collection, enables developers to assign specific permissions to a user for a particular item within the Bold Reports Enterprise Edition. This endpoint facilitates granular access control, allowing administrators to define precise access levels for individual users on resources such as reports.\n\nFor more details, refer to the [V2.0 - Add User Permission](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#operation/Permission_AddUserPermission) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Group Permission",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"PermissionAccess\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupId\": 0,\r\n  \"PermissionEntity\": [\r\n    \"string\"\r\n  ],\r\n  \"ItemId\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v2.0/permissions/groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v2.0",
+								"permissions",
+								"groups"
+							]
+						},
+						"description": "The \"Add Group Permission\" endpoint of the Bold Reports v2.0 Postman collection, enables developers to assign specific permissions to a group for a particular item within the Bold Reports Enterprise Edition. This endpoint supports group-based access control, allowing administrators to manage permissions for multiple users within a group efficiently.\n\nFor more details, refer to the [V2.0 - Add Group Permission](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v2.0/server-api-reference/#operation/Permission_AddGroupPermission) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Permission\" folder in the Bold Reports v2.0 Postman collection contains two endpoints focused on managing permissions for users and groups within the Bold Reports Enterprise Edition. These endpoints enable developers to assign specific access rights to users or groups for particular items, facilitating granular access control and secure resource management."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

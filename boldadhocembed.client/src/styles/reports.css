@@ -1,0 +1,310 @@
+/* reports.css - Updated with new palette */
+
+/* Root variables for light & dark mode */
+:root {
+  --brand-700: #131F3B;      /* Primary very dark blue */
+  --brand-600: #283A5E;      /* Primary dark blue */
+  --brand-500: #FF4800;      /* Brand orange as primary accent */
+  --brand-200: #B5BACA;      /* Neutral 200 */
+  --brand-100: #DDE0EB;      /* Neutral 100 */
+  --surface: #FFFFFF;        /* White */
+  --bg-grad-a: #F3F3F7;      /* Neutral 50 */
+  --bg-grad-b: #DDE0EB;      /* Neutral 100 */
+  --text-strong: #131F3B;    /* Very dark blue */
+  --text-muted: #7C84A1;     /* Neutral 300 */
+  --text-light: #B5BACA;     /* Neutral 200 */
+  --shadow-sm: 0 1px 3px rgba(19,31,59,0.05); /* Based on very dark blue */
+  --shadow-md: 0 4px 6px -1px rgba(19,31,59,0.1), 0 2px 4px -1px rgba(19,31,59,0.06);
+  --transition: all 0.25s ease;
+  --accent: #FF4800;         /* Orange for buttons */
+  --danger: #D22222;         /* Red */
+
+  --success: #108910;        /* Green */
+  --info: #006CDD;           /* Blue */
+  --warning: #FFAA00;        /* Yellow */
+}
+
+.dark {
+  --brand-700: #283A5E;
+  --brand-600: #131F3B;
+  --brand-500: #FF4800;
+  --brand-200: #505875;
+  --brand-100: #424A64;
+  --surface: #181C2C;
+  --bg-grad-a: #30364D;
+  --bg-grad-b: #181C2C;
+  --text-strong: #F3F3F7;
+  --text-muted: #B5BACA;
+  --text-light: #7C84A1;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.4);
+}
+
+/* Base page layout */
+.reports-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  /* prevent overall page from scrolling when viewing reports */
+  overflow: hidden;
+}
+
+/* Topbar */
+.reports-topbar {
+  position: relative;
+  z-index: 1200;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--brand-200);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.reports-topbar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: -0.025em;
+}
+
+.reports-topbar-sub {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-left: 1rem;
+}
+
+/* Main layout */
+.reports-main {
+  flex: 1;
+  display: flex;
+  position: relative;
+  /* constrain to viewport below the topbar so the overall page doesn't get a scrollbar */
+  height: calc(100vh - 56px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.reports-sidebar {
+  position: relative;
+  height: 100%;
+  background: var(--surface);
+  border-right: 1px solid var(--brand-200);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: 600px;
+  transition: width 0.12s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1070; /* keep above resizer so scrollbar is visible */
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  padding-right: 12px; /* ensure scrollbar sits inside and is not overlapped */
+}
+
+.reports-sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+}
+/* Make the tree area scrollable and keep the search fixed */
+.reports-search {
+  padding: 16px;
+  border-bottom: 1px solid var(--brand-200);
+}
+
+.reports-tree {
+  /* take remaining space inside sidebar and allow vertical scrolling */
+  flex: 1 1 auto;
+  /* allow flex children to shrink so overflow works properly */
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* keep a small gap to the right for visual breathing */
+  padding: 12px 8px 20px 12px;
+  /* constrain height so the tree scrolls independently of the page
+     subtract topbar (56px) and search area/margins (~72px) */
+  max-height: calc(100vh - 56px - 72px);
+}
+
+/* Lightweight custom scrollbar for modern browsers */
+.reports-tree::-webkit-scrollbar {
+  width: 12px;
+}
+.reports-tree::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.02);
+}
+.reports-tree::-webkit-scrollbar-thumb {
+  background-color: rgba(19,31,59,0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.reports-tree::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(19,31,59,0.28);
+}
+
+/* Firefox scrollbar styling */
+.reports-tree {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(19,31,59,0.18) rgba(0,0,0,0.02);
+}
+
+/* Ensure sidebar and main allow shrinking inside flex layout */
+.reports-sidebar {
+  min-height: 0;
+}
+.reports-main {
+  min-height: 0;
+}
+
+
+/* (sidebar styles handled above) */
+.category-header-btn {
+  /* base */
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; text-align: left;
+  border-radius: 10px; border: 1px solid rgba(99,102,241,0.25);
+  background: linear-gradient(180deg, rgba(238,242,255,0.8), rgba(224,231,255,0.8));
+  color: #312e81; /* indigo-900 */
+  font-weight: 600; font-size: 0.875rem; letter-spacing: .005em;
+  box-shadow: 0 1px 2px rgba(13,16,31,0.06);
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.category-header-btn:hover { background: rgba(224,231,255,0.95); box-shadow: 0 4px 10px rgba(49,46,129,0.08); transform: translateY(-1px); }
+.category-header-btn:active { transform: translateY(0); }
+.category-header-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
+
+.dark .category-header-btn {
+  border-color: rgba(99,102,241,0.35);
+  background: linear-gradient(180deg, rgba(30,41,59,0.75), rgba(17,24,39,0.7));
+  color: #e0e7ff;
+}
+.dark .category-header-btn:hover { background: rgba(30,41,59,0.85); box-shadow: 0 6px 14px rgba(0,0,0,0.4); }
+
+.category-count-badge {
+  font-size: 0.75rem; padding: 2px 8px; border-radius: 9999px;
+  background: rgba(99,102,241,0.18); color: #4338ca; /* indigo-700 */
+}
+.dark .category-count-badge { background: rgba(99,102,241,0.28); color: #c7d2fe; }
+
+.list-item-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 8px 12px; border-radius: 10px;
+  border: 1px solid rgba(99,102,241,0.18);
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86));
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+  box-shadow: 0 1px 2px rgba(13,16,31,0.06);
+}
+.list-item-btn:hover { background: rgba(238,242,255,0.6); transform: translateY(-1px); box-shadow: 0 6px 14px rgba(13,16,31,0.08); }
+.list-item-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
+
+.dark .list-item-btn {
+  border-color: rgba(99,102,241,0.25);
+  background: linear-gradient(180deg, rgba(24,28,44,0.9), rgba(24,28,44,0.82));
+}
+.dark .list-item-btn:hover { background: rgba(30,41,59,0.7); box-shadow: 0 10px 20px rgba(0,0,0,0.45); }
+
+.list-item-icon {
+  width: 24px; height: 24px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(59,130,246,0.18); color: #1d4ed8; /* blue-700 */
+}
+.dark .list-item-icon { background: rgba(99,102,241,0.28); color: #c7d2fe; }
+
+.e-treeview {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.e-treeview .e-fullrow {
+  border-radius: 8px;
+  margin: 2px 8px;
+  transition: var(--transition);
+}
+
+.e-treeview .e-text-content:hover {
+  background: var(--brand-100);
+}
+
+.e-treeview .e-active > .e-text-content {
+  background: var(--brand-200);
+  font-weight: 500;
+}
+
+.e-treeview .e-icons {
+  color: var(--brand-500);
+}
+
+.dark .e-treeview .e-icons {
+  color: #FFAA00; /* Yellow for dark mode visibility */
+}
+
+/* Loading & empty states */
+.reports-tree-loading,
+.reports-tree-empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-muted);
+}
+
+.reports-tree-loading p,
+.reports-tree-empty p {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+/* Toggle button */
+.reports-toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1100; /* above viewer */
+  margin-left: 8px;
+}
+
+/* Resizer between sidebar and viewer */
+.sidebar-resizer {
+  width: 12px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 1050; /* lower than sidebar so it doesn't cover the scrollbar */
+  margin-left: -4px; /* pull slightly under the sidebar edge so scrollbar remains visible */
+}
+.sidebar-resizer:hover { background: rgba(19,31,59,0.03); }
+
+/* Ensure viewer is not overlapped by the left sidebar */
+.reports-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 0;
+  transition: margin 0.12s ease;
+  min-height: 0;
+  overflow: hidden; /* prevent viewer from causing page scroll */
+}
+
+.reports-main .reports-sidebar.collapsed ~ .reports-view {
+  margin-left: 0;
+}
+
+/* Viewer container basic styling in case it was removed */
+.reports-viewer-container {
+  flex: 1;
+  background: var(--surface);
+  margin: 16px;
+  border-radius: 12px;
+  /* allow viewer content to scroll inside the viewer area if necessary */
+  overflow: auto;
+  box-sizing: border-box;
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+/* Make sure the sidebar scrollbar appears inside the sidebar area and not overlapped by resizer */
+.reports-sidebar { box-sizing: border-box; padding-right: 6px; }
+.reports-tree { padding-right: 6px; }

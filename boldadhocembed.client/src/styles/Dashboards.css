@@ -1,0 +1,357 @@
+/* Dashboards.css - Updated with new palette */
+
+.dashboards-container {
+  min-height: calc(100vh - 60px);
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-700));
+  padding: 40px 20px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.dashboards-header {
+  text-align: center;
+  margin-bottom: 50px;
+  animation: slideInDown 0.5s ease-out;
+}
+
+.dashboards-header h1 {
+  font-size: 2.5rem;
+  color: var(--primary-25);
+  margin: 0 0 10px 0;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dashboards-header .subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+/* Dashboards Grid */
+.dashboards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: fadeIn 0.6s ease-out;
+}
+
+/* Dashboard Card */
+.dashboard-card {
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--neutral-200);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dashboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-500);
+}
+
+.dashboard-card:hover::before {
+  opacity: 1;
+}
+
+.dashboard-icon {
+  width: 80px;
+  height: 80px;
+  color: var(--brand-500);
+  margin-bottom: 20px;
+}
+
+.dashboard-card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 8px;
+}
+
+.dashboard-card p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.dashboard-card .category {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  background: var(--neutral-100);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
+.dashboard-card .modified {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+
+/* Viewer Mode */
+.dashboard-viewer {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--neutral-200);
+  background: var(--surface);
+}
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--neutral-50);
+  color: var(--text-strong);
+  border: 1px solid var(--neutral-200);
+  border-radius: 6px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.btn-back:hover {
+  background: var(--neutral-100);
+  border-color: var(--brand-500);
+}
+
+.dashboard-title h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.dashboard-title p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.viewer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-edit, .btn-refresh {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.btn-edit {
+  background: var(--brand-500);
+  color: #FFFFFF;
+}
+
+.btn-edit:hover {
+  background: color-mix(in srgb, var(--brand-500) 90%, black);
+}
+
+.btn-refresh {
+  background: var(--neutral-50);
+  color: var(--text-strong);
+  border: 1px solid var(--neutral-200);
+}
+
+.btn-refresh:hover {
+  background: var(--neutral-100);
+  border-color: var(--brand-500);
+}
+
+.dashboard-embed-container {
+  height: calc(100vh - 200px);
+  width: 100%;
+}
+
+/* Error State */
+.error-state {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 40px;
+  text-align: center;
+  margin: 20px;
+}
+
+.error-icon {
+  width: 80px;
+  height: 80px;
+  color: var(--danger);
+  margin-bottom: 20px;
+}
+
+.error-state h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 12px;
+}
+
+.error-state p {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.btn-retry {
+  padding: 10px 20px;
+  background: var(--brand-500);
+  color: #FFFFFF;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.btn-retry:hover {
+  background: color-mix(in srgb, var(--brand-500) 90%, black);
+}
+
+/* Animations */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboards-container {
+    padding: 20px 10px;
+  }
+
+  .dashboards-header h1 {
+    font-size: 2rem;
+  }
+
+  .dashboards-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .viewer-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dashboard-title {
+    width: 100%;
+    order: 1;
+  }
+
+  .btn-back {
+    order: 0;
+  }
+
+  .viewer-actions {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .dashboard-card-header {
+    flex-direction: column;
+  }
+
+  .dashboard-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .dashboard-card-header h3 {
+    flex: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboards-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .dashboards-header .subtitle {
+    font-size: 0.95rem;
+  }
+
+  .dashboards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-card {
+    min-height: auto;
+  }
+
+  .dashboard-embed-container {
+    height: calc(100vh - 120px);
+  }
+
+  .error-state {
+    margin: 20px 10px;
+    padding: 20px;
+  }
+
+  .viewer-header {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .btn-back {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+
+  .dashboard-title h2 {
+    font-size: 1.1rem;
+  }
+}

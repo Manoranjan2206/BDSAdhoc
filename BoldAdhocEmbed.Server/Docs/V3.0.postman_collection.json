@@ -1,0 +1,475 @@
+{
+	"info": {
+		"_postman_id": "477c88ad-edc6-444b-b1dc-0b5f32b93dab",
+		"name": "V3.0",
+		"description": "# Bold Reports REST API v3.0 Overview\n\nThis Postman collection provides a curated set of API endpoints for interacting with the Bold Reports Enterprise Edition v3.0, designed to facilitate seamless integration and management of reporting functionalities within your server environment. The collection is structured to align with the official Bold Reports [REST API v3.0](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#section/Introduction) documentation, enabling developers to authenticate and manage items such as reports, schedules, data sources, and datasets efficiently.\n\n## Key Features\n\n- **Authentication**: Securely obtain a Bearer token using username and password credentials to authenticate API requests.\n    \n- **Item Management**: Retrieve, delete, copy, and export reports, as well as manage schedules and item locations with enhanced path-based operations.\n    \n- **Schedule Management**: Update, retrieve, and run schedules for automated reporting tasks.\n    \n- **Report Operations**: Copy and export reports to specific formats (e.g., PDF) with support for filters and data source/dataset replication.\n    \n\n## Collection Structure\n\nThe collection is organized into the following key sections, each corresponding to critical API functionalities:\n\n1. **Password Authentication**:\n    \n    - **Authenticate User**: POST request to retrieve a Bearer token using the `/token` endpoint.\n        \n2. **Items**:\n    \n    - **Get Item Detail**: GET request to retrieve details of a specific item (e.g., report, data source, dataset, or schedule) using `itemType` and `serverPath`.\n        \n    - **Delete Item**: DELETE request to remove a specific item using `itemType` and `serverPath`.\n        \n    - **Update Schedule**: PUT request to update a schedule's details, including recurrence and recipient settings.\n        \n    - **Get Specific Schedule Detail**: GET request to fetch details of a specific schedule by ID or name.\n        \n    - **Run Specific Schedule**: GET request to immediately execute a specific schedule.\n        \n    - **Get Item Location**: GET request to retrieve the location of a report, data source, or dataset using `itemType` and `serverPath`.\n        \n    - **Export Report**: POST request to export a report to a specified format (e.g., PDF) with optional filters.\n        \n    - **Copy Report**: POST request to copy a report to a specified folder, with options to include data sources and datasets.\n        \n\n## Getting Started\n\nTo use this collection:\n\n1. **Set Up Environment Variables**: Configure `base_url`, `tenant_name`, `username`, `password`, `access_token`, `itemType`, `serverPath`, and `scheduleId` in your Postman environment for seamless API calls.\n    \n2. **Authenticate**: Start with the \"Authenticate User\" request to obtain a Bearer token, required for all subsequent requests.\n    \n3. **Explore Endpoints**: Use the structured requests to manage items, schedules, or reports as needed.\n    \n4. **Refer to Documentation**: For detailed endpoint specifications, consult the official Bold Reports REST API v3.0 documentation at [Bold Reports Documentation](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#section/Introduction).\n    \n\n## Notes\n\n- Ensure the `access_token` is updated regularly, as tokens may expire based on server configurations.\n    \n- The API endpoints follow the structure `{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/{endpoint}`, as outlined in the Bold Reports documentation.\n    \n- For testing, you can use the public demo server credentials provided in the Bold Reports documentation to generate an access token.\n    \n- The `serverPath` parameter is critical for report-related operations, requiring a format like `/{category name}/{report name}` for reports, or the item name for other item types.\n    \n\nThis collection simplifies interaction with the Bold Reports v3.0 REST API, enabling developers to efficiently manage reporting resources. For further assistance, refer to the linked documentation or contact the Bold Reports support team.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44139475",
+		"_collection_link": "https://bold-report-api.postman.co/workspace/Bold-Report-API~14013b55-86d9-4f4c-8a1b-f92d02544e40/collection/44139475-477c88ad-edc6-444b-b1dc-0b5f32b93dab?action=share&source=collection_link&creator=44139475"
+	},
+	"item": [
+		{
+			"name": "Password Authentication",
+			"item": [
+				{
+					"name": "Authenticate User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"username\": \"{{username}}\",\r\n  \"password\": \"{{password}}\",\r\n  \"grant_type\": \"password\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"token"
+							]
+						},
+						"description": "This endpoint allows you to obtain a Bearer token for authentication by providing a username and password. The token is required for all subsequent API requests in the Bold Reports v3.0 REST API. This endpoint is part of the Password Authentication flow and is essential for securing access to other API operations.\n\nFor more details, refer to the [V3.0 - Authenticate User](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/PasswordAuthentication) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Password Authentication\" in the Bold Reports v3.0 Postman collection contains a single endpoint designed to facilitate secure authentication for accessing the Bold Reports Enterprise Edition API. This folder is critical for initiating API interactions, as it provides the mechanism to obtain a Bearer token required for all authenticated requests in the v3.0 API."
+		},
+		{
+			"name": "Items",
+			"item": [
+				{
+					"name": "Get Item Detail",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/items?itemType={{itemType}}&serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"items"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Valid values are Category, Report, Datasource, Dataset, Schedule"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "To get the report detail provide your report path like /{category name}/{report name}.\nAnd to get the Category, Datasource, Dataset, Schedule detail simply provide the name of the item."
+								}
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific item (e.g., Category, Report, Datasource, Dataset, or Schedule) using the itemType and serverPath query parameters.\n\nFor more details, refer to the [V3.0 - Get Item Detail](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_GetItemDetailV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/items?itemType={{itemType}}&serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"items"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Valid values are Category, Report, Datasource, Dataset, Schedule"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "To delete the report provide your report path like /{category name}/{report name}.\nAnd to delete the Category, Datasource, Dataset, Schedule simply provide the name of the item."
+								}
+							]
+						},
+						"description": "This endpoint deletes a specific item (e.g., Category, Report, Datasource, Dataset, or Schedule) using the itemType and serverPath query parameters.\n\nFor more details, refer to the [V3.0 - Delete Item](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_DeleteItemV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"ItemId\": \"string\",\r\n  \"ServerPath\": \"string\",\r\n  \"ItemType\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"StartTime\": \"string\",\r\n  \"NeverEnd\": true,\r\n  \"EndAfterOccurrence\": 0,\r\n  \"EndDate\": \"string\",\r\n  \"UserList\": [\r\n    \"string\"\r\n  ],\r\n  \"GroupList\": [\r\n    0\r\n  ],\r\n  \"ExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveUserList\": [\r\n    \"string\"\r\n  ],\r\n  \"RemoveGroupList\": [\r\n    0\r\n  ],\r\n  \"RemoveExternalRecipientsList\": [\r\n    \"string\"\r\n  ],\r\n  \"ScheduleType\": \"string\",\r\n  \"HourlySchedule\": {\r\n    \"ScheduleInterval\": \"string\"\r\n  },\r\n  \"DailySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"EveryNdays\": 0,\r\n    \"EveryWeekday\": true\r\n  },\r\n  \"WeeklySchedule\": {\r\n    \"RecurrenceWeeks\": 0,\r\n    \"RecurrenceDays\": [\r\n      \"string\"\r\n    ]\r\n  },\r\n  \"MonthlySchedule\": {\r\n    \"RecurrenceType\": \"string\",\r\n    \"DayRecurrence\": {\r\n      \"DayInterval\": 0,\r\n      \"MonthInterval\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthInterval\": 0\r\n    }\r\n  },\r\n  \"YearlySchedule\": {\r\n    \"YearInterval\": 0,\r\n    \"RecurrenceType\": \"string\",\r\n    \"MonthRecurrence\": {\r\n      \"MonthOfYear\": \"string\",\r\n      \"DayOfMonth\": 0\r\n    },\r\n    \"CustomRecurrence\": {\r\n      \"WeekOfMonth\": \"string\",\r\n      \"DayOfWeek\": \"string\",\r\n      \"MonthOfYear\": \"string\"\r\n    }\r\n  },\r\n  \"ExportFileSettingsInfo\": \"string\",\r\n  \"Enabled\": true,\r\n  \"ReportParameter\": [\r\n    {\r\n      \"Name\": \"string\",\r\n      \"Values\": [\r\n        \"string\"\r\n      ]\r\n    }\r\n  ]\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/reports/schedule?scheduleId={{scheduleId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"reports",
+								"schedule"
+							],
+							"query": [
+								{
+									"key": "scheduleId",
+									"value": "{{scheduleId}}",
+									"description": "Schedule ID or Schedule Name"
+								}
+							]
+						},
+						"description": "This endpoint updates the details of an existing schedule for an item, allowing configuration of recurrence, recipients, and export settings.\n\nFor more details, refer to the [V3.0 - Update Schedule ](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_UpdateScheduleV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Specific Schedule Detail",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/reports/schedule?scheduleId={{scheduleId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"reports",
+								"schedule"
+							],
+							"query": [
+								{
+									"key": "scheduleId",
+									"value": "{{scheduleId}}",
+									"description": "Schedule ID or Schedule Name"
+								}
+							]
+						},
+						"description": "This endpoint retrieves detailed information about a specific schedule by its ID or name.\n\nFor more details, refer to the [V3.0 - Get Specific Schedule Detail ](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_GetScheduleItemDetailV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Run Specific Schedule",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/schedules/run?scheduleId={{scheduleId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"schedules",
+								"run"
+							],
+							"query": [
+								{
+									"key": "scheduleId",
+									"value": "{{scheduleId}}",
+									"description": "Schedule ID or Schedule Name"
+								}
+							]
+						},
+						"description": "This endpoint triggers the immediate execution of a specific schedule identified by its ID or name.\n\nFor more details, refer to the [V3.0 - Run Specific Schedule](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_RunScheduleReportV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Item Location",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/items/location?itemType={{itemType}}&serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"items",
+								"location"
+							],
+							"query": [
+								{
+									"key": "itemType",
+									"value": "{{itemType}}",
+									"description": "Valid values are Report, Datasource, Dataset"
+								},
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "To get the reports location provide your report path like /{category name}/{report name}.\nAnd to get the Datasource and Dataset location simply provide the name of the item."
+								}
+							]
+						},
+						"description": "This endpoint retrieves the location of a specific item (e.g., Report, Datasource, or Dataset) using the itemType and serverPath query parameters.\n\nFor more details, refer to the [V3.0 - Get Item Location](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_GetItemLocationV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Export Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"ReportId\": \"string\",\r\n  \"ServerPath\": \"string\",\r\n  \"ExportType\": \"string\",\r\n  \"FilterParameters\": \"string\"\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/reports/export",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"reports",
+								"export"
+							]
+						},
+						"description": "This endpoint exports a report to a specified format (e.g., PDF) with optional filters applied.\n\nFor more details, refer to the [V3.0 - Export Report](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_ExportReportV3) Documentation."
+					},
+					"response": []
+				},
+				{
+					"name": "Copy Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"Name\": \"string\",\r\n  \"Description\": \"string\",\r\n  \"CategoryId\": \"string\",\r\n  \"CategoryName\": \"string\",\r\n  \"IsPublic\": true,\r\n  \"IsCopyDatasource\": true,\r\n  \"IsCopyDataset\": true\r\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reporting/api/site/{{tenant_name}}/v3.0/report/copy?serverPath={{serverPath}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"reporting",
+								"api",
+								"site",
+								"{{tenant_name}}",
+								"v3.0",
+								"report",
+								"copy"
+							],
+							"query": [
+								{
+									"key": "serverPath",
+									"value": "{{serverPath}}",
+									"description": "Provide the report path like /{category name}/{report name}"
+								}
+							]
+						},
+						"description": "This endpoint copies a report to a specified folder, with options to include associated data sources and datasets.\n\nFor more details, refer to the [V3.0 - Copy Report](https://help.boldreports.com/enterprise-reporting/rest-api-reference/v3.0/server-api-reference/#operation/Items_CopyReportV3) Documentation."
+					},
+					"response": []
+				}
+			],
+			"description": "The \"Items\" in the Bold Reports v3.0 Postman collection contains six endpoints focused on managing reporting items such as reports, data sources, datasets, and schedules within the Bold Reports Enterprise Edition. These endpoints enable developers to retrieve, delete, copy, export, and manage schedules for reporting items, providing comprehensive control over report-related operations."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

@@ -1,0 +1,258 @@
+/* home.css - Compact, Rich UI with new palette */
+
+.home-hero {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--neutral-200);
+}
+
+.home-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: var(--neutral-50);
+  border-radius: 10px;
+  transition: var(--transition);
+  min-height: 140px;
+  justify-content: center;
+}
+
+.home-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.home-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--neutral-200);
+  transition: var(--transition);
+  min-height: 120px;
+  justify-content: center;
+}
+
+.home-action-card:hover {
+  background: var(--neutral-100);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.home-feature-card,
+.home-resource-card {
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--neutral-200);
+  transition: var(--transition);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-feature-card:hover,
+.home-resource-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.home-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 16px;
+}
+
+/* Dark mode tweaks */
+.dark .home-stat-card,
+.dark .home-action-card,
+.dark .home-feature-card,
+.dark .home-resource-card {
+  background: #1F2937 !important; /* slate-800 – slightly lighter than main surface */
+  border-color: #374151 !important; /* gray-700 */
+}
+
+.dark .home-stat-card:hover,
+.dark .home-action-card:hover {
+  background: #374151 !important; /* gray-700 */
+}
+
+.dark .home-hero {
+  background: #1F2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Ensure dark mode text contrast on home page */
+.dark .text-\[var\(--text-strong\)\] {
+  color: #F3F3F7 !important;
+}
+
+.dark .text-\[var\(--text-muted\)\] {
+  color: #B5BACA !important;
+}
+
+/* Section headings in dark mode */
+.dark h1,
+.dark h2,
+.dark h3 {
+  color: #F3F3F7 !important;
+}
+
+/* Paragraph text in dark mode */
+.dark p {
+  color: #B5BACA !important;
+}
+
+/* Orange icons stay vibrant */
+.text-\[var\(--brand-500\)\] {
+  color: #FF6B3D !important;
+}
+
+/* Ensure proper background for reports-page container in dark mode */
+.dark .reports-page {
+  background-color: #0F172A !important; /* slate-900 */
+  color: #F3F3F7 !important;
+}
+
+/* Force text colors in dark mode for all nested elements */
+.dark .home-stat-card h3,
+.dark .home-stat-card p,
+.dark .home-action-card h3,
+.dark .home-feature-card h3,
+.dark .home-feature-card p,
+.dark .home-resource-card h3,
+.dark .home-resource-card p {
+  color: #F3F3F7 !important;
+}
+
+.dark .home-stat-card p:last-child,
+.dark .home-feature-card p,
+.dark .home-resource-card p {
+  color: #B5BACA !important;
+}
+
+/* Hover state text colors in dark mode */
+.dark .home-action-card:hover h3,
+.dark .home-feature-card:hover h3,
+.dark .home-resource-card:hover h3 {
+  color: #FFFFFF !important;
+}
+
+/* Recent activity section dark mode */
+.dark .bg-\[var\(--surface\)\] {
+  background-color: #1F2937 !important;
+}
+
+.dark .border-\[var\(--brand-200\)\] {
+  border-color: #374151 !important;
+}
+
+.dark .border-\[var\(--brand-100\)\] {
+  border-color: #374151 !important;
+}
+
+.dark .hover\:bg-\[var\(--brand-100\)\]:hover {
+  background-color: #374151 !important;
+}
+
+/* Large quick links shown on the home hero card */
+.home-quick-links {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.home-quick-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 12px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--brand-500);
+  background: transparent;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 160ms ease-in-out;
+  border: 1px solid transparent;
+}
+
+.home-quick-link:hover {
+  transform: translateY(-3px);
+  background: rgba(255,107,61,0.06);
+  color: var(--brand-600);
+  border-color: rgba(255,107,61,0.12);
+}
+
+@media (min-width: 640px) {
+  .home-quick-link {
+    font-size: 1.25rem;
+    padding: 20px 16px;
+  }
+}
+
+/* Card-style quick links */
+.home-quick-link-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--brand-500);
+  border: 1px solid rgba(0,0,0,0.04);
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  min-height: 84px;
+}
+
+.home-quick-link-card .link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-500);
+}
+
+.home-quick-link-card h4 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+
+.home-quick-link-card .desc {
+  margin: 4px 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.home-quick-link-card:hover,
+.home-quick-link-card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  background: rgba(255,107,61,0.04);
+  border-color: rgba(255,107,61,0.08);
+  outline: none;
+}
+
+.home-quick-link-card.primary {
+  /* Subtler primary: no strong filled tint, gentle border and text accent */
+  background: transparent;
+  border-color: rgba(255,107,61,0.06);
+  color: var(--brand-600);
+}
+
+.home-quick-link-card.primary h4 {
+  color: var(--brand-700);
+}
+
+@media (max-width: 639px) {
+  .home-quick-link-card {
+    justify-content: flex-start;
+  }
+}

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="boldadhocembed.client/boldadhocembed.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="BoldAdhocEmbed.Server/BoldAdhocEmbed.Server.csproj" />
+</Solution>

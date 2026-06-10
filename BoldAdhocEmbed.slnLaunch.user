@@ -1,0 +1,16 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "BoldAdhocEmbed.Server\\BoldAdhocEmbed.Server.csproj",
+        "Action": "Start",
+        "DebugTarget": "http"
+      },
+      {
+        "Path": "boldadhocembed.client\\boldadhocembed.client.esproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

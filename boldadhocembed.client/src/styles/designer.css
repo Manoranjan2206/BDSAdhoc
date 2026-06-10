@@ -1,0 +1,258 @@
+/* designer.css - Modernized with new palette */
+
+.designer-root {
+  height: calc(100vh - 64px);
+  padding: 16px;
+  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+}
+
+.designer-loading {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.designer-error {
+  padding: 24px;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.designer-toolbar {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--neutral-200);
+  box-shadow: var(--shadow-sm);
+}
+
+.designer-toolbar-title {
+  color: var(--text-strong);
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.designer-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.designer-btn-back {
+  padding: 8px 16px;
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-50);
+  color: var(--text-strong);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.designer-btn-back:hover {
+  background: var(--neutral-100);
+  border-color: var(--brand-600);
+  transform: translateY(-2px);
+}
+
+.designer-btn-back:active {
+  transform: translateY(0);
+}
+
+.designer-btn-primary {
+  padding: 8px 16px;
+  border: none;
+  background: var(--brand-500);
+  color: var(--primary-25);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.designer-btn-primary:hover {
+  background: color-mix(in srgb, var(--brand-500) 90%, black);
+  transform: translateY(-2px);
+}
+
+.designer-btn-primary:active {
+  transform: translateY(0);
+}
+
+.designer-container {
+  height: calc(100% - 56px);
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--neutral-200);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.designer-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.designer-modal-content {
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  max-width: 400px;
+  width: 90%;
+  padding: 24px;
+  border: 1px solid var(--neutral-200);
+}
+
+
+.designer-modal-title {
+  color: var(--text-strong);
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin: 0 0 16px 0;
+}
+
+.designer-modal-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.designer-modal-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-strong);
+  margin-bottom: 16px;
+  transition: var(--transition);
+}
+
+.designer-modal-input:focus {
+  outline: none;
+  border-color: var(--brand-600);
+  box-shadow: 0 0 0 3px rgba(var(--brand-500-rgb), 0.1);
+}
+
+.designer-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.designer-btn-cancel {
+  padding: 8px 16px;
+  border: none;
+  background: var(--neutral-100);
+  color: var(--text-strong);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.designer-btn-cancel:hover {
+  background: var(--neutral-200);
+  transform: translateY(-2px);
+}
+
+.designer-btn-cancel:active {
+  transform: translateY(0);
+}
+
+.designer-btn-save {
+  padding: 8px 16px;
+  border: none;
+  background: var(--brand-500);
+  color: var(--primary-25);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.designer-btn-save:hover {
+  background: color-mix(in srgb, var(--brand-500) 90%, black);
+  transform: translateY(-2px);
+}
+
+.designer-btn-save:active {
+  transform: translateY(0);
+}
+
+/* BoldReports dialog tweaks: ensure dialogs are fixed, centered, and sized
+   reliably even when the designer is inside transformed/positioned containers.
+   These rules are intentionally specific and use !important so the designer's
+   runtime positioning cannot pin dialogs to the top-left of the viewport. */
+
+/* Force dialogs to use fixed positioning (viewport-relative) and center. */
+.e-dialog,
+.e-popup {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure the overlay covers the full viewport and sits behind the dialog. */
+.e-dlg-overlay,
+.e-overlay,
+.e-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  left: 0 !important;
+  top: 0 !important;
+  z-index: 9998 !important;
+}
+
+/* Make dialog content wider on desktop but remain responsive on small screens. */
+.e-dialog .e-dlg-content,
+.e-publish-dialog .e-dlg-content,
+.e-save-dialog .e-dlg-content {
+  width: min(1000px, 95vw) !important;
+  max-width: 95vw !important;
+  padding: 20px !important;
+}
+
+/* Center any internal dialog containers to avoid nested offsets. */
+.e-dialog-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Small screens: keep dialogs full-width with small gutters. */
+@media (max-width: 640px) {
+  .e-dialog,
+  .e-popup {
+    width: calc(100vw - 24px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: 10vh !important;
+  }
+  .e-dialog .e-dlg-content {
+    width: 100% !important;
+    padding: 12px !important;
+  }
+}
