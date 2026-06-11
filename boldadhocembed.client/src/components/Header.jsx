@@ -127,7 +127,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
       {/* Left: Logo & Title */}
       <div className="flex items-center gap-4">
         <h1 className="text-xl font-semibold hidden md:block" style={{ color: 'var(--brand-700)' }}>
-          Bold Reports Explorer
+          Acme Analytics
         </h1>
       </div>
 

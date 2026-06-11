@@ -106,10 +106,16 @@ const Dashboards = () => {
   const nodeTemplate = (data, onDashboardClick) => {
     if (!data.isDashboard) {
       return (
-        <div className="rich-card flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer">
+        <div 
+          className="rich-card flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
+          title={data.text}
+        >
           <div className="flex items-center gap-3">
             <FolderIcon className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
-            <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[180px]">
+            <span 
+              className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[180px]"
+              title={data.text}
+            >
               {data.text}
             </span>
           </div>
@@ -123,11 +129,15 @@ const Dashboards = () => {
     return (
       <div
         className="rich-card flex flex-col py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
+        title={data.dashboardRef?.description ? `${data.text}\n${data.dashboardRef.description}` : data.text}
         onClick={(e) => { if (onDashboardClick) onDashboardClick(data.dashboardRef); }}
       >
         <div className="flex items-center gap-3 mb-1">
           <ChartBarIcon className="w-5 h-5 text-[var(--info)] flex-shrink-0" />
-          <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[160px]">
+          <span 
+            className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[160px]"
+            title={data.text}
+          >
             {data.text}
           </span>
         </div>
@@ -324,27 +334,43 @@ const Dashboards = () => {
 
         {/* Viewer area */}
         <div className="reports-view">
-
           {selectedDashboard ? (
-            <>
-              <motion.div
-                key={selectedDashboard.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4 }}
-                className="reports-viewer-container"
+            <motion.div
+              key={selectedDashboard.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="reports-viewer-container"
+            >
+              {error ? (
+                <div className="reports-viewer-error">
+                  <p>{error}</p>
+                  <p className="text-sm mt-2 opacity-80">Please try refreshing or contact support.</p>
+                </div>
+              ) : (
+                <div id="dashboard-container" style={{ height: '100%', width: '100%' }} />
+              )}
+            </motion.div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-md text-center p-8 bg-white dark:bg-[#181c2c] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800"
               >
-                {error ? (
-                  <div className="reports-viewer-error">
-                    <p>{error}</p>
-                    <p className="text-sm mt-2 opacity-80">Please try refreshing or contact support.</p>
-                  </div>
-                ) : (
-                  <div id="dashboard-container" style={{ height: '100%', width: '100%' }} />
-                )}
+                <div className="w-16 h-16 bg-[var(--brand-100)] dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-[var(--brand-500)]">
+                  <ChartBarIcon className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-[var(--text-strong)]">Welcome to Dashboards Viewer</h2>
+                <p className="text-sm text-[var(--text-muted)] mb-6">
+                  Select a dashboard from the sidebar to view and interact with live data analytics.
+                </p>
+                <div className="text-xs text-[var(--text-light)]">
+                  Choose a category to browse available dashboards.
+                </div>
               </motion.div>
-            </>
-          ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>

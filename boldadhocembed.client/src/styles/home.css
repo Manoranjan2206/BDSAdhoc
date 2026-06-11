@@ -1,302 +1,64 @@
-/* home.css - Premium Glassmorphism UI */
+/* home.css - Premium Analytical Dashboard Styles */
 
-/* -------------------------------------------------------------------------
-   Animations & Gradients
-   ------------------------------------------------------------------------- */
-@keyframes gradient-xy {
-  0%, 100% {
-    background-size: 400% 400%;
-    background-position: left center;
-  }
-  50% {
-    background-size: 200% 200%;
-    background-position: right center;
-  }
+.home-dashboard {
+  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+  min-height: 100%;
 }
 
-.animate-gradient-xy {
-  animation: gradient-xy 15s ease infinite;
-}
-
-.text-gradient {
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-image: linear-gradient(90deg, var(--brand-500), #ff8a65);
-}
-
-.dark .text-gradient {
-  background-image: linear-gradient(90deg, #ff8a65, #ffb74d);
-}
-
-/* -------------------------------------------------------------------------
-   Hero Section
-   ------------------------------------------------------------------------- */
-.home-hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.4));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-  padding: 3rem 1.5rem;
-  text-align: center;
-  z-index: 1;
-}
-
-.dark .home-hero {
-  background: linear-gradient(135deg, rgba(31, 41, 55, 0.8), rgba(15, 23, 42, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-}
-
-/* Optional glowing orb behind hero for premium feel */
-.home-hero::before {
-  content: "";
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, rgba(255, 107, 61, 0.1) 0%, transparent 50%);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.dark .home-hero::before {
-  background: radial-gradient(circle at center, rgba(255, 107, 61, 0.15) 0%, transparent 60%);
-}
-
-/* -------------------------------------------------------------------------
-   Glassmorphic Stat Cards
-   ------------------------------------------------------------------------- */
-.home-stat-card {
+/* KPI Cards */
+.dashboard-kpi-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   padding: 24px;
-  min-height: 160px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  background: var(--surface);
+  border: 1px solid var(--brand-200);
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
   z-index: 1;
-  cursor: pointer;
 }
 
-.dark .home-stat-card {
-  background: rgba(31, 41, 55, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+.dark .dashboard-kpi-card {
+  background: rgba(24, 28, 44, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-.home-stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(255, 107, 61, 0.15);
-  border-color: rgba(255, 107, 61, 0.3);
+.dashboard-kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-500);
 }
 
-.dark .home-stat-card:hover {
-  box-shadow: 0 12px 24px rgba(255, 107, 61, 0.25);
-  border-color: rgba(255, 107, 61, 0.4);
-  background: rgba(45, 55, 72, 0.5);
+.dark .dashboard-kpi-card:hover {
+  border-color: var(--brand-500);
+  box-shadow: 0 12px 24px rgba(255, 72, 0, 0.15);
 }
 
-.stat-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.15), rgba(255, 107, 61, 0.05));
-  margin-bottom: 16px;
-  transition: transform 0.3s ease;
+/* Donut Chart Animation */
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-.dark .stat-icon-wrapper {
-  background: linear-gradient(135deg, rgba(255, 107, 61, 0.25), rgba(255, 107, 61, 0.05));
+circle {
+  transition: stroke-dasharray 0.3s ease, stroke-dashoffset 0.3s ease;
 }
 
-.home-stat-card:hover .stat-icon-wrapper {
-  transform: scale(1.1) rotate(5deg);
-}
-
-.stat-value {
-  font-size: 2.25rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 4px;
-  color: var(--text-strong);
-}
-
-.dark .stat-value {
-  color: #F3F3F7;
-}
-
-.stat-label {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.dark .stat-label {
-  color: #B5BACA;
-}
-
-/* -------------------------------------------------------------------------
-   Quick Links Cards (Premium)
-   ------------------------------------------------------------------------- */
-.home-quick-links {
+/* Table styling fixes */
+table {
   width: 100%;
-  margin: 0 auto;
+  border-collapse: collapse;
 }
 
-.home-quick-link-card {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  padding: 20px 24px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  text-decoration: none;
-  transition: all 0.3s ease;
-  min-height: 100px;
-  position: relative;
-  overflow: hidden;
+th, td {
+  text-align: left;
 }
 
-.dark .home-quick-link-card {
-  background: rgba(31, 41, 55, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.home-quick-link-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: transparent;
-  transition: background 0.3s ease;
-}
-
-.home-quick-link-card:hover::before {
-  background: var(--brand-500);
-}
-
-.home-quick-link-card:hover,
-.home-quick-link-card:focus-visible {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 1);
-  border-color: rgba(255, 107, 61, 0.2);
-  outline: none;
-}
-
-.dark .home-quick-link-card:hover,
-.dark .home-quick-link-card:focus-visible {
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-  background: rgba(45, 55, 72, 0.8);
-  border-color: rgba(255, 107, 61, 0.3);
-}
-
-.home-quick-link-card .link-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-500);
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(255, 107, 61, 0.1);
-  transition: transform 0.3s ease, background 0.3s ease;
-}
-
-.dark .home-quick-link-card .link-icon {
-  background: rgba(255, 107, 61, 0.15);
-}
-
-.home-quick-link-card:hover .link-icon {
-  transform: scale(1.1);
-  background: var(--brand-500);
-  color: white;
-}
-
-.home-quick-link-card .link-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.home-quick-link-card h4 {
-  margin: 0 0 4px 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--text-strong);
-  transition: color 0.3s ease;
-}
-
-.dark .home-quick-link-card h4 {
-  color: #F3F3F7;
-}
-
-.home-quick-link-card:hover h4 {
-  color: var(--brand-600);
-}
-
-.dark .home-quick-link-card:hover h4 {
-  color: #ffb74d;
-}
-
-.home-quick-link-card .desc {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.dark .home-quick-link-card .desc {
-  color: #B5BACA;
-}
-
-/* -------------------------------------------------------------------------
-   Global Page Wrappers
-   ------------------------------------------------------------------------- */
-.reports-page {
-  /* Subtle animated gradient background for the whole page */
-  background: linear-gradient(120deg, #f8fafc 0%, #f1f5f9 100%);
-  background-attachment: fixed;
-}
-
-.dark .reports-page {
-  background: linear-gradient(120deg, #0f172a 0%, #1e293b 100%);
-  color: #F3F3F7;
-}
-
-@media (max-width: 639px) {
-  .home-quick-link-card {
-    flex-direction: column;
-    text-align: center;
-    padding: 24px 16px;
-  }
-  
-  .home-quick-link-card::before {
-    width: 100%;
-    height: 4px;
-    top: 0;
-    left: 0;
-  }
+.dark table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
 }

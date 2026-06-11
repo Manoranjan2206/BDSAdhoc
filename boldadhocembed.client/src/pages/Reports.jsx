@@ -8,6 +8,7 @@ import {
   PencilIcon,
   TrashIcon,
   EyeIcon,
+  EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { reportsAPI } from '../services/apiService';
@@ -34,6 +35,24 @@ export default function Reports() {
   const isResizingRef = useRef(false);
   const mainRef = useRef(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [activeMenu, setActiveMenu] = useState(null);
+
+  const toggleMenu = (id) => {
+    setActiveMenu(prev => (prev === id ? null : id));
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveMenu(null);
+    };
+    if (activeMenu) {
+      window.addEventListener('click', handleOutsideClick);
+    }
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+    };
+  }, [activeMenu]);
 
   const viewerDivRef = useRef(null);
 
@@ -243,10 +262,16 @@ export default function Reports() {
   const nodeTemplate = (data, onReportClick) => {
     if (!data.isReport) {
       return (
-        <div className="rich-card flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group">
+        <div 
+          className="rich-card flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
+          title={data.text}
+        >
           <div className="flex items-center gap-3">
             <FolderIcon className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
-            <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[180px]">
+            <span 
+              className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[180px]"
+              title={data.text}
+            >
               {data.text}
             </span>
           </div>
@@ -259,45 +284,71 @@ export default function Reports() {
 
     return (
       <div
-        className="rich-card flex flex-col py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
-        title={data.description}
+        className="rich-card flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer relative"
+        title={data.description ? `${data.text}\n${data.description}` : data.text}
         onClick={(e) => { if (onReportClick) onReportClick(data.reportRef, data.categoryName); }}
       >
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <DocumentIcon className="w-5 h-5 text-[var(--info)] flex-shrink-0" />
-          <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[160px]">
+          <span 
+            className="font-medium text-sm text-[var(--text-strong)] truncate pr-2"
+            title={data.text}
+          >
             {data.text}
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+        {/* 3-dots Context Menu */}
+        <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleMenu(data.id);
+            }}
+            className="p-1 rounded-full text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--brand-200)]/30 dark:hover:bg-gray-700/50 transition-colors"
+            title="Options"
+          >
+            <EllipsisVerticalIcon className="w-5 h-5" />
+          </button>
 
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditReport(data.text, data.categoryName);
-              }}
-              className="p-1 hover:text-[var(--accent)] transition-colors"
-              title="Edit report"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDeleteReport(data.reportRef, data.categoryName); }}
-              className="p-1 hover:text-[var(--danger)] transition-colors"
-              title="Delete report"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handlePreviewReport(data.reportRef, data.categoryName); }}
-              className="p-1 hover:text-[var(--info)] transition-colors"
-              title="Preview report"
-            >
-              <EyeIcon className="w-4 h-4" />
-            </button>
-          </div>
+          {activeMenu === data.id && (
+            <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-[#181c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenu(null);
+                  handleEditReport(data.text, data.categoryName);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs font-medium text-[var(--text-strong)] hover:bg-[var(--brand-100)] dark:hover:bg-[#283a5e] flex items-center gap-2 transition-colors"
+              >
+                <PencilIcon className="w-3.5 h-3.5 text-[var(--accent)]" />
+                Edit
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenu(null);
+                  handlePreviewReport(data.reportRef, data.categoryName);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs font-medium text-[var(--text-strong)] hover:bg-[var(--brand-100)] dark:hover:bg-[#283a5e] flex items-center gap-2 transition-colors"
+              >
+                <EyeIcon className="w-3.5 h-3.5 text-[var(--info)]" />
+                Preview
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenu(null);
+                  handleDeleteReport(data.reportRef, data.categoryName);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs font-medium text-[var(--danger)] hover:bg-[var(--brand-100)] dark:hover:bg-[#283a5e] flex items-center gap-2 transition-colors"
+              >
+                <TrashIcon className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -510,35 +561,51 @@ export default function Reports() {
 
         {/* Viewer / Placeholder */}
         <div className="reports-view">
-
           {selectedReport && reportPath ? (
-            <>
-              <motion.div
-                key={viewerKey}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="reports-viewer-container"
+            <motion.div
+              key={viewerKey}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="reports-viewer-container"
+            >
+              {viewerLoading ? (
+                <div className="reports-viewer-loading">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
+                  <p>Loading viewer...</p>
+                </div>
+              ) : !viewerSettings ? (
+                <div className="reports-viewer-error">
+                  <p>Viewer configuration not loaded</p>
+                  <p className="text-sm mt-2">Check console for errors</p>
+                </div>
+              ) : (
+                <div
+                  id={`reportviewer-${viewerKey}`}
+                  ref={viewerDivRef}
+                  style={{ height: '100%', width: '100%' }}
+                />
+              )}
+            </motion.div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-md text-center p-8 bg-white dark:bg-[#181c2c] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800"
               >
-                {viewerLoading ? (
-                  <div className="reports-viewer-loading">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
-                    <p>Loading viewer...</p>
-                  </div>
-                ) : !viewerSettings ? (
-                  <div className="reports-viewer-error">
-                    <p>Viewer configuration not loaded</p>
-                    <p className="text-sm mt-2">Check console for errors</p>
-                  </div>
-                ) : (
-                  <div
-                    id={`reportviewer-${viewerKey}`}
-                    ref={viewerDivRef}
-                    style={{ height: '100%', width: '100%' }}
-                  />
-                )}
+                <div className="w-16 h-16 bg-[var(--brand-100)] dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-[var(--brand-500)]">
+                  <DocumentIcon className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2 text-[var(--text-strong)]">Welcome to Reports Viewer</h2>
+                <p className="text-sm text-[var(--text-muted)] mb-6">
+                  Select a report from the sidebar to view, analyze, and export its data.
+                </p>
+                <div className="text-xs text-[var(--text-light)]">
+                  Use search or categories to find a specific report.
+                </div>
               </motion.div>
-            </>
-          ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
