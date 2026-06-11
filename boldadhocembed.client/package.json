@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@boldbi/boldbi-embedded-sdk": "^14.2.4",
+    "@boldbi/boldbi-embedded-sdk": "^15.2.6",
     "@boldreports/javascript-reporting-controls": "^12.1.12",
     "@boldreports/react-reporting-components": "^12.1.12",
     "@emotion/react": "^11.14.0",

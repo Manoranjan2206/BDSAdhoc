@@ -1,16 +1,16 @@
 /* Login Page Styles */
 
 :root {
-  --primary-color: #2563eb;
-  --primary-dark: #1e40af;
-  --primary-light: #3b82f6;
+  --primary-color: #FF4800; /* var(--brand-500) */
+  --primary-dark: #cc3900;
+  --primary-light: #ff6d33;
   --secondary-color: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
-  --error-color: #dc2626;
+  --text-primary: #131F3B; /* var(--text-strong) */
+  --text-secondary: #7C84A1; /* var(--text-muted) */
+  --border-color: #DDE0EB; /* var(--brand-200) */
+  --error-color: #D22222;
   --error-light: #fee2e2;
-  --success-color: #16a34a;
+  --success-color: #108910;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: linear-gradient(135deg, #6b21a8 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
 }
 
 .login-hero {
@@ -30,7 +30,10 @@
   display: flex;
   align-items: center;
   color: white;
-  background: linear-gradient(135deg, #6b21a8 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, #131F3B 0%, #283A5E 100%);
+  border-radius: 12px 0 0 12px;
+  border: 1px solid #131F3B;
+  border-right: none;
 }
 
 /* Keep two columns on wider screens; allow stacking only on narrow viewports */
@@ -102,8 +105,9 @@
   justify-content: center;
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, #ff7b00 100%);
   border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(255, 72, 0, 0.20);
 }
 
 .logo-section h1 {
@@ -366,7 +370,7 @@
 }
 
 .login-button.green {
-  background: linear-gradient(180deg,#10b981,#059669);
+  background: linear-gradient(135deg, var(--brand-500) 0%, #ff7b00 100%);
 }
 
 .btn-social {
@@ -411,6 +415,8 @@
   box-shadow: 0 10px 30px rgba(2,6,23,0.08);
   display: flex;
   align-items: center;
+  border: 1px solid var(--border-color);
+  border-left: none;
 }
 
 .login-box {
@@ -584,6 +590,18 @@
     flex-direction: column;
     align-items: flex-start;
   }
+  
+  .login-hero {
+    border-radius: 12px 12px 0 0;
+    border-right: 1px solid #131F3B;
+    border-bottom: none;
+  }
+  
+  .login-card {
+    border-radius: 0 0 12px 12px;
+    border-left: 1px solid var(--border-color);
+    border-top: none;
+  }
 
   .logo-icon {
     width: 48px;
@@ -635,51 +653,50 @@
   outline-offset: 2px;
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text-primary: #f9fafb;
-    --text-secondary: #d1d5db;
-    --border-color: #374151;
-    --secondary-color: #1f2937;
-  }
+/* Dark Mode Support via active class */
+.dark {
+  --text-primary: #F3F3F7;
+  --text-secondary: #B5BACA;
+  --border-color: #424A64;
+  --secondary-color: #1F2538;
+}
 
-  .login-wrapper {
-    background: #111827;
-  }
+.dark .login-card {
+  background: #181C2C;
+  border-color: var(--border-color);
+}
 
-  .form-input {
-    background-color: #1f2937;
-    color: var(--text-primary);
-    border-color: var(--border-color);
-  }
+.dark .form-input {
+  background-color: #1F2538;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
 
-  .form-input:focus {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  }
+.dark .form-input:focus {
+  box-shadow: 0 0 0 3px rgba(255, 72, 0, 0.15);
+}
 
-  .form-input:disabled {
-    background-color: #374151;
-  }
+.dark .form-input:disabled {
+  background-color: #2D354B;
+}
 
-  .optional-badge {
-    background-color: #374151;
-  }
+.dark .optional-badge {
+  background-color: #2D354B;
+}
 
-  .login-footer {
-    border-top-color: var(--border-color);
-  }
+.dark .login-footer {
+  border-top-color: var(--border-color);
+}
 
-  .footer-divider::before,
-  .footer-divider::after {
-    background-color: var(--border-color);
-  }
+.dark .footer-divider::before,
+.dark .footer-divider::after {
+  background-color: var(--border-color);
+}
 
-  .footer-divider span {
-    background-color: #111827;
-  }
+.dark .footer-divider span {
+  background-color: #181C2C;
+}
 
-  .footer-info {
-    background-color: #1f2937;
-  }
+.dark .footer-info {
+  background-color: #1F2538;
 }

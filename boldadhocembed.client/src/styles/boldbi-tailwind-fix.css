@@ -1,0 +1,61 @@
+/* Fix Tailwind Preflight conflicts with Bold BI / Syncfusion elements */
+
+/* Restore background and borders for popups and dialogs appended to body */
+.e-popup, 
+.bb-popup, 
+.su-popup, 
+.e-dropdownbase, 
+.e-list-parent, 
+.e-dialog,
+.bb-dialog,
+#dashboard-container .bb-control,
+#dashboard-container [class^="e-"] {
+  background-color: #ffffff;
+}
+
+.dark .e-popup, 
+.dark .bb-popup, 
+.dark .su-popup, 
+.dark .e-dropdownbase, 
+.dark .e-list-parent, 
+.dark .e-dialog,
+.dark .bb-dialog {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+/* Restore basic button and input borders stripped by Tailwind */
+.e-btn, 
+.bb-btn,
+.e-input,
+.e-float-input input,
+.e-float-input textarea,
+.e-input-group input,
+.e-input-group.e-control-wrapper input,
+.bb-dashboard-parameter-dialog input {
+  border-width: 1px;
+  border-style: solid;
+  border-color: #cbd5e1;
+}
+
+.dark .e-btn, 
+.dark .bb-btn,
+.dark .e-input,
+.dark .e-float-input input,
+.dark .e-float-input textarea,
+.dark .e-input-group input,
+.dark .e-input-group.e-control-wrapper input {
+  border-color: #475569;
+  background-color: #0f172a;
+}
+
+/* Fix dropdown and select lists missing background */
+.e-dropdownbase .e-list-item, 
+.e-list-parent .e-list-item {
+  background-color: transparent; /* inherits from popup */
+}
+
+/* Restore box sizing for syncfusion */
+.e-control, .e-control [class^='e-'], .e-control [class*=' e-'] {
+    box-sizing: content-box;
+}

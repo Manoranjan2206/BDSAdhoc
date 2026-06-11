@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import '../styles/Login.css';
@@ -10,6 +10,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,8 +38,8 @@ export default function Login() {
       const loginData = await authService.login(email, password);
 
       if (loginData && (loginData.token || loginData.sessionToken)) {
-        // Login successful, navigate to home
-        navigate('/');
+        // Login successful, navigate to home with replace: true to clear history stack
+        navigate('/', { replace: true });
       }
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');

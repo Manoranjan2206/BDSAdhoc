@@ -413,7 +413,7 @@ export default function Schedules() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-full overflow-y-auto">
       <div className="mb-6 rounded-xl overflow-hidden border border-indigo-100">
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5 text-white flex justify-between items-center">
           <div>

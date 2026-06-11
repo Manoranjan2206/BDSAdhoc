@@ -33,6 +33,10 @@ export function DataProvider({ children }) {
     users: null,
   });
 
+  // Sidebar collapsed states
+  const [reportsSidebarCollapsed, setReportsSidebarCollapsed] = useState(false);
+  const [dashboardsSidebarCollapsed, setDashboardsSidebarCollapsed] = useState(false);
+
   /**
    * Generic fetch function with caching
    * Only fetches if data is not already cached
@@ -121,6 +125,12 @@ export function DataProvider({ children }) {
   }, [getReports, getDashboards, getSchedules, getUsers]);
 
   const value = {
+    // Sidebar collapsed states
+    reportsSidebarCollapsed,
+    setReportsSidebarCollapsed,
+    dashboardsSidebarCollapsed,
+    setDashboardsSidebarCollapsed,
+
     // Cache state
     cache,
 

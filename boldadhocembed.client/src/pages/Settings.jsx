@@ -2,7 +2,7 @@ import { BellIcon, LockClosedIcon, CogIcon, UserIcon } from '@heroicons/react/24
 
 export default function Settings() {
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl h-full overflow-y-auto p-4 md:p-6">
       {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

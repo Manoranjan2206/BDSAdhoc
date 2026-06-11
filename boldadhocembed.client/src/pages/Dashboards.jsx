@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BoldBI } from '@boldbi/boldbi-embedded-sdk';
 import dashboardsAPI from '../services/dashboardService';
 import { useData } from '../context/DataContext';
 
 import { motion } from 'framer-motion';
-import { ChevronRightIcon, ChevronLeftIcon, ChartBarIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ChevronLeftIcon, ChartBarIcon, ChevronDownIcon, FolderIcon } from '@heroicons/react/24/outline';
 import { useLocation } from 'react-router-dom';
 import '../styles/Dashboards.css'; // keep if you have custom overrides
 import '../styles/reports.css';           // main shared styles
 
 const Dashboards = () => {
-  const { getDashboards } = useData();
+  const { getDashboards, dashboardsSidebarCollapsed, setDashboardsSidebarCollapsed } = useData();
   const location = useLocation();
   
 
@@ -21,7 +21,9 @@ const Dashboards = () => {
   const [dashboardInstance, setDashboardInstance] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const isResizingRef = useRef(false);
+  const mainRef = useRef(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
 
   // Normalize dashboard props
@@ -69,6 +71,69 @@ const Dashboards = () => {
     const h = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300);
     return () => clearTimeout(h);
   }, [searchTerm]);
+
+  // Resizer handlers: track pointer moves globally and update sidebar width
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isResizingRef.current) return;
+      const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX);
+      if (!clientX || !mainRef.current) return;
+      const rect = mainRef.current.getBoundingClientRect();
+      const newWidth = Math.max(180, Math.min(600, clientX - rect.left));
+      setSidebarWidth(newWidth);
+    };
+
+    const onUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        document.body.style.cursor = '';
+      }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchend', onUp);
+    };
+  }, []);
+
+  const nodeTemplate = (data, onDashboardClick) => {
+    if (!data.isDashboard) {
+      return (
+        <div className="rich-card flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer">
+          <div className="flex items-center gap-3">
+            <FolderIcon className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
+            <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[180px]">
+              {data.text}
+            </span>
+          </div>
+          <span className="text-xs font-medium text-[var(--text-muted)] bg-[var(--neutral-100)] px-2.5 py-1 rounded-full group-hover:bg-[var(--neutral-200)] transition-colors">
+            {data.subChild?.length || 0}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="rich-card flex flex-col py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
+        onClick={(e) => { if (onDashboardClick) onDashboardClick(data.dashboardRef); }}
+      >
+        <div className="flex items-center gap-3 mb-1">
+          <ChartBarIcon className="w-5 h-5 text-[var(--info)] flex-shrink-0" />
+          <span className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[160px]">
+            {data.text}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   const filteredDashboards = useMemo(() => {
     const term = debouncedSearchTerm.toLowerCase().trim();
@@ -161,7 +226,7 @@ const Dashboards = () => {
   const handleSelectDashboard = (dashboard) => {
     setSelectedDashboard(dashboard);
     // Always collapse after selection
-    setSidebarCollapsed(true);
+    setDashboardsSidebarCollapsed(true);
   };
 
   const toggleCategory = (categoryId) => {
@@ -197,10 +262,13 @@ const Dashboards = () => {
       </div>
 
       {/* Main layout */}
-      <div className="reports-main">
+      <div className="reports-main" ref={mainRef}>
         {/* Sidebar */}
-        <div className={`reports-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          {!sidebarCollapsed && (
+        <div
+          className={`reports-sidebar ${dashboardsSidebarCollapsed ? 'collapsed' : ''}`}
+          style={{ width: dashboardsSidebarCollapsed ? 0 : sidebarWidth }}
+        >
+          {!dashboardsSidebarCollapsed && (
             <div className="reports-search">
               <input
                 value={searchTerm}
@@ -224,75 +292,45 @@ const Dashboards = () => {
                 {searchTerm && <p className="text-sm mt-1">Try adjusting your search</p>}
               </div>
             ) : (
-              <div className="p-2 space-y-2">
-                {treeViewData.map(category => {
-                  const isExpanded = expandedCategories.has(category.id);
-                  const itemCount = category.subChild?.length || 0;
-
-                  return (
-                    <div key={category.id} className="category-group">
-                      {/* Category Header */}
-                      <button
-                        onClick={() => toggleCategory(category.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition font-medium text-sm text-indigo-900"
-                      >
-                        <ChevronDownIcon
-                          className={`w-4 h-4 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
-                        />
-                        <span className="flex-1 text-left">{category.text}</span>
-                        <span className="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded">
-                          {itemCount}
-                        </span>
-                      </button>
-
-                      {/* Category Items */}
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="mt-2 ml-4 space-y-2"
-                        >
-                          {category.subChild?.map(dashboard => (
-                            <button
-                              key={dashboard.id}
-                              className="w-full text-left rounded-lg border border-indigo-100/60 bg-white hover:bg-indigo-50/60 transition shadow-sm hover:shadow px-3 py-2 flex items-center gap-3"
-                              onClick={() => handleSelectDashboard(dashboard.dashboardRef)}
-                            >
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 flex-shrink-0">
-                                <ChartBarIcon className="w-4 h-4" />
-                              </span>
-                              <span className="text-sm font-medium truncate text-gray-800">{dashboard.text}</span>
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
+              <div className="modern-tree">
+                {treeViewData.map((node) => (
+                  <div key={node.id} className="mb-2">
+                    <div onClick={() => toggleCategory(node.id)}>
+                      {nodeTemplate(node)}
                     </div>
-                  );
-                })}
+
+                    {expandedCategories.has(node.id) && node.subChild?.map((child) => (
+                      <div key={child.id} className="ml-4">
+                        {nodeTemplate(child, handleSelectDashboard)}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
+        {!dashboardsSidebarCollapsed && (
+          <div
+            className="sidebar-resizer"
+            onMouseDown={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
+            onTouchStart={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+          />
+        )}
+
         {/* Viewer area */}
         <div className="reports-view">
-          <div className="reports-toggle">
-            <button
-              className="e-outline e-small modern-toggle-btn px-2 py-1 border rounded"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              {sidebarCollapsed ? <ChevronRightIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
-            </button>
-          </div>
 
           {selectedDashboard ? (
             <>
               <motion.div
                 key={selectedDashboard.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 transition={{ duration: 0.4 }}
                 className="reports-viewer-container"
               >

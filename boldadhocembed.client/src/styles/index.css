@@ -102,13 +102,13 @@ select {
 /* BOLD REPORTS & SYNCFUSION DIALOG CRITICAL FIX               */
 /* ??????????????????????????????????????????????????????????? */
 
-/* Designer container – MUST stay at bottom */
+/* Designer container â€“ MUST stay at bottom */
 #reportdesigner-container {
   position: relative !important;
   z-index: 1 !important;
 }
 
-/* Dialog overlay/backdrop – ABOVE designer, BELOW dialog */
+/* Dialog overlay/backdrop â€“ ABOVE designer, BELOW dialog */
 .e-dlg-overlay,
 .e-popup-overlay,
 .e-modal-overlay,
@@ -116,27 +116,28 @@ select {
   z-index: 50000 !important;
   pointer-events: auto !important;
   background-color: rgba(0, 0, 0, 0.4) !important;
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
 }
 
-/* Dialog content – TOPMOST */
-.e-dialog,
-.e-popup,
-.e-dropdown-popup,
-.e-dialog-container,
+/* Specific publish/save dialogs positioning and display */
 .e-publish-dialog,
 .e-save-dialog,
-.ej-dialog,
-.bold-report-dialog,
 .bold-report-publish-dialog,
-.bold-report-save-dialog {
+.bold-report-save-dialog,
+#reportdesigner-container_publish_report_dialog {
   z-index: 50001 !important;
   position: fixed !important;
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
+}
+
+/* General dialogs and popups should just have high z-index to sit above header (2000) and sidebar (40) */
+.e-dialog,
+.e-popup,
+.e-dropdown-popup,
+.e-dialog-container,
+.e-ddl-popup {
+  z-index: 100000 !important;
 }
 
 /* Popup inside designer */

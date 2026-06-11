@@ -13,6 +13,7 @@ import { useData } from '../context/DataContext';
 export default function Header({ darkMode, onToggleDarkMode }) {
   const { getReports, getDashboards } = useData();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [results, setResults] = useState([]);
   const [user, setUser] = useState(null);
@@ -81,12 +82,15 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     try {
       await authService.logout();
       setShowProfileMenu(false);
+      setShowLogoutConfirm(false);
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
       // Clear auth anyway and redirect
       localStorage.removeItem('boldreports_token');
       localStorage.removeItem('boldreports_user');
+      setShowProfileMenu(false);
+      setShowLogoutConfirm(false);
       navigate('/login');
     }
   };
@@ -119,7 +123,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   };
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-50" style={{ background: 'var(--surface)', borderBottom: '2px solid var(--brand-200)' }}>
+    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000]" style={{ background: 'var(--surface)', borderBottom: '2px solid var(--brand-200)' }}>
       {/* Left: Logo & Title */}
       <div className="flex items-center gap-4">
         <h1 className="text-xl font-semibold hidden md:block" style={{ color: 'var(--brand-700)' }}>
@@ -235,7 +239,10 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                 Help & Support
               </a>
               <button
-                onClick={handleLogout}
+                onClick={() => {
+                  setShowLogoutConfirm(true);
+                  setShowProfileMenu(false);
+                }}
                 className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700 transition cursor-pointer font-medium"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -249,6 +256,52 @@ export default function Header({ darkMode, onToggleDarkMode }) {
           )}
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowLogoutConfirm(false)}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full p-6 text-center transform transition-all scale-100">
+            <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </div>
+            
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              Confirm Logout
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Are you sure you want to sign out of your account? You will need to log in again to access your reports and dashboards.
+            </p>
+            
+            <div className="flex gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300 text-sm font-medium transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition shadow-lg shadow-red-600/20 cursor-pointer"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

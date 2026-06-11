@@ -2,6 +2,7 @@ import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './globals'
 import './styles/index.css'
+import './styles/boldbi-tailwind-fix.css'
 
 // Ensure jQuery is available globally before Bold Reports scripts
 import $ from 'jquery';

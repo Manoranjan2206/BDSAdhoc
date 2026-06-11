@@ -19,7 +19,7 @@ import '../styles/reports.css';
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { getReports } = useData();
+  const { getReports, reportsSidebarCollapsed, setReportsSidebarCollapsed } = useData();
 
   const [tree, setTree] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -30,7 +30,6 @@ export default function Reports() {
   const [viewerSettings, setViewerSettings] = useState(null);
   const [viewerLoading, setViewerLoading] = useState(false);
   const [viewerKey, setViewerKey] = useState(0);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const isResizingRef = useRef(false);
   const mainRef = useRef(null);
@@ -182,7 +181,7 @@ export default function Reports() {
     setSelectedReport(report);
     setSelectedCategory(category || null);
     setViewerKey(prev => prev + 1);
-    if (window.innerWidth < 1024) setSidebarCollapsed(true);
+    if (window.innerWidth < 1024) setReportsSidebarCollapsed(true);
   };
 
   const handleEditReport = (reportName, category) => {
@@ -447,10 +446,10 @@ export default function Reports() {
       <div className="reports-main" ref={mainRef}>
         {/* Sidebar */}
         <div
-          className={`reports-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}
-          style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
+          className={`reports-sidebar ${reportsSidebarCollapsed ? 'collapsed' : ''}`}
+          style={{ width: reportsSidebarCollapsed ? 0 : sidebarWidth }}
         >
-          {!sidebarCollapsed && (
+          {!reportsSidebarCollapsed && (
             <div className="reports-search">
               <input
                 type="text"
@@ -498,7 +497,7 @@ export default function Reports() {
           </div>
         </div>
 
-        {!sidebarCollapsed && (
+        {!reportsSidebarCollapsed && (
           <div
             className="sidebar-resizer"
             onMouseDown={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
@@ -511,14 +510,6 @@ export default function Reports() {
 
         {/* Viewer / Placeholder */}
         <div className="reports-view">
-          <div className="reports-toggle">
-            <button
-              className="e-outline e-small modern-toggle-btn"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              {sidebarCollapsed ? <ChevronRightIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
-            </button>
-          </div>
 
           {selectedReport && reportPath ? (
             <>
