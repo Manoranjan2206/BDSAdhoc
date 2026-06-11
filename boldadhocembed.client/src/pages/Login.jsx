@@ -56,7 +56,7 @@ export default function Login() {
         <div className="login-hero">
           <div className="hero-panel">
             <div className="side-content">
-              <h2>Welcome to Bold Reports</h2>
+              <h2>Welcome to Acme Analytics</h2>
               <p>
                 Create, share, and manage beautiful reports with ease. Enterprise-grade reporting solution for your organization.
               </p>
@@ -96,15 +96,27 @@ export default function Login() {
             <div className="login-header">
               <div className="logo-section">
                 <div className="logo-icon">
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <rect width="48" height="48" rx="12" fill="#111827" />
-                    <path
-                      d="M24 12C17.4 12 12 17.4 12 24C12 30.6 17.4 36 24 36C30.6 36 36 30.6 36 24C36 17.4 30.6 12 24 12ZM24 32C19.6 32 16 28.4 16 24C16 19.6 19.6 16 24 16C28.4 16 32 19.6 32 24C32 28.4 28.4 32 24 32Z"
-                      fill="white"
-                    />
+                  <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
+                    <defs>
+                      <linearGradient id="acmeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FF4800" />
+                        <stop offset="100%" stop-color="#FF7F50" />
+                      </linearGradient>
+                      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#131F3B" />
+                        <stop offset="100%" stop-color="#1E293B" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />
+                    <g transform="translate(24, 28)">
+                      <rect x="12" y="32" width="12" height="40" rx="6" fill="#006CDD" />
+                      <rect x="34" y="12" width="12" height="60" rx="6" fill="url(#acmeGrad)" />
+                      <rect x="56" y="24" width="12" height="48" rx="6" fill="#34D399" />
+                      <rect x="18" y="44" width="44" height="8" rx="4" fill="#FFFFFF" opacity="0.9" />
+                    </g>
                   </svg>
                 </div>
-                <h1>Bold Reports</h1>
+                <h1>Acme Analytics</h1>
               </div>
               <p className="login-subtitle">Sign in to your account</p>
             </div>
@@ -194,7 +206,7 @@ export default function Login() {
               <div className="footer-divider">
                 <span>System Login</span>
               </div>
-              <p className="footer-text">Access your Bold Reports account with your organization credentials</p>
+              <p className="footer-text">Access your Acme Analytics account with your organization credentials</p>
             </div>
           </div>
         </div>

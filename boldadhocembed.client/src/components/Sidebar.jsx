@@ -61,11 +61,11 @@ export default function Sidebar({ onWidthChange }) {
       <div className="flex items-center justify-center h-20 border-b border-white/10 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-orange/0 via-brand-orange/10 to-brand-orange/0 opacity-50"></div>
         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-brand-orange to-[#ff7b00] flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-brand-orange/20 transition-transform duration-300 ${collapsed ? 'scale-90' : 'scale-100'}`}>
-          BR
+          AA
         </div>
         {!collapsed && (
           <span className="ml-3 font-bold text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300">
-            Bold Reports
+            Acme Analytics
           </span>
         )}
       </div>
