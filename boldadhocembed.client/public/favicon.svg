@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="acmeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4800" />
+      <stop offset="100%" stop-color="#FF7F50" />
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#131F3B" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded dark background -->
+  <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />
+  
+  <!-- Stylized A letter + Bar chart -->
+  <g transform="translate(24, 28)">
+    <!-- Bar 1 (left side of A) -->
+    <rect x="12" y="32" width="12" height="40" rx="6" fill="#006CDD" />
+    <!-- Bar 2 (center tall bar of A / chart) -->
+    <rect x="34" y="12" width="12" height="60" rx="6" fill="url(#acmeGrad)" />
+    <!-- Bar 3 (right side of A / chart) -->
+    <rect x="56" y="24" width="12" height="48" rx="6" fill="#34D399" />
+    
+    <!-- Crossbar linking them -->
+    <rect x="18" y="44" width="44" height="8" rx="4" fill="#FFFFFF" opacity="0.9" />
+  </g>
+</svg>
