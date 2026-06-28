@@ -7,37 +7,24 @@ namespace BoldAdhocEmbed.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SchedulesController : ControllerBase
+    public class SchedulesController : BaseController
     {
         private readonly IBoldReportsService _boldReportsService;
+        private readonly IBoldBIDashboardService _boldBIDashboardService;
         private readonly ILogger<SchedulesController> _logger;
+        private readonly ICacheService _cacheService;
 
         public SchedulesController(
             IBoldReportsService boldReportsService,
-            ILogger<SchedulesController> logger)
+            IBoldBIDashboardService boldBIDashboardService,
+            ILogger<SchedulesController> logger,
+            ICacheService cacheService)
+            : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
+            _boldBIDashboardService = boldBIDashboardService ?? throw new ArgumentNullException(nameof(boldBIDashboardService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-
-        /// <summary>
-        /// Extract token from Authorization header (Bearer token format)
-        /// </summary>
-        private string GetTokenFromRequest()
-        {
-            var authHeader = Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                return null;
-            }
-
-            // Format: "Bearer eyJ0eXAi..."
-            if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return authHeader.Substring("Bearer ".Length).Trim();
-            }
-
-            return authHeader;
+            _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
         }
 
         [HttpGet]
@@ -48,11 +35,22 @@ namespace BoldAdhocEmbed.Server.Controllers
             {
                 // Get token from the authenticated user's request
                 // User will only see schedules they have access to (RLS)
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided in Authorization header for GetSchedules");
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                // Check cache first
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"schedules-list-{userEmail}";
+                var cachedSchedules = await _cacheService.GetAsync<dynamic>(cacheKey);
+                if (cachedSchedules != null)
+                {
+                    _logger.LogInformation("Enriched schedules list retrieved from cache");
+                    return Ok(ApiResponse<dynamic>.SuccessResponse(cachedSchedules, "Retrieved schedules"));
                 }
 
                 var schedules = await _boldReportsService.GetSchedulesAsync(token);
@@ -73,13 +71,13 @@ namespace BoldAdhocEmbed.Server.Controllers
                     id = x.s.Id,
                     name = x.s.Name ?? x.d?.ScheduleName,
                     description = x.s.Description,
-                    categoryName = x.s.CategoryName,
+                    categoryName = x.s.CategoryName ?? "Reports Schedules",
                     itemId = x.s.ItemId,
-                    itemType = x.s.ItemType,
+                    itemType = "Report",
                     enabled = x.s.Enabled ?? x.d?.IsEnabled,
                     exportType = x.s.ExportType ?? x.d?.ExportTypeCode,
                     // Detail fields
-                    reportName = x.d?.ReportName,
+                    reportName = x.d?.ReportName ?? x.s.Name,
                     recurrenceType = x.d?.RecurrenceType,
                     recurrenceTypeId = x.d?.RecurrenceTypeId,
                     nextSchedule = x.d?.NextSchedule,
@@ -92,9 +90,70 @@ namespace BoldAdhocEmbed.Server.Controllers
                         groups = x.d?.GroupList?.Count ?? 0,
                         external = x.d?.ExternalRecipientsList?.Count ?? 0
                     }
-                }).ToList();
+                }).Cast<dynamic>().ToList();
+
+                // 2. Fetch Dashboard Schedules (new logic)
+                try
+                {
+                    var biToken = await _boldBIDashboardService.GetTokenAsync(userEmail);
+                    if (!string.IsNullOrEmpty(biToken))
+                    {
+                        var biSchedules = await _boldBIDashboardService.GetSchedulesAsync(biToken);
+                        if (biSchedules != null && biSchedules.Count > 0)
+                        {
+                            foreach (var bs in biSchedules)
+                            {
+                                string bsId = bs.Id?.ToString() ?? bs.ScheduleId?.ToString() ?? string.Empty;
+                                string bsName = bs.Name?.ToString() ?? bs.ScheduleName?.ToString() ?? string.Empty;
+                                string bsDescription = bs.Description?.ToString() ?? string.Empty;
+                                string bsItemId = bs.ItemId?.ToString() ?? bs.DashboardId?.ToString() ?? string.Empty;
+                                string bsItemName = bs.ItemName?.ToString() ?? bs.DashboardName?.ToString() ?? bsName;
+                                bool bsEnabled = bs.IsEnabled != null ? (bool)bs.IsEnabled : (bs.Enabled != null ? (bool)bs.Enabled : true);
+                                string bsExportType = bs.ExportType?.ToString() ?? bs.ExportTypeCode?.ToString() ?? "Pdf";
+                                string bsRecurrenceType = bs.RecurrenceType?.ToString() ?? bs.ScheduleType?.ToString() ?? "Hourly";
+                                string bsNextSchedule = bs.NextSchedule?.ToString() ?? string.Empty;
+                                string bsStartDate = bs.StartDate?.ToString() ?? bs.StartTime?.ToString() ?? string.Empty;
+                                string bsEndDate = bs.EndDate?.ToString() ?? string.Empty;
+                                bool bsNeverEnd = bs.NeverEnd != null ? (bool)bs.NeverEnd : true;
+
+                                enriched.Add(new
+                                {
+                                    id = bsId,
+                                    name = bsName,
+                                    description = bsDescription,
+                                    categoryName = "Dashboard Schedules",
+                                    itemId = bsItemId,
+                                    itemType = "Dashboard",
+                                    enabled = bsEnabled,
+                                    exportType = bsExportType,
+                                    reportName = bsItemName,
+                                    recurrenceType = bsRecurrenceType,
+                                    recurrenceTypeId = 0,
+                                    nextSchedule = bsNextSchedule,
+                                    startDate = bsStartDate,
+                                    endDate = bsEndDate,
+                                    neverEnd = bsNeverEnd,
+                                    recipients = new
+                                    {
+                                        users = 0,
+                                        groups = 0,
+                                        external = 0
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+                catch (Exception biEx)
+                {
+                    _logger.LogWarning(biEx, "Failed to fetch/merge Bold BI dashboard schedules");
+                }
 
                 _logger.LogInformation("Retrieved {ScheduleCount} schedules for authenticated user", enriched.Count);
+                
+                // Cache for 5 minutes
+                await _cacheService.SetAsync(cacheKey, (dynamic)enriched, TimeSpan.FromMinutes(5));
+
                 return Ok(ApiResponse<dynamic>.SuccessResponse(enriched, $"Retrieved {enriched.Count} schedules"));
             }
             catch (Exception ex)
@@ -115,7 +174,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for getting schedule {ScheduleId}", id);
@@ -163,7 +222,7 @@ namespace BoldAdhocEmbed.Server.Controllers
             try
             {
                 // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for creating schedule");
@@ -194,19 +253,12 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "Schedule payload is required"));
                 }
 
-                // Get token from the authenticated user's request
-                // User must have permissions to create schedules
-                var token = GetTokenFromRequest();
-                if (string.IsNullOrEmpty(token))
-                {
-                    _logger.LogWarning("No token provided for creating schedule");
-                    return Unauthorized(ApiResponse.UnauthorizedResponse());
-                }
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
 
-                // Log the incoming payload as JSON so we can inspect fields (acts like a breakpoint)
+                // Log the incoming payload as JSON so we can inspect fields
                 try
                 {
-                    // Log raw JSON received for better debugging
                     var raw = payload.GetRawText();
                     _logger.LogInformation("Create schedule payload received: {Payload}", raw);
                 }
@@ -215,17 +267,66 @@ namespace BoldAdhocEmbed.Server.Controllers
                     _logger.LogWarning(ex, "Failed to serialize schedule payload for logging");
                 }
 
-                // Forward the raw JSON string to the service so it is posted unchanged
-                var (ok, statusCode, respBody) = await _boldReportsService.CreateScheduleAsync(token, payload.GetRawText());
-                if (!ok || statusCode < 200 || statusCode >= 300)
+                // Check if it is a dashboard schedule
+                bool isDashboard = false;
+                if (payload.TryGetProperty("ItemType", out var itemTypeProp) || payload.TryGetProperty("itemType", out itemTypeProp))
                 {
-                    _logger.LogWarning("Failed to create schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
-                    var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to create schedule - you may not have permission" : respBody;
-                    return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    var val = itemTypeProp.GetString();
+                    if (string.Equals(val, "Dashboard", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isDashboard = true;
+                    }
                 }
 
-                _logger.LogInformation("Successfully created schedule for authenticated user");
-                return Ok(ApiResponse.SuccessResponse("Schedule created successfully"));
+                if (isDashboard)
+                {
+                    var biToken = await _boldBIDashboardService.GetTokenAsync(userEmail);
+                    if (string.IsNullOrEmpty(biToken))
+                    {
+                        return Unauthorized(ApiResponse.ErrorResponse("Unauthorized to access Dashboard Service"));
+                    }
+
+                    var (ok, statusCode, respBody) = await _boldBIDashboardService.CreateScheduleAsync(biToken, payload.GetRawText());
+                    if (!ok || statusCode < 200 || statusCode >= 300)
+                    {
+                        _logger.LogWarning("Failed to create dashboard schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
+                        var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to create dashboard schedule - you may not have permission" : respBody;
+                        return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    }
+
+                    _logger.LogInformation("Successfully created dashboard schedule for authenticated user");
+                    
+                    // Invalidate schedules cache
+                    var cacheKey = $"schedules-list-{userEmail}";
+                    await _cacheService.RemoveAsync(cacheKey);
+
+                    return Ok(ApiResponse.SuccessResponse("Dashboard schedule created successfully"));
+                }
+                else
+                {
+                    var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        _logger.LogWarning("No token provided for creating schedule");
+                        return Unauthorized(ApiResponse.UnauthorizedResponse());
+                    }
+
+                    var (ok, statusCode, respBody) = await _boldReportsService.CreateScheduleAsync(token, payload.GetRawText());
+                    if (!ok || statusCode < 200 || statusCode >= 300)
+                    {
+                        _logger.LogWarning("Failed to create schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
+                        var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to create schedule - you may not have permission" : respBody;
+                        return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    }
+
+                    _logger.LogInformation("Successfully created schedule for authenticated user");
+                    
+                    // Invalidate schedules cache
+                    var cacheKey = $"schedules-list-{userEmail}";
+                    await _cacheService.RemoveAsync(cacheKey);
+
+                    return Ok(ApiResponse.SuccessResponse("Schedule created successfully"));
+                }
             }
             catch (Exception ex)
             {
@@ -249,13 +350,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "Schedule payload is required"));
                 }
 
-                // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
-                if (string.IsNullOrEmpty(token))
-                {
-                    _logger.LogWarning("No token provided for updating schedule {ScheduleId}", id);
-                    return Unauthorized(ApiResponse.UnauthorizedResponse());
-                }
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
 
                 // Log payload for debugging similar to Create
                 try
@@ -268,16 +364,59 @@ namespace BoldAdhocEmbed.Server.Controllers
                     _logger.LogWarning(ex, "Failed to serialize update payload for logging");
                 }
 
-                // Forward raw JSON to Bold Reports service to perform update
-                var (ok, statusCode, respBody) = await _boldReportsService.UpdateScheduleAsync(token, id, payload.GetRawText());
-                if (!ok || statusCode < 200 || statusCode >= 300)
+                // Check if it is a dashboard schedule
+                bool isDashboard = false;
+                if (payload.TryGetProperty("ItemType", out var itemTypeProp) || payload.TryGetProperty("itemType", out itemTypeProp))
                 {
-                    _logger.LogWarning("Failed to update schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
-                    var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to update schedule - you may not have permission" : respBody;
-                    return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    var val = itemTypeProp.GetString();
+                    if (string.Equals(val, "Dashboard", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isDashboard = true;
+                    }
                 }
 
-                _logger.LogInformation("Successfully updated schedule {ScheduleId}", id);
+                if (isDashboard)
+                {
+                    var biToken = await _boldBIDashboardService.GetTokenAsync(userEmail);
+                    if (string.IsNullOrEmpty(biToken))
+                    {
+                        return Unauthorized(ApiResponse.ErrorResponse("Unauthorized to access Dashboard Service"));
+                    }
+
+                    var (ok, statusCode, respBody) = await _boldBIDashboardService.UpdateScheduleAsync(biToken, id, payload.GetRawText());
+                    if (!ok || statusCode < 200 || statusCode >= 300)
+                    {
+                        _logger.LogWarning("Failed to update dashboard schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
+                        var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to update dashboard schedule - you may not have permission" : respBody;
+                        return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    }
+
+                    _logger.LogInformation("Successfully updated dashboard schedule {ScheduleId}", id);
+                }
+                else
+                {
+                    var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        _logger.LogWarning("No token provided for updating schedule {ScheduleId}", id);
+                        return Unauthorized(ApiResponse.UnauthorizedResponse());
+                    }
+
+                    var (ok, statusCode, respBody) = await _boldReportsService.UpdateScheduleAsync(token, id, payload.GetRawText());
+                    if (!ok || statusCode < 200 || statusCode >= 300)
+                    {
+                        _logger.LogWarning("Failed to update schedule - external API returned {StatusCode}: {Response}", statusCode, respBody);
+                        var message = string.IsNullOrWhiteSpace(respBody) ? "Failed to update schedule - you may not have permission" : respBody;
+                        return StatusCode(502, ApiResponse.ErrorResponse("External API Error", message));
+                    }
+
+                    _logger.LogInformation("Successfully updated schedule {ScheduleId}", id);
+                }
+                
+                // Invalidate schedules cache
+                var cacheKey = $"schedules-list-{userEmail}";
+                await _cacheService.RemoveAsync(cacheKey);
+
                 return Ok(ApiResponse.SuccessResponse("Schedule updated successfully"));
             }
             catch (Exception ex)
@@ -297,15 +436,26 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "Schedule ID is required"));
                 }
 
-                // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
-                if (string.IsNullOrEmpty(token))
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+
+                var ok = false;
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (!string.IsNullOrEmpty(token))
                 {
-                    _logger.LogWarning("No token provided for deleting schedule {ScheduleId}", id);
-                    return Unauthorized(ApiResponse.UnauthorizedResponse());
+                    ok = await _boldReportsService.DeleteScheduleAsync(token, id);
                 }
 
-                var ok = await _boldReportsService.DeleteScheduleAsync(token, id);
+                if (!ok)
+                {
+                    // Fallback: try deleting from Bold BI dashboard schedules
+                    var biToken = await _boldBIDashboardService.GetTokenAsync(userEmail);
+                    if (!string.IsNullOrEmpty(biToken))
+                    {
+                        ok = await _boldBIDashboardService.DeleteScheduleAsync(biToken, id);
+                    }
+                }
+
                 if (!ok)
                 {
                     _logger.LogWarning("Failed to delete schedule {ScheduleId} - external API returned failure or user may not have permission", id);
@@ -313,6 +463,11 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 _logger.LogInformation("Successfully deleted schedule {ScheduleId}", id);
+                
+                // Invalidate schedules cache
+                var cacheKey = $"schedules-list-{userEmail}";
+                await _cacheService.RemoveAsync(cacheKey);
+
                 return Ok(ApiResponse.SuccessResponse("Schedule deleted successfully"));
             }
             catch (Exception ex)
@@ -338,7 +493,7 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 // Get token from the authenticated user's request
                 // User must have permissions to run the schedule
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for running schedule {ScheduleId}", id);

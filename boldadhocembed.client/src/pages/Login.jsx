@@ -99,12 +99,12 @@ export default function Login() {
                   <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
                     <defs>
                       <linearGradient id="acmeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#FF4800" />
-                        <stop offset="100%" stop-color="#FF7F50" />
+                        <stop offset="0%" stopColor="#FF4800" />
+                        <stop offset="100%" stopColor="#FF7F50" />
                       </linearGradient>
                       <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#131F3B" />
-                        <stop offset="100%" stop-color="#1E293B" />
+                        <stop offset="0%" stopColor="#131F3B" />
+                        <stop offset="100%" stopColor="#1E293B" />
                       </linearGradient>
                     </defs>
                     <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />

@@ -13,6 +13,7 @@ import {
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { reportsAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
+import { authService } from '../services/authService';
 // Replaced Syncfusion UI components with native React/HTML equivalents.
 import { motion } from 'framer-motion';
 import '../styles/reports.css';
@@ -26,6 +27,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('default'); // default | shared | own
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [viewerSettings, setViewerSettings] = useState(null);
@@ -66,10 +68,23 @@ export default function Reports() {
     const categories = Array.isArray(tree) ? tree : [];
     const term = debouncedSearchTerm.toLowerCase().trim();
 
+    const currentUser = authService.getUser()?.user || authService.getUser();
+    const currentUserId = currentUser?.id || currentUser?.userId;
+    console.log('[Reports Page] Current logged-in user ID:', currentUserId, 'User object:', currentUser);
+
     return categories
       .map(cat => {
         const catName = String(cat.Name || cat.name || 'Uncategorized').trim();
         const reports = (cat.Reports || cat.reports || []).filter(r => {
+          // Tab filtering
+          const isOwn = String(r.CreatedById || r.createdById) === String(currentUserId);
+          const isPublic = r.IsPublic || r.isPublic;
+
+          if (activeTab === 'default' && !isPublic) return false;
+          if (activeTab === 'shared' && (isPublic || isOwn)) return false;
+          if (activeTab === 'own' && !isOwn) return false;
+
+          // Search term filtering
           if (!term) return true;
           const name = String(r.Name || r.name || '').toLowerCase();
           const desc = String(r.Description || r.description || '').toLowerCase();
@@ -92,8 +107,8 @@ export default function Reports() {
           reportCount: reports.length,
         };
       })
-      .filter(node => node.subChild.length > 0 || !debouncedSearchTerm);
-  }, [tree, debouncedSearchTerm, expandedCategories]);
+      .filter(node => node.subChild.length > 0);
+  }, [tree, debouncedSearchTerm, expandedCategories, activeTab]);
 
   const treeFields = {
     dataSource: treeViewData,
@@ -112,6 +127,7 @@ export default function Reports() {
     try {
       const data = await getReports();
       const normalized = Array.isArray(data) ? data : [];
+      console.log('[Reports Page] Loaded report tree from API:', normalized);
       setTree(normalized);
       // Auto-expand all categories on first load
       const initialExpanded = new Set(normalized.map(cat => `cat_${cat.Id || cat.id}`));
@@ -200,7 +216,8 @@ export default function Reports() {
     setSelectedReport(report);
     setSelectedCategory(category || null);
     setViewerKey(prev => prev + 1);
-    if (window.innerWidth < 1024) setReportsSidebarCollapsed(true);
+    // Collapse folder tree sidebar when report renders
+    setReportsSidebarCollapsed(true);
   };
 
   const handleEditReport = (reportName, category) => {
@@ -282,16 +299,22 @@ export default function Reports() {
       );
     }
 
+    const isSelected = selectedReport && (selectedReport.Id === data.reportRef?.Id || selectedReport.Id === data.reportRef?.id || selectedReport.Name === data.text || selectedReport.name === data.text);
+
     return (
       <div
-        className="rich-card flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer relative"
+        className={`rich-card flex items-center justify-between py-2 px-3 rounded-lg transition-colors group cursor-pointer relative ${
+          isSelected 
+            ? 'bg-[#E5F3FF] text-[#2563EB] border-l-[3px] border-[#2563EB] font-semibold dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] dark:border-l-[3px] dark:border-[#3B82F6]' 
+            : 'bg-white dark:bg-transparent text-[#2D343D] dark:text-gray-300 hover:bg-[#F5F7FA] dark:hover:bg-slate-800/50'
+        }`}
         title={data.description ? `${data.text}\n${data.description}` : data.text}
         onClick={(e) => { if (onReportClick) onReportClick(data.reportRef, data.categoryName); }}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <DocumentIcon className="w-5 h-5 text-[var(--info)] flex-shrink-0" />
+          <DocumentIcon className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-[#2563EB] dark:text-[#60A5FA]' : 'text-[#6B7280] dark:text-gray-400'}`} />
           <span 
-            className="font-medium text-sm text-[var(--text-strong)] truncate pr-2"
+            className="font-medium text-sm truncate pr-2"
             title={data.text}
           >
             {data.text}
@@ -461,7 +484,8 @@ export default function Reports() {
         locale: 'en-US',
         processingMode: 'Remote',
         height: '100%',
-        width: '100%'
+        width: '100%',
+        isResponsive: true
       });
 
       console.log('jQuery viewer initialized with path:', reportPath);
@@ -477,6 +501,43 @@ export default function Reports() {
       }
     };
   }, [viewerKey, reportPath, reportServiceUrl, reportServerUrl, serviceAuthorizationToken, toolbarSettings]);
+
+  // Handle responsive layout calculations when folder tree sidebar collapses or expands
+  useEffect(() => {
+    const handleLayoutResize = () => {
+      // Dispatch standard window resize event so the responsive layout updates
+      window.dispatchEvent(new Event('resize'));
+
+      // Programmatically trigger page fitting to container if available
+      const $ = window.$ || window.jQuery;
+      if ($) {
+        const elem = viewerDivRef.current;
+        if (elem) {
+          const sel = `#${elem.id}`;
+          const viewerObj = $(sel).data('boldReportViewer');
+          if (viewerObj && typeof viewerObj.fitToPageWidth === 'function') {
+            try {
+              viewerObj.fitToPageWidth();
+            } catch (e) {
+              console.warn('Failed to call fitToPageWidth:', e);
+            }
+          }
+        }
+      }
+    };
+
+    // Trigger multiple times during and after the sidebar toggle animation
+    const timers = [
+      setTimeout(handleLayoutResize, 50),
+      setTimeout(handleLayoutResize, 150),
+      setTimeout(handleLayoutResize, 300),
+      setTimeout(handleLayoutResize, 500)
+    ];
+
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [reportsSidebarCollapsed, sidebarWidth]);
 
   return (
     <div className="reports-page font-inter">
@@ -500,6 +561,42 @@ export default function Reports() {
           className={`reports-sidebar ${reportsSidebarCollapsed ? 'collapsed' : ''}`}
           style={{ width: reportsSidebarCollapsed ? 0 : sidebarWidth }}
         >
+          {/* Tab Filters */}
+          {!reportsSidebarCollapsed && (
+            <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700 flex gap-1 bg-gray-50 dark:bg-gray-900/50">
+              <button
+                onClick={() => setActiveTab('default')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'default'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Public
+              </button>
+              <button
+                onClick={() => setActiveTab('shared')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'shared'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Shared
+              </button>
+              <button
+                onClick={() => setActiveTab('own')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'own'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Own
+              </button>
+            </div>
+          )}
+
           {!reportsSidebarCollapsed && (
             <div className="reports-search">
               <input
@@ -512,52 +609,45 @@ export default function Reports() {
             </div>
           )}
 
-          <div className="reports-tree">
-            {loading ? (
-              <div className="reports-tree-loading">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-3"></div>
-                <p>Loading reports...</p>
-              </div>
-            ) : treeViewData.length === 0 ? (
-              <div className="reports-tree-empty">
-                <DocumentIcon className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
-                <p>No reports found</p>
-                {searchTerm && <p className="text-sm mt-1">Try a different keyword</p>}
-              </div>
-            ) : (
-              <div className="modern-tree">
-                {treeViewData.map((node) => (
-                  <div key={node.id} className="mb-2">
-                    <div onClick={() => {
-                      const newSet = new Set(expandedCategories);
-                      if (newSet.has(node.id)) newSet.delete(node.id); else newSet.add(node.id);
-                      setExpandedCategories(newSet);
-                    }}>
-                      {nodeTemplate(node)}
-                    </div>
-
-                    {expandedCategories.has(node.id) && node.subChild.map((child) => (
-                      <div key={child.id} className="ml-4">
-                        {nodeTemplate(child, handleSelectReport)}
+          {!reportsSidebarCollapsed && (
+            <div className="reports-tree">
+              {loading ? (
+                <div className="reports-tree-loading">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-3"></div>
+                  <p>Loading reports...</p>
+                </div>
+              ) : treeViewData.length === 0 ? (
+                <div className="reports-tree-empty">
+                  <DocumentIcon className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+                  <p>No reports found</p>
+                  {searchTerm && <p className="text-sm mt-1">Try a different keyword</p>}
+                </div>
+              ) : (
+                <div className="modern-tree">
+                  {treeViewData.map((node) => (
+                    <div key={node.id} className="mb-2">
+                      <div onClick={() => {
+                        const newSet = new Set(expandedCategories);
+                        if (newSet.has(node.id)) newSet.delete(node.id); else newSet.add(node.id);
+                        setExpandedCategories(newSet);
+                      }}>
+                        {nodeTemplate(node)}
                       </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                      {expandedCategories.has(node.id) && node.subChild.map((child) => (
+                        <div key={child.id} className="ml-4">
+                          {nodeTemplate(child, handleSelectReport)}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {!reportsSidebarCollapsed && (
-          <div
-            className="sidebar-resizer"
-            onMouseDown={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
-            onTouchStart={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-          />
-        )}
+        {/* Resizer hidden based on feedback */}
 
         {/* Viewer / Placeholder */}
         <div className="reports-view">

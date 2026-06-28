@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using BoldAdhocEmbed.Server.Models;
+using BoldAdhocEmbed.Server.Services;
 
 namespace BoldAdhocEmbed.Server.Controllers
 {
@@ -118,6 +119,115 @@ namespace BoldAdhocEmbed.Server.Controllers
 
             errorMessage = null;
             return true;
+        }
+
+        /// <summary>
+        /// Extract user email from either a session token or JWT token
+        /// </summary>
+        protected string GetEmailFromToken(string token)
+        {
+            if (string.IsNullOrEmpty(token)) return null;
+
+            // 1. Try decoding as local session token (Email:Ticks)
+            try
+            {
+                var decodedBytes = Convert.FromBase64String(token);
+                var decodedString = System.Text.Encoding.UTF8.GetString(decodedBytes);
+                var parts = decodedString.Split(':');
+                if (parts.Length == 2 && parts[0].Contains("@") && long.TryParse(parts[1], out _))
+                {
+                    return parts[0];
+                }
+            }
+            catch
+            {
+                // Not a session token
+            }
+
+            // 2. Try decoding as JWT token
+            try
+            {
+                var parts = token.Split('.');
+                if (parts.Length == 3)
+                {
+                    var payload = parts[1];
+                    while (payload.Length % 4 != 0)
+                        payload += "=";
+                    
+                    var decodedBytes = Convert.FromBase64String(payload);
+                    var decodedString = System.Text.Encoding.UTF8.GetString(decodedBytes);
+                    
+                    // Look for email or unique_name in JSON
+                    var emailIndex = decodedString.IndexOf("\"email\":\"", StringComparison.OrdinalIgnoreCase);
+                    if (emailIndex >= 0)
+                    {
+                        var emailStart = emailIndex + 9;
+                        var emailEnd = decodedString.IndexOf("\"", emailStart);
+                        return decodedString.Substring(emailStart, emailEnd - emailStart);
+                    }
+
+                    var nameIndex = decodedString.IndexOf("\"unique_name\":\"", StringComparison.OrdinalIgnoreCase);
+                    if (nameIndex >= 0)
+                    {
+                        var nameStart = nameIndex + 15;
+                        var nameEnd = decodedString.IndexOf("\"", nameStart);
+                        return decodedString.Substring(nameStart, nameEnd - nameStart);
+                    }
+                }
+            }
+            catch
+            {
+                // Not a valid JWT token
+            }
+
+            // 3. Fallback: check headers
+            var headerEmail = Request.Headers["X-User-Email"].ToString();
+            if (!string.IsNullOrEmpty(headerEmail))
+            {
+                return headerEmail;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Exchange a local session token (or JWT) for a real Bold Reports token on-the-fly
+        /// </summary>
+        protected async Task<string> GetBoldReportsTokenAsync(IBoldReportsService boldReportsService)
+        {
+            var token = GetTokenFromRequest();
+            if (string.IsNullOrEmpty(token)) return null;
+
+            var email = GetEmailFromToken(token);
+            if (!string.IsNullOrEmpty(email))
+            {
+                // Check cache first to avoid requesting new token every time
+                var cacheKey = $"bold-reports-exchanged-token-{email}";
+                var cacheService = HttpContext.RequestServices.GetService<ICacheService>();
+                if (cacheService != null)
+                {
+                    var cachedToken = await cacheService.GetAsync<string>(cacheKey);
+                    if (!string.IsNullOrEmpty(cachedToken))
+                    {
+                        return cachedToken;
+                    }
+                }
+
+                // Exchange for real Bold Reports token
+                var realToken = await boldReportsService.GetTokenFromSecretAsync(email);
+                if (!string.IsNullOrEmpty(realToken))
+                {
+                    Logger.LogInformation("Exchanged token for user {Email}", email);
+                    if (cacheService != null)
+                    {
+                        // Cache the token for 1 hour
+                        await cacheService.SetAsync(cacheKey, realToken, TimeSpan.FromHours(1));
+                    }
+                    return realToken;
+                }
+            }
+
+            return token;
         }
     }
 }

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BoldBI } from '@boldbi/boldbi-embedded-sdk';
 import dashboardsAPI from '../services/dashboardService';
 import { useData } from '../context/DataContext';
+import { authService } from '../services/authService';
 
 import { motion } from 'framer-motion';
-import { ChevronRightIcon, ChevronLeftIcon, ChartBarIcon, ChevronDownIcon, FolderIcon } from '@heroicons/react/24/outline';
-import { useLocation } from 'react-router-dom';
+import { ChevronRightIcon, ChevronLeftIcon, ChartBarIcon, ChevronDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useLocation, Link } from 'react-router-dom';
 import '../styles/Dashboards.css'; // keep if you have custom overrides
 import '../styles/reports.css';           // main shared styles
 
@@ -25,6 +26,7 @@ const Dashboards = () => {
   const isResizingRef = useRef(false);
   const mainRef = useRef(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [activeTab, setActiveTab] = useState('default'); // default | shared | own
 
   // Normalize dashboard props
   const normalizeDashboard = (d) => ({
@@ -126,16 +128,22 @@ const Dashboards = () => {
       );
     }
 
+    const isSelected = selectedDashboard && (selectedDashboard.id === data.dashboardRef?.id || selectedDashboard.Id === data.dashboardRef?.Id);
+
     return (
       <div
-        className="rich-card flex flex-col py-2 px-3 rounded-lg hover:bg-[var(--brand-100)] transition-colors group cursor-pointer"
+        className={`rich-card flex flex-col py-2 px-3 rounded-lg transition-colors group cursor-pointer ${
+          isSelected 
+            ? 'bg-[#E5F3FF] text-[#2563EB] border-l-[3px] border-[#2563EB] font-semibold dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] dark:border-l-[3px] dark:border-[#3B82F6]' 
+            : 'bg-white dark:bg-transparent text-[#2D343D] dark:text-gray-300 hover:bg-[#F5F7FA] dark:hover:bg-slate-800/50'
+        }`}
         title={data.dashboardRef?.description ? `${data.text}\n${data.dashboardRef.description}` : data.text}
         onClick={(e) => { if (onDashboardClick) onDashboardClick(data.dashboardRef); }}
       >
         <div className="flex items-center gap-3 mb-1">
-          <ChartBarIcon className="w-5 h-5 text-[var(--info)] flex-shrink-0" />
+          <ChartBarIcon className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-[#2563EB] dark:text-[#60A5FA]' : 'text-[#6B7280] dark:text-gray-400'}`} />
           <span 
-            className="font-medium text-sm text-[var(--text-strong)] truncate max-w-[160px]"
+            className="font-medium text-sm truncate max-w-[160px]"
             title={data.text}
           >
             {data.text}
@@ -147,20 +155,42 @@ const Dashboards = () => {
 
   const filteredDashboards = useMemo(() => {
     const term = debouncedSearchTerm.toLowerCase().trim();
-    if (!term) return dashboards;
+
+    const currentUser = authService.getUser()?.user || authService.getUser();
+    const currentUserId = currentUser?.id || currentUser?.userId;
+
     return dashboards.filter(d => {
+      // Tab filtering
+      const isOwn = String(d.ownerId || d.OwnerId) === String(currentUserId);
+      const isPublic = d.isPublic || d.IsPublic;
+
+      if (activeTab === 'default' && !isPublic) return false;
+      if (activeTab === 'shared' && (isPublic || isOwn)) return false;
+      if (activeTab === 'own' && !isOwn) return false;
+
+      // Search term filtering
+      if (!term) return true;
       const n = (d.name || '').toLowerCase();
       const c = (d.category || '').toLowerCase();
       const desc = (d.description || '').toLowerCase();
       return n.includes(term) || c.includes(term) || desc.includes(term);
     });
-  }, [dashboards, debouncedSearchTerm]);
+  }, [dashboards, debouncedSearchTerm, activeTab]);
 
   const treeViewData = useMemo(() => {
     const byCat = new Map();
+    
+    // 1. Initialize all categories from the unfiltered dashboards list to show empty folders
+    dashboards.forEach(d => {
+      const cat = d.category || 'Uncategorized';
+      if (!byCat.has(cat)) {
+        byCat.set(cat, []);
+      }
+    });
+
+    // 2. Populate the categories with their matching filtered dashboards
     filteredDashboards.forEach(d => {
       const cat = d.category || 'Uncategorized';
-      if (!byCat.has(cat)) byCat.set(cat, []);
       byCat.get(cat).push({
         id: `db_${d.id}`,
         text: String(d.name || 'Untitled Dashboard'),
@@ -169,13 +199,17 @@ const Dashboards = () => {
         categoryName: cat,
       });
     });
-    return Array.from(byCat.entries()).map(([cat, items]) => ({
-      id: `cat_${cat}`,
-      text: cat,
-      expanded: true,
-      subChild: items,
-    }));
-  }, [filteredDashboards]);
+
+    // 3. Only keep folders that have matching dashboards
+    return Array.from(byCat.entries())
+      .map(([cat, items]) => ({
+        id: `cat_${cat}`,
+        text: cat,
+        expanded: true,
+        subChild: items,
+      }))
+      .filter(node => node.subChild.length > 0);
+  }, [dashboards, filteredDashboards]);
 
   // Initialize expanded categories on first load
   useEffect(() => {
@@ -260,14 +294,12 @@ const Dashboards = () => {
           <p className="reports-topbar-sub">Browse, preview & manage your dashboards</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-3 py-2 border rounded hover:bg-gray-50" onClick={loadDashboards}>
-            Refresh
-          </button>
-          {/* Optional: Add create if your app supports it */}
-          {/* <ButtonComponent cssClass="e-primary modern-btn">
-            <PlusIcon className="w-5 h-5 mr-1.5" />
-            New Dashboard
-          </ButtonComponent> */}
+          <Link to="/dashboards/designer">
+            <button className="e-primary modern-btn flex items-center gap-2">
+              <PlusIcon className="w-5 h-5" />
+              New Dashboard
+            </button>
+          </Link>
         </div>
       </div>
 
@@ -278,6 +310,42 @@ const Dashboards = () => {
           className={`reports-sidebar ${dashboardsSidebarCollapsed ? 'collapsed' : ''}`}
           style={{ width: dashboardsSidebarCollapsed ? 0 : sidebarWidth }}
         >
+          {/* Tab Filters */}
+          {!dashboardsSidebarCollapsed && (
+            <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700 flex gap-1 bg-gray-50 dark:bg-gray-900/50">
+              <button
+                onClick={() => setActiveTab('default')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'default'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Public
+              </button>
+              <button
+                onClick={() => setActiveTab('shared')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'shared'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Shared
+              </button>
+              <button
+                onClick={() => setActiveTab('own')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === 'own'
+                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
+                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Own
+              </button>
+            </div>
+          )}
+
           {!dashboardsSidebarCollapsed && (
             <div className="reports-search">
               <input
@@ -289,48 +357,41 @@ const Dashboards = () => {
             </div>
           )}
 
-          <div className="reports-tree">
-            {loading ? (
-              <div className="reports-tree-loading">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-3"></div>
-                <p>Loading dashboards...</p>
-              </div>
-            ) : treeViewData.length === 0 ? (
-              <div className="reports-tree-empty">
-                <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p>No dashboards found</p>
-                {searchTerm && <p className="text-sm mt-1">Try adjusting your search</p>}
-              </div>
-            ) : (
-              <div className="modern-tree">
-                {treeViewData.map((node) => (
-                  <div key={node.id} className="mb-2">
-                    <div onClick={() => toggleCategory(node.id)}>
-                      {nodeTemplate(node)}
-                    </div>
-
-                    {expandedCategories.has(node.id) && node.subChild?.map((child) => (
-                      <div key={child.id} className="ml-4">
-                        {nodeTemplate(child, handleSelectDashboard)}
+          {!dashboardsSidebarCollapsed && (
+            <div className="reports-tree">
+              {loading ? (
+                <div className="reports-tree-loading">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-3"></div>
+                  <p>Loading dashboards...</p>
+                </div>
+              ) : treeViewData.length === 0 ? (
+                <div className="reports-tree-empty">
+                  <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p>No dashboards found</p>
+                  {searchTerm && <p className="text-sm mt-1">Try adjusting your search</p>}
+                </div>
+              ) : (
+                <div className="modern-tree">
+                  {treeViewData.map((node) => (
+                    <div key={node.id} className="mb-2">
+                      <div onClick={() => toggleCategory(node.id)}>
+                        {nodeTemplate(node)}
                       </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                      {expandedCategories.has(node.id) && node.subChild?.map((child) => (
+                        <div key={child.id} className="ml-4">
+                          {nodeTemplate(child, handleSelectDashboard)}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {!dashboardsSidebarCollapsed && (
-          <div
-            className="sidebar-resizer"
-            onMouseDown={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
-            onTouchStart={(e) => { isResizingRef.current = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); }}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-          />
-        )}
+        {/* Resizer hidden based on feedback */}
 
         {/* Viewer area */}
         <div className="reports-view">

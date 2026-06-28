@@ -124,6 +124,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                         Message = $"Login successful using {authMethod} authentication",
                         User = new AppUser
                         {
+                            Id = rbacUser.Id,
                             Email = rbacUser.Email,
                             Name = rbacUser.Name,
                             Role = rbacUser.Role,
@@ -157,6 +158,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                             // Create RBAC user from Bold Reports user for consistency
                             var rbacUserFromBold = new AppUser
                             {
+                                Id = user.Id,
                                 Email = user.Email,
                                 Name = user.FullName ?? user.FirstName,
                                 Role = "Sales", // Default role for Bold Reports users

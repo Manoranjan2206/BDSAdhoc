@@ -10,15 +10,56 @@ import Dashboards from './pages/Dashboards';
 import Schedules from './pages/Schedules';
 import Settings from './pages/Settings';
 import Designer from './pages/Designer';
+import DashboardDesigner from './pages/DashboardDesigner';
 import { authService } from './services/authService';
 import { DataProvider } from './context/DataContext';
 import { applyTheme } from './themeConfig';
 
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('settings_theme');
+    if (savedTheme === 'Dark Theme') return true;
+    if (savedTheme === 'Light Theme') return false;
+    // Fallback to system preferences or standard localStorage darkMode
+    const savedDarkMode = localStorage.getItem('darkMode');
+    if (savedDarkMode !== null) return savedDarkMode === 'true';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [syncfusionBaseTheme, setSyncfusionBaseTheme] = useState('tailwind3'); // tailwind3 | bootstrap5.3 | material3 | fluent2
   const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  // Synchronize theme across tabs and components
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const savedTheme = localStorage.getItem('settings_theme');
+      if (savedTheme === 'Dark Theme') {
+        setDarkMode(true);
+      } else if (savedTheme === 'Light Theme') {
+        setDarkMode(false);
+      } else {
+        // System Default
+        setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+      }
+    };
+
+    window.addEventListener('storage', handleThemeChange);
+    window.addEventListener('theme-changed', handleThemeChange);
+    return () => {
+      window.removeEventListener('storage', handleThemeChange);
+      window.removeEventListener('theme-changed', handleThemeChange);
+    };
+  }, []);
+
+  const handleToggleDarkMode = () => {
+    setDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('settings_theme', next ? 'Dark Theme' : 'Light Theme');
+      localStorage.setItem('darkMode', String(next));
+      window.dispatchEvent(new Event('theme-changed'));
+      return next;
+    });
+  };
 
   // Check authentication status on app load
   useEffect(() => {
@@ -70,7 +111,7 @@ export default function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                     <Home />
                   </Layout>
                 </ProtectedRoute>
@@ -80,7 +121,7 @@ export default function App() {
             path="/reports"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Reports />
                 </Layout>
               </ProtectedRoute>
@@ -90,7 +131,7 @@ export default function App() {
             path="/designer"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Designer />
                 </Layout>
               </ProtectedRoute>
@@ -100,7 +141,7 @@ export default function App() {
             path="/reports/designer"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Designer />
                 </Layout>
               </ProtectedRoute>
@@ -110,7 +151,7 @@ export default function App() {
             path="/simple-designer"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Designer />
                 </Layout>
               </ProtectedRoute>
@@ -120,8 +161,18 @@ export default function App() {
             path="/dashboards"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Dashboards />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboards/designer"
+            element={
+              <ProtectedRoute>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
+                  <DashboardDesigner />
                 </Layout>
               </ProtectedRoute>
             }
@@ -131,7 +182,7 @@ export default function App() {
             path="/schedules"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Schedules />
                 </Layout>
               </ProtectedRoute>
@@ -141,7 +192,7 @@ export default function App() {
             path="/settings"
             element={
               <ProtectedRoute>
-                <Layout darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)}>
+                <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
                   <Settings />
                 </Layout>
               </ProtectedRoute>

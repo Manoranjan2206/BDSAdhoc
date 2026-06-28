@@ -6,37 +6,21 @@ namespace BoldAdhocEmbed.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]/[action]")]
-    public class UsersController : ControllerBase
+    public class UsersController : BaseController
     {
         private readonly IBoldReportsService _boldReportsService;
         private readonly ILogger<UsersController> _logger;
+        private readonly ICacheService _cacheService;
 
         public UsersController(
             IBoldReportsService boldReportsService,
-            ILogger<UsersController> logger)
+            ILogger<UsersController> logger,
+            ICacheService cacheService)
+            : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-
-        /// <summary>
-        /// Extract token from Authorization header (Bearer token format)
-        /// </summary>
-        private string GetTokenFromRequest()
-        {
-            var authHeader = Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                return null;
-            }
-
-            // Format: "Bearer eyJ0eXAi..."
-            if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return authHeader.Substring("Bearer ".Length).Trim();
-            }
-
-            return authHeader;
+            _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
         }
 
         [HttpGet]
@@ -45,11 +29,22 @@ namespace BoldAdhocEmbed.Server.Controllers
             try
             {
                 // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided in Authorization header for GetUsers");
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                // Check cache first
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"users-list-{userEmail}";
+                var cachedUsers = await _cacheService.GetAsync<dynamic>(cacheKey);
+                if (cachedUsers != null)
+                {
+                    _logger.LogInformation("Users list retrieved from cache");
+                    return Ok(ApiResponse<dynamic>.SuccessResponse(cachedUsers, "Retrieved users"));
                 }
 
                 // Prefer v5.0 users endpoint, fallback to legacy if needed
@@ -72,6 +67,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }).ToList();
 
                 _logger.LogInformation("Retrieved {UserCount} users for authenticated user", userList.Count);
+
+                // Cache for 5 minutes
+                await _cacheService.SetAsync(cacheKey, (dynamic)userList, TimeSpan.FromMinutes(5));
+
                 return Ok(ApiResponse<dynamic>.SuccessResponse(userList, $"Retrieved {userList.Count} users"));
             }
             catch (Exception ex)
@@ -92,7 +91,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 // Get token from the authenticated user's request
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for getting user {Email}", email);
@@ -140,7 +139,7 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 // Get token from the authenticated user's request
                 // User must have permissions to create users
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for creating user {Email}", request.Email);
@@ -165,6 +164,12 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var createdUser = await _boldReportsService.GetUserAsync(token, request.Email);
                 _logger.LogInformation("Successfully created user: {Email}", request.Email);
                 
+                // Invalidate users cache
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"users-list-{userEmail}";
+                await _cacheService.RemoveAsync(cacheKey);
+
                 return CreatedAtAction(nameof(GetUser), new { email = request.Email }, 
                     ApiResponse<dynamic>.SuccessResponse(createdUser, "User created successfully"));
             }
@@ -187,7 +192,7 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 // Get token from the authenticated user's request
                 // User must have permissions to update users
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for updating user {Email}", email);
@@ -210,6 +215,12 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var updatedUser = await _boldReportsService.GetUserAsync(token, email);
                 _logger.LogInformation("Successfully updated user: {Email}", email);
                 
+                // Invalidate users cache
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"users-list-{userEmail}";
+                await _cacheService.RemoveAsync(cacheKey);
+
                 return Ok(ApiResponse<dynamic>.SuccessResponse(updatedUser, "User updated successfully"));
             }
             catch (Exception ex)
@@ -231,7 +242,7 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 // Get token from the authenticated user's request
                 // User must have permissions to delete users
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogWarning("No token provided for deleting user {Email}", email);
@@ -246,6 +257,13 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 _logger.LogInformation("Successfully deleted user: {Email}", email);
+                
+                // Invalidate users cache
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"users-list-{userEmail}";
+                await _cacheService.RemoveAsync(cacheKey);
+
                 return Ok(ApiResponse.SuccessResponse($"User '{email}' deleted successfully"));
             }
             catch (Exception ex)

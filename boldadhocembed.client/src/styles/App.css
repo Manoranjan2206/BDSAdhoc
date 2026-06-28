@@ -28,12 +28,12 @@ th, td {
   border-color: var(--neutral-200) !important;
 }
 
-.e-btn.e-primary {
+.e-btn.e-primary:not(#reportdesigner-container *):not(#dashboard-designer-container *) {
   background: var(--brand-500) !important;
   border-color: var(--brand-500) !important;
   color: #FFFFFF !important;
 }
 
-.e-btn.e-primary:hover {
+.e-btn.e-primary:not(#reportdesigner-container *):not(#dashboard-designer-container *):hover {
   background: color-mix(in srgb, var(--brand-500) 90%, black) !important;
 }

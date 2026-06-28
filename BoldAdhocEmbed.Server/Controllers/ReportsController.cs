@@ -39,7 +39,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("No token provided in Authorization header for viewer settings");
@@ -77,7 +77,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("No token provided in Authorization header for report tree");
@@ -85,7 +85,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 // Try to get from cache first
-                var cacheKey = $"report-tree-{token.GetHashCode()}";
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var cacheKey = $"report-tree-{userEmail}";
                 var cachedTree = await _cacheService.GetAsync<dynamic>(cacheKey);
                 
                 if (cachedTree != null)
@@ -109,7 +111,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                             r.Name,
                             r.Description,
                             r.CanRead,
-                            r.CanWrite
+                            r.CanWrite,
+                            CreatedById = r.CreatedById,
+                            IsPublic = r.IsPublic
                         }).ToList()
                     })
                     .ToList();
@@ -142,7 +146,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse<BoldReport>.ErrorResponse(errorMsg));
                 }
 
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("No token provided for getting report {ReportId}", id);
@@ -193,7 +197,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "ReportId is required"));
                 }
 
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("No token provided for exporting report {ReportId}", request.ReportId);
@@ -246,7 +250,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "Name is required"));
                 }
 
-                var token = GetTokenFromRequest();
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("No token provided for deleting report {ReportName}", request.Name);
@@ -256,6 +260,11 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var deleted = await _boldReportsService.DeleteReportAsync(token, request.Name, request.Category);
                 if (deleted)
                 {
+                    var requestToken = GetTokenFromRequest();
+                    var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                    var cacheKey = $"report-tree-{userEmail}";
+                    await _cacheService.RemoveAsync(cacheKey);
+
                     Logger.LogInformation("Report {ReportName} deleted successfully", request.Name);
                     return Ok(ApiResponse<bool>.SuccessResponse(true, "Report deleted successfully"));
                 }

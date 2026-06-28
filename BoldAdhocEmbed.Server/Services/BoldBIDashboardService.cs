@@ -17,6 +17,11 @@ namespace BoldAdhocEmbed.Server.Services
         Task<BoldDashboard> GetDashboardAsync(string token, string dashboardId);
         Task<BoldBIEmbedConfig> GetEmbedConfigAsync(string dashboardId);
         Task<string> GetAuthorizationTokenAsync(string embedQueryString, string userEmail, string? serverApiUrlOverride = null);
+        Task<string> GetUserIdByEmailAsync(string token, string email);
+        Task<List<dynamic>> GetSchedulesAsync(string token);
+        Task<(bool success, int statusCode, string responseBody)> CreateScheduleAsync(string token, object schedulePayload);
+        Task<(bool success, int statusCode, string responseBody)> UpdateScheduleAsync(string token, string scheduleId, object schedulePayload);
+        Task<bool> DeleteScheduleAsync(string token, string scheduleId);
     }
 
     public class BoldBIDashboardService : IBoldBIDashboardService
@@ -148,6 +153,42 @@ namespace BoldAdhocEmbed.Server.Services
                 _logger.LogError(ex, "Get dashboards from Bold BI failed");
                 return new List<BoldDashboard>();
             }
+        }
+
+        /// <summary>
+        /// Get BI User ID for a given email address
+        /// </summary>
+        public async Task<string> GetUserIdByEmailAsync(string token, string email)
+        {
+            try
+            {
+                var baseUrl = (_settings.ServerUrl ?? string.Empty).TrimEnd('/');
+                var url = $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v5.0/users/{System.Uri.EscapeDataString(email)}";
+
+                _logger.LogInformation("Retrieving BI User ID from {Url}", url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var userObj = JsonConvert.DeserializeObject<dynamic>(content);
+                    if (userObj != null && userObj.UserId != null)
+                    {
+                        string userId = (string)userObj.UserId.ToString();
+                        _logger.LogInformation("Retrieved BI User ID {UserId} for {Email}", userId, email);
+                        return userId;
+                    }
+                }
+                _logger.LogWarning("Failed to retrieve BI User ID for {Email} with status {StatusCode}: {Response}", email, response.StatusCode, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception while retrieving BI User ID for {Email}", email);
+            }
+            return null;
         }
 
         /// <summary>
@@ -315,6 +356,146 @@ namespace BoldAdhocEmbed.Server.Services
                 return null;
             }
         }
+
+        /// <summary>
+        /// Get list of dashboard schedules from Bold BI
+        /// </summary>
+        public async Task<List<dynamic>> GetSchedulesAsync(string token)
+        {
+            try
+            {
+                var baseUrl = (_settings.ServerUrl ?? string.Empty).TrimEnd('/');
+                var url = $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v3.0/dashboards/schedules";
+
+                _logger.LogInformation("Retrieving dashboard schedules from {Url}", url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var apiResponse = JsonConvert.DeserializeObject<dynamic>(content);
+                    if (apiResponse != null)
+                    {
+                        var data = apiResponse.Data != null ? apiResponse.Data : apiResponse;
+                        var list = JsonConvert.DeserializeObject<List<dynamic>>(data.ToString());
+                        return list ?? new List<dynamic>();
+                    }
+                }
+                _logger.LogWarning("Failed to retrieve dashboard schedules from {Url} with status {StatusCode}: {Response}", url, response.StatusCode, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Get dashboard schedules from Bold BI failed");
+            }
+            return new List<dynamic>();
+        }
+
+        /// <summary>
+        /// Create a new dashboard schedule in Bold BI
+        /// </summary>
+        public async Task<(bool success, int statusCode, string responseBody)> CreateScheduleAsync(string token, object schedulePayload)
+        {
+            try
+            {
+                var baseUrl = (_settings.ServerUrl ?? string.Empty).TrimEnd('/');
+                var url = $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v3.0/dashboards/schedules";
+
+                string json = schedulePayload is string s ? s : JsonConvert.SerializeObject(schedulePayload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _logger.LogInformation("Posting dashboard schedule to {Url}: {Payload}", url, json);
+
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = content
+                };
+                httpRequest.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await _httpClient.SendAsync(httpRequest);
+                var respBody = await response.Content.ReadAsStringAsync();
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Create dashboard schedule failed with status {StatusCode}: {Response}", response.StatusCode, respBody);
+                    return (false, (int)response.StatusCode, respBody);
+                }
+
+                _logger.LogInformation("Create dashboard schedule succeeded with status {StatusCode}: {Response}", response.StatusCode, respBody);
+                return (true, (int)response.StatusCode, respBody);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Create dashboard schedule failed");
+                return (false, 0, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Update an existing dashboard schedule in Bold BI
+        /// </summary>
+        public async Task<(bool success, int statusCode, string responseBody)> UpdateScheduleAsync(string token, string scheduleId, object schedulePayload)
+        {
+            try
+            {
+                var baseUrl = (_settings.ServerUrl ?? string.Empty).TrimEnd('/');
+                var url = $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v3.0/dashboards/schedules/{Uri.EscapeDataString(scheduleId)}";
+
+                string json = schedulePayload is string s ? s : JsonConvert.SerializeObject(schedulePayload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _logger.LogInformation("Updating dashboard schedule at {Url}: {Payload}", url, json);
+
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Put, url)
+                {
+                    Content = content
+                };
+                httpRequest.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await _httpClient.SendAsync(httpRequest);
+                var respBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Update dashboard schedule failed with status {StatusCode}: {Response}", response.StatusCode, respBody);
+                    return (false, (int)response.StatusCode, respBody);
+                }
+
+                _logger.LogInformation("Update dashboard schedule succeeded with status {StatusCode}: {Response}", response.StatusCode, respBody);
+                return (true, (int)response.StatusCode, respBody);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Update dashboard schedule failed for {ScheduleId}", scheduleId);
+                return (false, 0, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Delete an existing dashboard schedule from Bold BI
+        /// </summary>
+        public async Task<bool> DeleteScheduleAsync(string token, string scheduleId)
+        {
+            try
+            {
+                var baseUrl = (_settings.ServerUrl ?? string.Empty).TrimEnd('/');
+                var url = $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v3.0/dashboards/schedules/{Uri.EscapeDataString(scheduleId)}";
+
+                _logger.LogInformation("Deleting dashboard schedule at {Url}", url);
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Delete, url);
+                httpRequest.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await _httpClient.SendAsync(httpRequest);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Delete dashboard schedule failed for {ScheduleId}", scheduleId);
+                return false;
+            }
+        }
     }
 
     // Settings
@@ -332,37 +513,36 @@ namespace BoldAdhocEmbed.Server.Services
     // Models
     public class BoldDashboard
     {
-        [JsonProperty("id")]
+        [JsonProperty("Id")]
         public string Id { get; set; }
 
-        [JsonProperty("name")]
+        [JsonProperty("Name")]
         public string Name { get; set; }
 
-        [JsonProperty("description")]
+        [JsonProperty("Description")]
         public string Description { get; set; }
 
-        [JsonProperty("itemType")]
+        [JsonProperty("ItemType")]
         public string ItemType { get; set; }
 
-        [JsonProperty("createdDate")]
+        [JsonProperty("CreatedDate")]
         public DateTime? CreatedDate { get; set; }
 
-        [JsonProperty("modifiedDate")]
+        [JsonProperty("ModifiedDate")]
         public DateTime? ModifiedDate { get; set; }
 
-        [JsonProperty("createdBy")]
+        [JsonProperty("CreatedByDisplayName")]
         public string CreatedBy { get; set; }
 
-        [JsonProperty("modifiedBy")]
+        [JsonProperty("ModifiedByFullName")]
         public string ModifiedBy { get; set; }
 
-        [JsonProperty("owner")]
-        public string Owner { get; set; }
+        public string Owner => CreatedBy;
 
-        [JsonProperty("ownerId")]
+        [JsonProperty("CreatedById")]
         public string OwnerId { get; set; }
 
-        [JsonProperty("isPublic")]
+        [JsonProperty("IsPublic")]
         public bool? IsPublic { get; set; }
 
         [JsonProperty("tags")]

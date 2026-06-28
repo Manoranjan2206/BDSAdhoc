@@ -14,15 +14,18 @@ namespace BoldAdhocEmbed.Server.Controllers
     {
         private readonly IBoldBIDashboardService _dashboardService;
         private readonly ICacheService _cacheService;
+        private readonly IBoldReportsService _boldReportsService;
 
         public DashboardsController(
             IBoldBIDashboardService dashboardService,
             ILogger<DashboardsController> logger,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IBoldReportsService boldReportsService)
             : base(logger)
         {
             _dashboardService = dashboardService ?? throw new ArgumentNullException(nameof(dashboardService));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+            _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
         }
 
         /// <summary>
@@ -85,7 +88,17 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = User.FindFirst("email")?.Value ?? "manoranjan.rajendran@syncfusion.com";
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+
+                // Check cache first
+                var cacheKey = $"dashboards-list-{userEmail}";
+                var cachedDashboards = await _cacheService.GetAsync<dynamic>(cacheKey);
+                if (cachedDashboards != null)
+                {
+                    Logger.LogInformation("Dashboards list retrieved from cache for {Email}", userEmail);
+                    return Ok(ApiResponse<dynamic>.SuccessResponse(cachedDashboards, "Dashboards retrieved successfully"));
+                }
 
                 var token = await _dashboardService.GetTokenAsync(userEmail);
                 if (string.IsNullOrEmpty(token))
@@ -96,7 +109,60 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 var dashboards = await _dashboardService.GetDashboardsAsync(token);
 
+                try
+                {
+                    // 1. Get BI User ID (with cache)
+                    var biUserCacheKey = $"bi-user-id-{userEmail}";
+                    var biUserId = await _cacheService.GetAsync<string>(biUserCacheKey);
+                    if (string.IsNullOrEmpty(biUserId))
+                    {
+                        biUserId = await _dashboardService.GetUserIdByEmailAsync(token, userEmail);
+                        if (!string.IsNullOrEmpty(biUserId))
+                        {
+                            await _cacheService.SetAsync(biUserCacheKey, biUserId, TimeSpan.FromDays(1));
+                        }
+                    }
+
+                    // 2. Get Reports User ID (with cache)
+                    var reportsUserCacheKey = $"reports-user-id-{userEmail}";
+                    var reportsUserId = await _cacheService.GetAsync<string>(reportsUserCacheKey);
+                    if (string.IsNullOrEmpty(reportsUserId))
+                    {
+                        var reportsToken = await GetBoldReportsTokenAsync(_boldReportsService);
+                        if (!string.IsNullOrEmpty(reportsToken))
+                        {
+                            var reportsUser = await _boldReportsService.GetUserAsync(reportsToken, userEmail);
+                            if (reportsUser != null && !string.IsNullOrEmpty(reportsUser.Id))
+                            {
+                                reportsUserId = reportsUser.Id;
+                                await _cacheService.SetAsync(reportsUserCacheKey, reportsUserId, TimeSpan.FromDays(1));
+                            }
+                        }
+                    }
+
+                    // 3. Map OwnerId if both IDs are available
+                    if (!string.IsNullOrEmpty(biUserId) && !string.IsNullOrEmpty(reportsUserId))
+                    {
+                        Logger.LogInformation("Mapping dashboard OwnerId for user {Email}: BI ID = {BiId}, Reports ID = {ReportsId}", userEmail, biUserId, reportsUserId);
+                        foreach (var d in dashboards)
+                        {
+                            if (string.Equals(d.OwnerId, biUserId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                d.OwnerId = reportsUserId;
+                            }
+                        }
+                    }
+                }
+                catch (Exception mapEx)
+                {
+                    Logger.LogWarning(mapEx, "Error mapping dashboard owner ID for user {Email}", userEmail);
+                }
+
                 Logger.LogInformation("Retrieved {DashboardCount} dashboards", dashboards.Count);
+                
+                // Cache for 5 minutes
+                await _cacheService.SetAsync(cacheKey, (dynamic)dashboards, TimeSpan.FromMinutes(5));
+
                 return Ok(ApiResponse<dynamic>.SuccessResponse((dynamic)dashboards, "Dashboards retrieved successfully"));
             }
             catch (Exception ex)
@@ -121,7 +187,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse<dynamic>.ErrorResponse("Invalid Request", errorMsg));
                 }
 
-                var userEmail = User.FindFirst("email")?.Value ?? "manoranjan.rajendran@syncfusion.com";
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
                 var token = await _dashboardService.GetTokenAsync(userEmail);
 
                 if (string.IsNullOrEmpty(token))
@@ -210,7 +277,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(new { error = "embedQuerString is required" });
                 }
 
-                var userEmail = HttpContext.RequestServices.GetRequiredService<BoldBISettings>()?.UserEmail 
+                var requestToken = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(requestToken) 
+                    ?? HttpContext.RequestServices.GetRequiredService<BoldBISettings>()?.UserEmail 
                     ?? "manoranjan.rajendran@syncfusion.com";
 
                 Logger.LogInformation("Authorizing dashboard for user {UserEmail} with query: {EmbedQueryString}", userEmail, embedClass.embedQuerString);

@@ -108,6 +108,10 @@
 .reports-sidebar.collapsed {
   width: 0 !important;
   min-width: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 /* Make the tree area scrollable and keep the search fixed */
 .reports-search {

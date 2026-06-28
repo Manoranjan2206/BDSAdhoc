@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useData } from '../context/DataContext';
+import { reportsAPI } from '../services/apiService';
 
 export default function Header({ darkMode, onToggleDarkMode }) {
   const { getReports, getDashboards } = useData();
@@ -21,9 +22,21 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   const navigate = useNavigate();
 
   // Load user info on mount
+  const [reportsSettings, setReportsSettings] = useState(null);
+
   useEffect(() => {
     const currentUser = authService.getUser();
-    setUser(currentUser);
+    setUser(currentUser?.user || currentUser);
+
+    const fetchSettings = async () => {
+      try {
+        const settings = await reportsAPI.getViewerSettings();
+        setReportsSettings(settings);
+      } catch (e) {
+        console.warn('Failed to load viewer settings in Header', e);
+      }
+    };
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -229,13 +242,28 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{user?.email}</p>
               </div>
-              <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              <a
+                href={reportsSettings?.serverUrl ? `${reportsSettings.serverUrl}/profile` : 'https://account.boldreports.com/profile'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 Profile Settings
               </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              <a
+                href={reportsSettings?.serverUrl ? `${reportsSettings.serverUrl}/profile` : 'https://account.boldreports.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 Account
               </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              <a
+                href="https://help.boldreports.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 Help & Support
               </a>
               <button

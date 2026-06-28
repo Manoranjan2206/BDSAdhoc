@@ -704,8 +704,17 @@ namespace BoldAdhocEmbed.Server.Services
 
     public class BoldUser
     {
+        private string _id;
+
         [JsonProperty("Id")]
-        public string Id { get; set; }
+        public string Id 
+        { 
+            get => _id ?? UserId; 
+            set => _id = value; 
+        }
+
+        [JsonProperty("UserId")]
+        public string UserId { get; set; }
         
         [JsonProperty("Email")]
         public string Email { get; set; }
@@ -796,6 +805,12 @@ namespace BoldAdhocEmbed.Server.Services
         
         [JsonProperty("CanRead")]
         public bool CanRead { get; set; }
+
+        [JsonProperty("CreatedById")]
+        public int CreatedById { get; set; }
+
+        [JsonProperty("IsPublic")]
+        public bool IsPublic { get; set; }
     }
 
     public class ExportResponse

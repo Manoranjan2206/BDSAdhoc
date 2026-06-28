@@ -12,6 +12,11 @@ import {
   ViewColumnsIcon,
   TableCellsIcon,
   Squares2X2Icon,
+  MagnifyingGlassIcon,
+  ArrowPathIcon,
+  ChartBarIcon,
+  XMarkIcon,
+  FunnelIcon
 } from '@heroicons/react/24/outline';
 import { schedulesAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
@@ -56,12 +61,19 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
   const isEdit = !!schedule;
 
   const title = isEdit
-    ? `Edit Schedule – ${schedule.reportName || 'Report'}`
+    ? `Edit Schedule – ${schedule.reportName || 'Asset'}`
     : 'Create New Schedule';
 
   // Robust category matching
+  const isDashboardInit = isEdit && (
+    (schedule?.itemType || schedule?.ItemType || '').toLowerCase() === 'dashboard' ||
+    (schedule?.categoryName || '').toLowerCase().includes('dashboard')
+  );
+
   let initialCategory = '';
-  if (isEdit && schedule.categoryName) {
+  if (isDashboardInit) {
+    initialCategory = 'Dashboards';
+  } else if (isEdit && schedule.categoryName) {
     const trimmed = schedule.categoryName.trim();
     const exact = categories.find(c => c === trimmed);
     initialCategory = exact || categories.find(c => c.toLowerCase() === trimmed.toLowerCase()) || '';
@@ -76,14 +88,17 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     if (matched) initialReportName = matched.Name;
   }
 
+  const [assetType, setAssetType] = useState(isDashboardInit ? 'Dashboard' : 'Report');
+  const reportCategories = categories.filter(c => c !== 'Dashboards');
+
   const [formData, setFormData] = useState({
     category: initialCategory,
     reportId: initialReportId,
     reportName: initialReportName,
     scheduleName: isEdit ? (schedule.name || '') : '',
     enabled: isEdit ? !!schedule.enabled : true,
-    type: schedule?.scheduleType || 'Hourly',
-    startsOn: schedule?.startTime || toLocalInputValue(),
+    type: schedule?.recurrenceType || schedule?.scheduleType || 'Hourly',
+    startsOn: schedule?.startDate || schedule?.startTime || toLocalInputValue(),
     endsMode: schedule?.neverEnd ? 'never' : (schedule?.endAfterOccurrence > 0 ? 'after' : 'on'),
     afterOccurrences: schedule?.endAfterOccurrence || 1,
     endDate: schedule?.endDate || '',
@@ -104,6 +119,30 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     }
   }, [formData.reportId, formData.category, reportsByCategory]);
 
+  const handleAssetTypeChange = (type) => {
+    setAssetType(type);
+    if (type === 'Dashboard') {
+      const dashboards = reportsByCategory['Dashboards'] || [];
+      const first = dashboards[0] || { Id: '', Name: '' };
+      setFormData(prev => ({
+        ...prev,
+        category: 'Dashboards',
+        reportId: first.Id || '',
+        reportName: first.Name || ''
+      }));
+    } else {
+      const firstCat = reportCategories[0] || '';
+      const reports = reportsByCategory[firstCat] || [];
+      const first = reports[0] || { Id: '', Name: '' };
+      setFormData(prev => ({
+        ...prev,
+        category: firstCat,
+        reportId: first.Id || '',
+        reportName: first.Name || ''
+      }));
+    }
+  };
+
   const handleCategoryChange = (cat) => {
     const list = Array.isArray(reportsByCategory?.[cat]) ? reportsByCategory[cat] : [];
     const first = list[0] || { Id: '', Name: '' };
@@ -119,35 +158,28 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     }));
   };
 
-  const handleWeeklyToggle = (day) => {
-    setFormData(prev => ({
-      ...prev,
-      weeklyDays: prev.weeklyDays.includes(day)
-        ? prev.weeklyDays.filter(d => d !== day)
-        : [...prev.weeklyDays, day]
-    }));
-  };
-
   const onSubmit = async () => {
+    const isDashboard = formData.category === 'Dashboards';
     if (!formData.reportId || !formData.scheduleName.trim()) {
-      alert('Please select a report and enter a schedule name.');
+      alert(isDashboard ? 'Please select a dashboard and enter a schedule name.' : 'Please select a report and enter a schedule name.');
       return;
     }
 
     const payload = {
       Name: formData.scheduleName.trim(),
       Description: formData.reportName,
-      ItemType: 'Schedule',
+      ItemType: isDashboard ? 'Dashboard' : 'Schedule',
       ItemId: formData.reportId,
       ExportType: formData.format,
       StartTime: new Date(formData.startsOn).toISOString(),
       NeverEnd: formData.endsMode === 'never',
       EndAfterOccurrence: formData.endsMode === 'after' ? Number(formData.afterOccurrences) : 0,
       Enabled: formData.enabled,
-      // Include email attachment flag expected by Bold Reports API
       IsEmailAttachment: !!formData.isEmailAttachment,
       ExternalRecipientsList: formData.recipients.split(',').map(e => e.trim()).filter(Boolean),
       ScheduleType: formData.type,
+      UserList: [],
+      GroupList: []
     };
     if (formData.type === 'Hourly') {
       payload.HourlySchedule = { ScheduleInterval: formData.hourlyInterval };
@@ -155,11 +187,9 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     if (formData.endsMode === 'on' && formData.endDate) {
       payload.EndDate = new Date(formData.endDate).toISOString();
     }
-    // Remove undefined fields just in case
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
     try {
-      // Support both `id` and `Id` coming from server; prefer id-like fields
       const scheduleId = schedule?.id ?? schedule?.Id ?? schedule?.name ?? schedule?.Name ?? null;
 
       console.log('Schedule save attempt', { isEdit, scheduleId, payload });
@@ -174,8 +204,7 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
         await schedulesAPI.create(payload);
       }
 
-      alert(isEdit ? 'Updated!' : 'Created!');
-      // Let parent refresh schedules without reloading the whole app
+      alert(isEdit ? 'Schedule updated successfully!' : 'Schedule created successfully!');
       if (onSaved) await onSaved();
       onClose();
     } catch (err) {
@@ -185,91 +214,187 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 flex justify-between items-center">
-          <h2 className="text-xl font-bold">{title}</h2>
-          <button onClick={onClose} className="text-2xl">×</button>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-100 flex flex-col transform scale-100 transition-transform">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 flex justify-between items-center rounded-t-2xl">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+            <p className="text-xs text-indigo-100 mt-1">Configure automated delivery rules and formats</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition">
+            <XMarkIcon className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Report Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Category *</label>
-              <select className="w-full border rounded px-3 py-2" value={formData.category} onChange={(e) => handleCategoryChange(e.target.value)}>
-                <option value="">Select Category</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+        {/* Form Content */}
+        <div className="p-8 space-y-6 flex-1 overflow-y-auto">
+          {/* Target Asset Group */}
+          <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Target Asset</h3>
+              <div className="flex bg-gray-200/60 p-0.5 rounded-lg text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleAssetTypeChange('Report')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition ${assetType === 'Report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAssetTypeChange('Dashboard')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition ${assetType === 'Dashboard' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Dashboard
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Report *</label>
-              <select className="w-full border rounded px-3 py-2" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)} disabled={!formData.category}>
-                <option value="">{formData.category ? 'Select Report' : 'Select Category First'}</option>
-                {(reportsByCategory[formData.category] || []).map(r => <option key={r.Id} value={r.Id}>{r.Name}</option>)}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {assetType === 'Report' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Report Category *</label>
+                    <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.category} onChange={(e) => handleCategoryChange(e.target.value)}>
+                      <option value="">Select Category</option>
+                      {reportCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Report *</label>
+                    <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)} disabled={!formData.category}>
+                      <option value="">{formData.category ? 'Select Report' : 'Select Category First'}</option>
+                      {(reportsByCategory[formData.category] || []).map(r => <option key={r.Id} value={r.Id}>{r.Name}</option>)}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Dashboard *</label>
+                  <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)}>
+                    <option value="">Select Dashboard</option>
+                    {(reportsByCategory['Dashboards'] || []).map(d => <option key={d.Id} value={d.Id}>{d.Name}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Schedule Name *</label>
-            <input type="text" className="w-full border rounded px-3 py-2" value={formData.scheduleName} onChange={(e) => setFormData(prev => ({ ...prev, scheduleName: e.target.value }))} placeholder="e.g. Daily Sales Report" />
-          </div>
-
-          {/* Frequency */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Schedule Info */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-700">General Information</h3>
             <div>
-              <label className="block text-sm font-medium mb-1">Type</label>
-              <select className="w-full border rounded px-3 py-2" value={formData.type} onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}>
-                <option>Hourly</option>
-                <option>Daily</option>
-                <option>Weekly</option>
-                <option>Monthly</option>
-                <option>Yearly</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Starts on *</label>
-              <input type="datetime-local" className="w-full border rounded px-3 py-2" value={formData.startsOn} onChange={(e) => setFormData(prev => ({ ...prev, startsOn: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Ends</label>
-              <select className="w-full border rounded px-3 py-2" value={formData.endsMode} onChange={(e) => setFormData(prev => ({ ...prev, endsMode: e.target.value }))}>
-                <option value="never">Never</option>
-                <option value="after">After Occurrences</option>
-                <option value="on">On Date</option>
-              </select>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Schedule Name *</label>
+              <input type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.scheduleName} onChange={(e) => setFormData(prev => ({ ...prev, scheduleName: e.target.value }))} placeholder="e.g. Weekly Executive Dashboard Email" />
             </div>
           </div>
 
-          {/* Conditional fields... (keep your logic) */}
+          {/* Recurrence Pattern */}
+          <div className="space-y-4 pt-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Recurrence Pattern</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Frequency Type</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.type} onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}>
+                  <option>Hourly</option>
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                  <option>Monthly</option>
+                  <option>Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Start Date & Time *</label>
+                <input type="datetime-local" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.startsOn} onChange={(e) => setFormData(prev => ({ ...prev, startsOn: e.target.value }))} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">End Options</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.endsMode} onChange={(e) => setFormData(prev => ({ ...prev, endsMode: e.target.value }))}>
+                  <option value="never">Never End</option>
+                  <option value="after">End After Occurrences</option>
+                  <option value="on">End On Date</option>
+                </select>
+              </div>
+            </div>
 
-          {/* Delivery */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Export Format</label>
-              <select className="w-full border rounded px-3 py-2" value={formData.format} onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value }))}>
-                <option>Pdf</option>
-                <option>Word</option>
-                <option>Excel</option>
-              </select>
+            {/* Custom Conditional recurrence options */}
+            <div className="grid grid-cols-1 gap-4 pt-1">
+              {formData.type === 'Hourly' && (
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
+                  <ClockIcon className="w-5 h-5 text-indigo-500" />
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-gray-600">Hourly Interval</label>
+                    <select className="mt-1 border border-gray-200 rounded px-2 py-1 bg-white text-xs" value={formData.hourlyInterval} onChange={(e) => setFormData(prev => ({ ...prev, hourlyInterval: e.target.value }))}>
+                      <option value="00:15">Every 15 minutes</option>
+                      <option value="00:30">Every 30 minutes</option>
+                      <option value="01:00">Every 1 hour</option>
+                      <option value="02:00">Every 2 hours</option>
+                      <option value="04:00">Every 4 hours</option>
+                      <option value="08:00">Every 8 hours</option>
+                      <option value="12:00">Every 12 hours</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {formData.endsMode === 'after' && (
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-gray-600">End After Occurrences</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="number" min="1" className="border border-gray-200 rounded px-2 py-1 text-xs w-20" value={formData.afterOccurrences} onChange={(e) => setFormData(prev => ({ ...prev, afterOccurrences: e.target.value }))} />
+                      <span className="text-xs text-gray-500">runs</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.endsMode === 'on' && (
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-gray-600">End On Date & Time</label>
+                    <input type="datetime-local" className="mt-1 border border-gray-200 rounded px-2 py-1 text-xs" value={formData.endDate} onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))} />
+                  </div>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Recipients</label>
-              <input type="text" className="w-full border rounded px-3 py-2" value={formData.recipients} onChange={(e) => setFormData(prev => ({ ...prev, recipients: e.target.value }))} placeholder="email1@example.com, email2@example.com" />
+          </div>
+
+          {/* Delivery & Formats */}
+          <div className="space-y-4 pt-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-700">Delivery Options</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Export Format</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.format} onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value }))}>
+                  <option>Pdf</option>
+                  {formData.category === 'Dashboards' ? <option>Image</option> : <option>Word</option>}
+                  <option>Excel</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Recipients (Comma Separated)</label>
+                <input type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.recipients} onChange={(e) => setFormData(prev => ({ ...prev, recipients: e.target.value }))} placeholder="ceo@company.com, support@company.com" />
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={formData.isEmailAttachment} onChange={(e) => setFormData(prev => ({ ...prev, isEmailAttachment: e.target.checked }))} />
-                <span className="text-sm">Send as email attachment</span>
+
+            <div className="flex items-center gap-6 bg-purple-50/50 p-4 rounded-xl border border-purple-100/50">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" className="w-4.5 h-4.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300" checked={formData.isEmailAttachment} onChange={(e) => setFormData(prev => ({ ...prev, isEmailAttachment: e.target.checked }))} />
+                <span className="text-sm font-medium text-gray-700">Send output file as email attachment</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" className="w-4.5 h-4.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300" checked={formData.enabled} onChange={(e) => setFormData(prev => ({ ...prev, enabled: e.target.checked }))} />
+                <span className="text-sm font-medium text-gray-700">Enable Schedule Immediately</span>
               </label>
             </div>
           </div>
         </div>
 
-        <div className="p-5 border-t flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2 border rounded">Cancel</button>
-          <button onClick={onSubmit} className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded">{isEdit ? 'Update' : 'Create'}</button>
+        {/* Footer Actions */}
+        <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 rounded-b-2xl">
+          <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium text-sm transition">Cancel</button>
+          <button onClick={onSubmit} className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-lg font-semibold text-sm shadow-md transition transform active:scale-95">{isEdit ? 'Save Changes' : 'Create Schedule'}</button>
         </div>
       </div>
     </div>
@@ -277,7 +402,7 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
 }
 
 export default function Schedules() {
-  const { getSchedules, getReports, invalidate } = useData();
+  const { getSchedules, getReports, getDashboards, invalidate } = useData();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState(VIEW_MODES.CARD);
@@ -287,9 +412,14 @@ export default function Schedules() {
   const [reportsByCategory, setReportsByCategory] = useState({});
   const [runningId, setRunningId] = useState(null);
 
+  // Filters & Search State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState('All'); // 'All' | 'Report' | 'Dashboard'
+  const [selectedStatus, setSelectedStatus] = useState('All'); // 'All' | 'Active' | 'Paused'
+  const [sortBy, setSortBy] = useState('name'); // 'name' | 'nextRun' | 'status'
+
   const reloadSchedules = async () => {
     try {
-      // Invalidate cached schedules (DataContext) so we fetch fresh data
       invalidate && invalidate('schedules');
       setLoading(true);
       const list = await getSchedules();
@@ -301,36 +431,45 @@ export default function Schedules() {
     }
   };
 
-  
-
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const list = await getSchedules();
+        const [list, tree, dashboards] = await Promise.all([
+          getSchedules(),
+          getReports(),
+          getDashboards(),
+        ]);
+        
         setSchedules(Array.isArray(list) ? list : []);
 
-        let tree = await getReports();
-        // Handle null/undefined tree
-        if (!tree) {
-          tree = [];
-        } else if (!Array.isArray(tree)) {
-          // Try to extract Categories from wrapped response
-          tree = (tree.Categories || tree.categories || []);
+        let reportTree = tree;
+        if (!reportTree) {
+          reportTree = [];
+        } else if (!Array.isArray(reportTree)) {
+          reportTree = (reportTree.Categories || reportTree.categories || []);
         }
         
         const cat = [];
         const map = {};
         
-        // Ensure tree is an array before iterating
-        if (Array.isArray(tree)) {
-          tree.forEach(c => {
+        if (Array.isArray(reportTree)) {
+          reportTree.forEach(c => {
             const name = (c.Name || c.name || '').trim();
             if (name) {
               cat.push(name);
               map[name] = (c.Reports || c.reports || []).map(r => ({ Id: r.Id || r.id, Name: r.Name || r.name })).filter(r => r.Id);
             }
           });
+        }
+        
+        if (Array.isArray(dashboards) && dashboards.length > 0) {
+          const dashboardCategoryName = 'Dashboards';
+          cat.push(dashboardCategoryName);
+          map[dashboardCategoryName] = dashboards.map(d => ({
+            Id: d.Id || d.id,
+            Name: d.Name || d.name
+          })).filter(d => d.Id);
         }
         
         setCategories(cat);
@@ -344,146 +483,483 @@ export default function Schedules() {
       }
     };
     load();
-  }, [getSchedules, getReports]);
+  }, [getSchedules, getReports, getDashboards]);
 
   const handleRunNow = async (id) => {
     setRunningId(id);
     try {
       await schedulesAPI.runNow(id);
-      alert('Report triggered!');
+      alert('Schedule execution triggered successfully!');
     } catch {
-      alert('Failed.');
+      alert('Failed to trigger execution.');
     } finally {
       setRunningId(null);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this schedule?')) return;
+    if (!window.confirm('Are you sure you want to delete this schedule? This action cannot be undone.')) return;
     try {
       await schedulesAPI.delete(id);
-      // Invalidate cache and reload fresh schedules
       invalidate && invalidate('schedules');
       await reloadSchedules();
-      alert('Deleted.');
+      alert('Schedule deleted.');
     } catch (err) {
       console.error('Delete schedule failed:', err);
       alert('Failed to delete schedule.');
     }
   };
 
-  const renderCard = (s) => (
-    <div key={s.id} className="bg-white rounded-xl shadow-md border overflow-hidden">
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 text-white">
-        <h3 className="font-bold text-lg">{s.name || 'Untitled'}</h3>
-        <p className="text-sm opacity-90">{s.reportName}</p>
-      </div>
-      <div className="p-4 space-y-3">
-        <div className="flex gap-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${s.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-            {s.enabled ? 'Active' : 'Paused'}
-          </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-            {mapExportType(s.exportType)}
+  // KPI Calculations
+  const totalCount = schedules.length;
+  const activeCount = schedules.filter(s => {
+    const enabled = s?.enabled !== undefined ? s.enabled : s?.Enabled;
+    return !!enabled;
+  }).length;
+  const reportCount = schedules.filter(s => {
+    const type = s?.itemType || s?.ItemType || '';
+    return type.toLowerCase() === 'report' || type.toLowerCase() === 'schedule';
+  }).length;
+  const dashboardCount = schedules.filter(s => {
+    const type = s?.itemType || s?.ItemType || '';
+    return type.toLowerCase() === 'dashboard';
+  }).length;
+
+  // Search & Filter & Sort application
+  const filteredSchedules = schedules
+    .filter(s => {
+      if (!s) return false;
+      
+      const name = s.name || s.Name || '';
+      const reportName = s.reportName || s.ReportName || '';
+      const description = s.description || s.Description || '';
+      const itemType = s.itemType || s.ItemType || 'Report';
+      const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
+
+      const search = searchTerm.toLowerCase();
+      const matchSearch = name.toLowerCase().includes(search) || 
+                          reportName.toLowerCase().includes(search) ||
+                          description.toLowerCase().includes(search);
+      
+      const isTypeReport = itemType.toLowerCase() === 'report' || itemType.toLowerCase() === 'schedule';
+      const isTypeDashboard = itemType.toLowerCase() === 'dashboard';
+
+      let matchType = false;
+      if (selectedType === 'All') {
+        matchType = true;
+      } else if (selectedType === 'Report') {
+        matchType = isTypeReport;
+      } else if (selectedType === 'Dashboard') {
+        matchType = isTypeDashboard;
+      }
+
+      const matchStatus = selectedStatus === 'All' || 
+                          (selectedStatus === 'Active' && enabled) ||
+                          (selectedStatus === 'Paused' && !enabled);
+
+      return matchSearch && matchType && matchStatus;
+    })
+    .sort((a, b) => {
+      const nameA = a?.name || a?.Name || '';
+      const nameB = b?.name || b?.Name || '';
+      if (sortBy === 'name') {
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === 'nextRun') {
+        const nextA = a?.nextSchedule || a?.NextSchedule || 0;
+        const nextB = b?.nextSchedule || b?.NextSchedule || 0;
+        const dateA = nextA ? new Date(nextA).getTime() : 0;
+        const dateB = nextB ? new Date(nextB).getTime() : 0;
+        return dateA - dateB;
+      }
+      if (sortBy === 'status') {
+        const enabledA = a?.enabled !== undefined ? a.enabled : a?.Enabled;
+        const enabledB = b?.enabled !== undefined ? b.enabled : b?.Enabled;
+        return (enabledA === enabledB) ? 0 : enabledA ? -1 : 1;
+      }
+      return 0;
+    });
+
+  const renderCard = (s) => {
+    if (!s) return null;
+    const id = s.id || s.Id;
+    const name = s.name || s.Name || 'Untitled Schedule';
+    const reportName = s.reportName || s.ReportName || '';
+    const description = s.description || s.Description || '';
+    const rawType = s.itemType || s.ItemType || 'Report';
+    const isDashboard = rawType.toLowerCase() === 'dashboard';
+    const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
+    const nextSchedule = s.nextSchedule || s.NextSchedule;
+    const exportType = s.exportType || s.ExportType;
+    const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
+
+    return (
+      <div key={id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden relative">
+        <div className="absolute top-4 right-4 flex gap-2">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
+            enabled 
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200'
+          }`}>
+            {enabled ? 'Active' : 'Paused'}
           </span>
         </div>
-        <p className="text-sm text-gray-600">
-          Next Run: {s.nextSchedule ? new Date(s.nextSchedule).toLocaleString() : '—'}
-        </p>
-      </div>
-      <div className="bg-gray-50 px-4 py-3 flex justify-between items-center">
-        <button
-          onClick={() => handleRunNow(s.id)}
-          disabled={runningId === s.id}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-        >
-          <PlayIcon className="w-4 h-4" />
-          {runningId === s.id ? 'Running...' : 'Run Now'}
-        </button>
-        <div className="flex gap-2">
-          <button onClick={() => { setEditingSchedule(s); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded">
-            <PencilIcon className="w-5 h-5" />
+
+        <div className="p-6 space-y-4">
+          <div>
+            {isDashboard ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100">
+                <ChartBarIcon className="w-3.5 h-3.5" />
+                Dashboard
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                <DocumentTextIcon className="w-3.5 h-3.5" />
+                Report
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg text-gray-800 line-clamp-1 group-hover:text-indigo-600 transition-colors duration-200" title={name}>{name}</h3>
+            <p className="text-xs font-medium text-gray-500 mt-0.5 line-clamp-1">{reportName}</p>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 space-y-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <ClockIcon className="w-4 h-4 text-gray-400" />
+              <span>Recurrence: <span className="font-medium text-gray-800">{recurrenceType}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-gray-400" />
+              <span className="truncate">Next Run: <span className="font-medium text-gray-800">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+              <span>Format: <span className="font-semibold text-indigo-600">{mapExportType(exportType)}</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-50/80 px-6 py-4 border-t border-gray-100 flex justify-between items-center gap-3">
+          <button
+            onClick={() => handleRunNow(id)}
+            disabled={runningId === id}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-lg shadow-sm transition active:scale-95"
+          >
+            <PlayIcon className="w-4 h-4" />
+            {runningId === id ? 'Running...' : 'Run Now'}
           </button>
-          <button onClick={() => handleDelete(s.name || s.id)} className="p-2 text-red-600 hover:bg-red-50 rounded">
-            <TrashIcon className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => { setEditingSchedule(s); setShowModal(true); }} 
+              className="p-2 text-indigo-600 hover:bg-indigo-100/50 rounded-lg transition"
+              title="Edit Schedule"
+            >
+              <PencilIcon className="w-4.5 h-4.5" />
+            </button>
+            <button 
+              onClick={() => handleDelete(id)} 
+              className="p-2 text-rose-600 hover:bg-rose-100/50 rounded-lg transition"
+              title="Delete Schedule"
+            >
+              <TrashIcon className="w-4.5 h-4.5" />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="p-6 h-full overflow-y-auto">
-      <div className="mb-6 rounded-xl overflow-hidden border border-indigo-100">
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5 text-white flex justify-between items-center">
+    <div className="p-8 h-full overflow-y-auto bg-gray-50/50 space-y-6">
+      {/* Title Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white border border-gray-200/80 p-6 rounded-2xl shadow-sm gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
+            Schedules Manager
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Configure and manage automatic e-mail delivery schedules for both Reports and Dashboards</p>
+        </div>
+        <button
+          onClick={() => { setEditingSchedule(null); setShowModal(true); }}
+          className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-xl font-semibold text-sm shadow-md transition transform active:scale-95"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Create Schedule
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="p-3.5 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-600">
+            <CalendarIcon className="w-6 h-6" />
+          </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Scheduled Reports</h1>
-            <p className="opacity-90">Manage, execute, and monitor your automated report deliveries</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Schedules</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{totalCount}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-600">
+            <CheckCircleIcon className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Deliveries</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{activeCount}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="p-3.5 bg-purple-50 rounded-xl border border-purple-100 text-purple-600">
+            <DocumentTextIcon className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Schedules</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{reportCount}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="p-3.5 bg-cyan-50 rounded-xl border border-cyan-100 text-cyan-600">
+            <ChartBarIcon className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dashboard Schedules</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{dashboardCount}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* Control Panel */}
+      <div className="bg-white border border-gray-200/80 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Search */}
+        <div className="relative flex-1 max-w-md">
+          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+            <MagnifyingGlassIcon className="w-5 h-5" />
+          </span>
+          <input
+            type="text"
+            className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
+            placeholder="Search schedules by name or asset..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Filters and View Toggles */}
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Asset Type Filters */}
+          <div className="bg-gray-100 p-1 rounded-xl flex gap-1">
+            {['All', 'Report', 'Dashboard'].map((type) => (
+              <button
+                key={type}
+                onClick={() => setSelectedType(type)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  selectedType === type
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {type === 'All' ? 'All Types' : type + 's'}
+              </button>
+            ))}
+          </div>
+
+          {/* Status Selection */}
+          <select
+            className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Active">Active Only</option>
+            <option value="Paused">Paused Only</option>
+          </select>
+
+          {/* Sort Selection */}
+          <select
+            className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="name">Sort by Name</option>
+            <option value="nextRun">Sort by Next Run</option>
+            <option value="status">Sort by Status</option>
+          </select>
+
+          {/* View Mode buttons */}
+          <div className="border-l border-gray-200 pl-4 flex gap-1">
+            <button
+              onClick={() => setViewMode(VIEW_MODES.CARD)}
+              className={`p-2 rounded-lg transition ${
+                viewMode === VIEW_MODES.CARD ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Squares2X2Icon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode(VIEW_MODES.LIST)}
+              className={`p-2 rounded-lg transition ${
+                viewMode === VIEW_MODES.LIST ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <ViewColumnsIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode(VIEW_MODES.TABLE)}
+              className={`p-2 rounded-lg transition ${
+                viewMode === VIEW_MODES.TABLE ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <TableCellsIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {loading ? (
+        <div className="bg-white border border-gray-200 p-16 rounded-2xl text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-500 font-medium text-sm">Retrieving combined schedules list...</p>
+        </div>
+      ) : filteredSchedules.length === 0 ? (
+        <div className="bg-white border border-gray-200 p-16 rounded-2xl text-center space-y-4 max-w-xl mx-auto">
+          <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto" />
+          <div>
+            <h3 className="font-bold text-lg text-gray-800">No schedules matched</h3>
+            <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search terms, or create a new delivery schedule ruleset.</p>
           </div>
           <button
             onClick={() => { setEditingSchedule(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium border border-white/20"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs transition"
           >
-            <PlusIcon className="w-5 h-5" />
-            Create New
+            <PlusIcon className="w-4 h-4" />
+            Create First Schedule
           </button>
         </div>
-      </div>
+      ) : viewMode === VIEW_MODES.CARD ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredSchedules.map(renderCard)}
+        </div>
+      ) : viewMode === VIEW_MODES.LIST ? (
+        <div className="space-y-4">
+          {filteredSchedules.map(s => {
+            if (!s) return null;
+            const id = s.id || s.Id;
+            const name = s.name || s.Name || 'Untitled Schedule';
+            const reportName = s.reportName || s.ReportName || '';
+            const rawType = s.itemType || s.ItemType || 'Report';
+            const isDashboard = rawType.toLowerCase() === 'dashboard';
+            const displayType = isDashboard ? 'Dashboard' : 'Report';
+            const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
+            const nextSchedule = s.nextSchedule || s.NextSchedule;
+            const exportType = s.exportType || s.ExportType;
+            const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
 
-      <div className="flex justify-end mb-4 gap-2">
-        <button onClick={() => setViewMode(VIEW_MODES.CARD)} className={`p-2 rounded ${viewMode === VIEW_MODES.CARD ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600'}`}><Squares2X2Icon className="w-5 h-5" /></button>
-        <button onClick={() => setViewMode(VIEW_MODES.LIST)} className={`p-2 rounded ${viewMode === VIEW_MODES.LIST ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600'}`}><ViewColumnsIcon className="w-5 h-5" /></button>
-        <button onClick={() => setViewMode(VIEW_MODES.TABLE)} className={`p-2 rounded ${viewMode === VIEW_MODES.TABLE ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600'}`}><TableCellsIcon className="w-5 h-5" /></button>
-      </div>
+            return (
+              <div key={id} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition duration-200 border-l-4 ${isDashboard ? 'border-l-cyan-500' : 'border-l-indigo-500'}`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-800">{name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDashboard ? 'bg-cyan-50 text-cyan-700' : 'bg-indigo-50 text-indigo-700'}`}>{displayType}</span>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-400">{reportName} • Format: {mapExportType(exportType)}</p>
+                  <div className="flex gap-4 text-xs text-gray-500 pt-1">
+                    <span>Recurrence: <span className="font-medium text-gray-700">{recurrenceType}</span></span>
+                    <span>Next Run: <span className="font-medium text-gray-700">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</span></span>
+                  </div>
+                </div>
 
-      {loading ? <p className="text-center">Loading...</p> : 
-       schedules.length === 0 ? <p className="text-center text-gray-500">No schedules yet.</p> :
-       viewMode === VIEW_MODES.CARD ? 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {schedules.map(renderCard)}
-         </div> :
-       viewMode === VIEW_MODES.LIST ?
-         <div className="space-y-4">
-           {schedules.map(s => (
-             <div key={s.id} className="bg-white rounded-lg shadow p-4 flex justify-between items-center">
-               <div>
-                 <h3 className="font-semibold">{s.name}</h3>
-                 <p className="text-sm text-gray-600">{s.reportName} • Next: {new Date(s.nextSchedule).toLocaleString()}</p>
-               </div>
-               <div className="flex items-center gap-3">
-                 <button onClick={() => handleRunNow(s.id)} className="px-4 py-2 bg-green-600 text-white rounded">Run Now</button>
-                 <button onClick={() => { setEditingSchedule(s); setShowModal(true); }}><PencilIcon className="w-5 h-5 text-blue-600" /></button>
-               </div>
-             </div>
-           ))}
-         </div> :
-         <table className="w-full border-collapse">
-           <thead>
-             <tr className="bg-gray-100">
-               <th className="p-3 text-left">Name</th>
-               <th className="p-3 text-left">Report</th>
-               <th className="p-3 text-left">Next Run</th>
-               <th className="p-3 text-left">Status</th>
-               <th className="p-3 text-center">Actions</th>
-             </tr>
-           </thead>
-           <tbody>
-             {schedules.map(s => (
-               <tr key={s.id} className="border-b hover:bg-gray-50">
-                 <td className="p-3">{s.name}</td>
-                 <td className="p-3">{s.reportName}</td>
-                 <td className="p-3">{new Date(s.nextSchedule).toLocaleString()}</td>
-                 <td className="p-3">{s.enabled ? 'Active' : 'Paused'}</td>
-                 <td className="p-3 text-center">
-                   <button onClick={() => handleRunNow(s.id)} className="text-green-600 mr-3">Run</button>
-                   <button onClick={() => { setEditingSchedule(s); setShowModal(true); }} className="text-blue-600">Edit</button>
-                 </td>
-               </tr>
-             ))}
-           </tbody>
-         </table>
-      }
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleRunNow(id)}
+                    disabled={runningId === id}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-lg transition"
+                  >
+                    {runningId === id ? 'Running...' : 'Run Now'}
+                  </button>
+                  <button 
+                    onClick={() => { setEditingSchedule(s); setShowModal(true); }}
+                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(id)}
+                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200 font-semibold tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Name</th>
+                  <th className="px-6 py-4">Asset Type</th>
+                  <th className="px-6 py-4">Target Name</th>
+                  <th className="px-6 py-4">Next Run</th>
+                  <th className="px-6 py-4">Format</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredSchedules.map(s => {
+                  if (!s) return null;
+                  const id = s.id || s.Id;
+                  const name = s.name || s.Name || 'Untitled Schedule';
+                  const reportName = s.reportName || s.ReportName || '';
+                  const rawType = s.itemType || s.ItemType || 'Report';
+                  const isDashboard = rawType.toLowerCase() === 'dashboard';
+                  const displayType = isDashboard ? 'Dashboard' : 'Report';
+                  const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
+                  const nextSchedule = s.nextSchedule || s.NextSchedule;
+                  const exportType = s.exportType || s.ExportType;
 
+                  return (
+                    <tr key={id} className="hover:bg-gray-50/50 transition">
+                      <td className="px-6 py-4 font-bold text-gray-800">{name}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold ${isDashboard ? 'bg-cyan-50 text-cyan-700 border border-cyan-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'}`}>{displayType}</span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-600">{reportName}</td>
+                      <td className="px-6 py-4 text-xs font-semibold text-gray-700">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</td>
+                      <td className="px-6 py-4 font-semibold text-indigo-600">{mapExportType(exportType)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${enabled ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 bg-gray-100'}`}>{enabled ? 'Active' : 'Paused'}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right flex justify-end gap-3 items-center">
+                        <button onClick={() => handleRunNow(id)} disabled={runningId === id} className="text-emerald-600 hover:text-emerald-700 font-semibold text-xs disabled:opacity-50">Run</button>
+                        <button onClick={() => { setEditingSchedule(s); setShowModal(true); }} className="text-indigo-600 hover:text-indigo-900"><PencilIcon className="w-4 h-4" /></button>
+                        <button onClick={() => handleDelete(id)} className="text-rose-600 hover:text-rose-900"><TrashIcon className="w-4.5 h-4.5" /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
       {showModal && (
         <ScheduleModal
           schedule={editingSchedule}

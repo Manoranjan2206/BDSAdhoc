@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChartBarIcon, DocumentTextIcon, ClockIcon, UserGroupIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useData } from '../context/DataContext';
@@ -7,22 +7,25 @@ import '../styles/home.css';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { getAllData } = useData();
+  const { getReports, getDashboards, getSchedules, getUsers } = useData();
   const [stats, setStats] = useState({
     reports: 0,
     dashboards: 0,
     schedules: 0,
     users: 0,
-    loading: true,
+    loadingReports: true,
+    loadingDashboards: true,
+    loadingSchedules: true,
+    loadingUsers: true,
     categoriesData: [],
-    recentAssets: []
+    recentReports: [],
+    recentDashboards: []
   });
 
   useEffect(() => {
-    const load = async () => {
+    const loadReports = async () => {
       try {
-        const { reports: reportTree, dashboards: dashboardList, schedules: scheduleList, users: userList } = await getAllData();
-
+        const reportTree = await getReports();
         const treeArr = Array.isArray(reportTree)
           ? reportTree
           : (reportTree && Array.isArray(reportTree.data) ? reportTree.data : []);
@@ -51,6 +54,22 @@ export default function Home() {
           });
         }
 
+        setStats(prev => ({
+          ...prev,
+          reports: reportCount,
+          loadingReports: false,
+          categoriesData: catData,
+          recentReports: allReports
+        }));
+      } catch (err) {
+        console.error('Failed to load reports:', err);
+        setStats(prev => ({ ...prev, loadingReports: false }));
+      }
+    };
+
+    const loadDashboards = async () => {
+      try {
+        const dashboardList = await getDashboards();
         const dashboardCount = Array.isArray(dashboardList) ? dashboardList.length : 0;
         const allDashboards = [];
         if (Array.isArray(dashboardList)) {
@@ -65,33 +84,51 @@ export default function Home() {
           });
         }
 
-        const combined = [...allReports, ...allDashboards];
-        combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        setStats({
-          reports: reportCount,
+        setStats(prev => ({
+          ...prev,
           dashboards: dashboardCount,
-          schedules: Array.isArray(scheduleList) ? scheduleList.length : 0,
-          users: Array.isArray(userList) ? userList.length : 0,
-          loading: false,
-          categoriesData: catData,
-          recentAssets: combined.slice(0, 5)
-        });
+          loadingDashboards: false,
+          recentDashboards: allDashboards
+        }));
       } catch (err) {
-        console.error('Failed to load home page data:', err);
-        setStats({
-          reports: 0,
-          dashboards: 0,
-          schedules: 0,
-          users: 0,
-          loading: false,
-          categoriesData: [],
-          recentAssets: []
-        });
+        console.error('Failed to load dashboards:', err);
+        setStats(prev => ({ ...prev, loadingDashboards: false }));
       }
     };
-    load();
-  }, [getAllData]);
+
+    const loadSchedules = async () => {
+      try {
+        const scheduleList = await getSchedules();
+        setStats(prev => ({
+          ...prev,
+          schedules: Array.isArray(scheduleList) ? scheduleList.length : 0,
+          loadingSchedules: false
+        }));
+      } catch (err) {
+        console.error('Failed to load schedules:', err);
+        setStats(prev => ({ ...prev, loadingSchedules: false }));
+      }
+    };
+
+    const loadUsers = async () => {
+      try {
+        const userList = await getUsers();
+        setStats(prev => ({
+          ...prev,
+          users: Array.isArray(userList) ? userList.length : 0,
+          loadingUsers: false
+        }));
+      } catch (err) {
+        console.error('Failed to load users:', err);
+        setStats(prev => ({ ...prev, loadingUsers: false }));
+      }
+    };
+
+    loadReports();
+    loadDashboards();
+    loadSchedules();
+    loadUsers();
+  }, [getReports, getDashboards, getSchedules, getUsers]);
 
   const formatDate = (dateStr) => {
     try {
@@ -106,23 +143,19 @@ export default function Home() {
     }
   };
 
-  if (stats.loading) {
-    return (
-      <div className="flex items-center justify-center h-full p-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)] mx-auto mb-4"></div>
-          <p className="text-[var(--text-muted)]">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate some analytics
-  const maxReports = stats.categoriesData.length > 0
-    ? Math.max(...stats.categoriesData.map(c => c.count))
-    : 0;
+  const maxReports = useMemo(() => {
+    return stats.categoriesData.length > 0
+      ? Math.max(...stats.categoriesData.map(c => c.count))
+      : 0;
+  }, [stats.categoriesData]);
 
   const totalAssets = stats.reports + stats.dashboards;
+
+  const recentAssets = useMemo(() => {
+    const combined = [...(stats.recentReports || []), ...(stats.recentDashboards || [])];
+    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return combined.slice(0, 5);
+  }, [stats.recentReports, stats.recentDashboards]);
 
   return (
     <div className="home-dashboard p-6 space-y-6 overflow-y-auto h-full text-[var(--text-strong)]">
@@ -145,14 +178,22 @@ export default function Home() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Total Reports</p>
-              <h3 className="text-3xl font-extrabold mt-1">{stats.reports}</h3>
+              {stats.loadingReports ? (
+                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+              ) : (
+                <h3 className="text-3xl font-extrabold mt-1">{stats.reports}</h3>
+              )}
             </div>
             <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
               <DocumentTextIcon className="w-6 h-6" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)]">
-            <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1.5">{stats.categoriesData.length}</span> categories defined
+          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
+            {stats.loadingReports ? (
+              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+            ) : (
+              <><span className="font-semibold text-blue-600 dark:text-blue-400 mr-1.5">{stats.categoriesData.length}</span> categories defined</>
+            )}
           </div>
         </motion.div>
 
@@ -165,14 +206,22 @@ export default function Home() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Dashboards</p>
-              <h3 className="text-3xl font-extrabold mt-1">{stats.dashboards}</h3>
+              {stats.loadingDashboards ? (
+                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+              ) : (
+                <h3 className="text-3xl font-extrabold mt-1">{stats.dashboards}</h3>
+              )}
             </div>
             <div className="p-2.5 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
               <ChartBarIcon className="w-6 h-6" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)]">
-            <span className="font-semibold text-orange-600 dark:text-orange-400 mr-1.5">{stats.dashboards > 0 ? 'Active' : 'No'}</span> instances embedded
+          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
+            {stats.loadingDashboards ? (
+              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+            ) : (
+              <><span className="font-semibold text-orange-600 dark:text-orange-400 mr-1.5">{stats.dashboards > 0 ? 'Active' : 'No'}</span> instances embedded</>
+            )}
           </div>
         </motion.div>
 
@@ -185,14 +234,22 @@ export default function Home() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Schedules</p>
-              <h3 className="text-3xl font-extrabold mt-1">{stats.schedules}</h3>
+              {stats.loadingSchedules ? (
+                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+              ) : (
+                <h3 className="text-3xl font-extrabold mt-1">{stats.schedules}</h3>
+              )}
             </div>
             <div className="p-2.5 bg-green-50 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
               <ClockIcon className="w-6 h-6" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)]">
-            Automated report deliveries
+          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
+            {stats.loadingSchedules ? (
+              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+            ) : (
+              'Automated report deliveries'
+            )}
           </div>
         </motion.div>
 
@@ -205,14 +262,22 @@ export default function Home() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Total Users</p>
-              <h3 className="text-3xl font-extrabold mt-1">{stats.users}</h3>
+              {stats.loadingUsers ? (
+                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+              ) : (
+                <h3 className="text-3xl font-extrabold mt-1">{stats.users}</h3>
+              )}
             </div>
             <div className="p-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
               <UserGroupIcon className="w-6 h-6" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)]">
-            Registered team members
+          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
+            {stats.loadingUsers ? (
+              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+            ) : (
+              'Registered team members'
+            )}
           </div>
         </motion.div>
       </div>
@@ -232,7 +297,21 @@ export default function Home() {
           </div>
 
           <div className="space-y-4 pt-2">
-            {stats.categoriesData.length === 0 ? (
+            {stats.loadingReports ? (
+              <div className="space-y-4 py-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <div className="flex justify-between">
+                      <div className="h-3.5 w-24 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+                      <div className="h-3.5 w-12 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+                    </div>
+                    <div className="w-full bg-gray-100 dark:bg-gray-800 h-2.5 rounded-full overflow-hidden">
+                      <div className="bg-gray-200 dark:bg-gray-700 h-full w-1/2 animate-pulse rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : stats.categoriesData.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)] py-8 text-center">No category data found</p>
             ) : (
               stats.categoriesData.map((cat, idx) => {
@@ -270,56 +349,65 @@ export default function Home() {
             <p className="text-xs text-[var(--text-muted)]">Comparison between reports and dashboards</p>
           </div>
 
-          <div className="flex justify-center items-center py-6 relative">
-            <svg width="150" height="150" viewBox="0 0 36 36" className="transform -rotate-90">
-              <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--brand-100)" strokeWidth="3.2" className="dark:stroke-gray-800" />
-              {totalAssets > 0 && (
-                <circle 
-                  cx="18" 
-                  cy="18" 
-                  r="15.915" 
-                  fill="none" 
-                  stroke="var(--info)" 
-                  strokeWidth="3.2" 
-                  strokeDasharray={`${(stats.reports / totalAssets) * 100} ${100 - (stats.reports / totalAssets) * 100}`}
-                  strokeDashoffset="0"
-                />
-              )}
-              {totalAssets > 0 && (
-                <circle 
-                  cx="18" 
-                  cy="18" 
-                  r="15.915" 
-                  fill="none" 
-                  stroke="var(--accent)" 
-                  strokeWidth="3.2" 
-                  strokeDasharray={`${(stats.dashboards / totalAssets) * 100} ${100 - (stats.dashboards / totalAssets) * 100}`}
-                  strokeDashoffset={`${100 - (stats.reports / totalAssets) * 100}`}
-                />
-              )}
-            </svg>
-            <div className="absolute text-center">
-              <span className="text-2xl font-black block">{totalAssets}</span>
-              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Total Assets</span>
+          {(stats.loadingReports || stats.loadingDashboards) ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <div className="w-16 h-16 rounded-full border-4 border-gray-200 dark:border-gray-800 border-t-blue-500 animate-spin" />
+              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex justify-center items-center py-6 relative">
+                <svg width="150" height="150" viewBox="0 0 36 36" className="transform -rotate-90">
+                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--brand-100)" strokeWidth="3.2" className="dark:stroke-gray-800" />
+                  {totalAssets > 0 && (
+                    <circle 
+                      cx="18" 
+                      cy="18" 
+                      r="15.915" 
+                      fill="none" 
+                      stroke="var(--info)" 
+                      strokeWidth="3.2" 
+                      strokeDasharray={`${(stats.reports / totalAssets) * 100} ${100 - (stats.reports / totalAssets) * 100}`}
+                      strokeDashoffset="0"
+                    />
+                  )}
+                  {totalAssets > 0 && (
+                    <circle 
+                      cx="18" 
+                      cy="18" 
+                      r="15.915" 
+                      fill="none" 
+                      stroke="var(--accent)" 
+                      strokeWidth="3.2" 
+                      strokeDasharray={`${(stats.dashboards / totalAssets) * 100} ${100 - (stats.dashboards / totalAssets) * 100}`}
+                      strokeDashoffset={`${100 - (stats.reports / totalAssets) * 100}`}
+                    />
+                  )}
+                </svg>
+                <div className="absolute text-center">
+                  <span className="text-2xl font-black block">{totalAssets}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Total Assets</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4 text-xs font-semibold">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[var(--info)] block" />
-              <div>
-                <span className="text-[var(--text-muted)] block text-[10px] uppercase">Reports</span>
-                <span>{stats.reports} ({totalAssets > 0 ? Math.round((stats.reports / totalAssets) * 100) : 0}%)</span>
+              <div className="grid grid-cols-2 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4 text-xs font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[var(--info)] block" />
+                  <div>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Reports</span>
+                    <span>{stats.reports} ({totalAssets > 0 ? Math.round((stats.reports / totalAssets) * 100) : 0}%)</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[var(--accent)] block" />
+                  <div>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Dashboards</span>
+                    <span>{stats.dashboards} ({totalAssets > 0 ? Math.round((stats.dashboards / totalAssets) * 100) : 0}%)</span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[var(--accent)] block" />
-              <div>
-                <span className="text-[var(--text-muted)] block text-[10px] uppercase">Dashboards</span>
-                <span>{stats.dashboards} ({totalAssets > 0 ? Math.round((stats.dashboards / totalAssets) * 100) : 0}%)</span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -349,12 +437,22 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {stats.recentAssets.length === 0 ? (
+              {(stats.loadingReports || stats.loadingDashboards) ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800/50">
+                    <td className="py-4 pr-4"><div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
+                    <td className="py-4 px-4"><div className="h-5 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
+                    <td className="py-4 px-4"><div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
+                    <td className="py-4 px-4"><div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
+                    <td className="py-4 pl-4 text-right"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-800 animate-pulse rounded ml-auto" /></td>
+                  </tr>
+                ))
+              ) : recentAssets.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="py-8 text-center text-sm text-[var(--text-muted)]">No assets found</td>
                 </tr>
               ) : (
-                stats.recentAssets.map((asset, idx) => (
+                recentAssets.map((asset, idx) => (
                   <tr key={idx} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                     <td className="py-3.5 pr-4 font-semibold text-sm truncate max-w-[200px]" title={asset.name}>{asset.name}</td>
                     <td className="py-3.5 px-4">
