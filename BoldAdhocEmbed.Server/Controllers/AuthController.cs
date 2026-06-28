@@ -170,6 +170,12 @@ namespace BoldAdhocEmbed.Server.Controllers
                             };
                             rbacUserFromBold.Permissions = _userStore.GetPermissionsForRole(rbacUserFromBold.Role);
 
+                            // Dynamically add to the user store if not exists
+                            if (_userStore.Get(email) == null)
+                            {
+                                _userStore.Add(rbacUserFromBold);
+                            }
+
                             var boldResponse = new LoginResponse
                             {
                                 Success = true,
@@ -206,13 +212,14 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = Request.Headers["X-User-Email"].ToString();
+                var token = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(token);
 
                 if (string.IsNullOrEmpty(userEmail))
                 {
                     return Unauthorized(ApiResponse<AppUser>.ErrorResponse(
                         "Not authenticated",
-                        "User email not found in request headers"));
+                        "User email not found in request headers or token"));
                 }
 
                 var user = _userStore.Get(userEmail);
@@ -250,7 +257,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                         "Authorization header is required"));
                 }
 
-                var userEmail = Request.Headers["X-User-Email"].ToString();
+                var token = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(token);
                 var user = !string.IsNullOrEmpty(userEmail) ? _userStore.Get(userEmail) : null;
 
                 if (user == null || !user.IsActive)
@@ -279,8 +287,9 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = Request.Headers["X-User-Email"].ToString();
-                Logger.LogInformation("User logged out: {Email}", userEmail);
+                var token = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(token);
+                Logger.LogInformation("User logged out: {Email}", userEmail ?? "unknown");
                 return Ok(ApiResponse.SuccessResponse("Logged out successfully"));
             }
             catch (Exception ex)
@@ -300,7 +309,8 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = Request.Headers["X-User-Email"].ToString();
+                var token = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(token);
 
                 if (string.IsNullOrEmpty(userEmail))
                 {
@@ -341,7 +351,8 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = Request.Headers["X-User-Email"].ToString();
+                var token = GetTokenFromRequest();
+                var userEmail = GetEmailFromToken(token);
 
                 if (string.IsNullOrEmpty(userEmail) || string.IsNullOrEmpty(permission))
                 {
