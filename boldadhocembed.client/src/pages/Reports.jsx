@@ -27,7 +27,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('default'); // default | shared | own
+  const [activeTab, setActiveTab] = useState('own'); // own | shared | default
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [viewerSettings, setViewerSettings] = useState(null);
@@ -595,36 +595,24 @@ export default function Reports() {
         >
           {/* Tab Filters */}
           {!reportsSidebarCollapsed && (
-            <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700 flex gap-1 bg-gray-50 dark:bg-gray-900/50">
+            <div className="reports-sidebar-tabs">
               <button
-                onClick={() => setActiveTab('default')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'default'
-                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
-                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
-                }`}
+                onClick={() => setActiveTab('own')}
+                className={`reports-sidebar-tab-btn ${activeTab === 'own' ? 'active' : ''}`}
               >
-                Public
+                Own
               </button>
               <button
                 onClick={() => setActiveTab('shared')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'shared'
-                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
-                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
-                }`}
+                className={`reports-sidebar-tab-btn ${activeTab === 'shared' ? 'active' : ''}`}
               >
                 Shared
               </button>
               <button
-                onClick={() => setActiveTab('own')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'own'
-                    ? 'bg-[#E5F3FF] text-[#2563EB] dark:bg-[rgba(37,99,235,0.15)] dark:text-[#60A5FA] shadow-sm'
-                    : 'text-[#6B7280] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
-                }`}
+                onClick={() => setActiveTab('default')}
+                className={`reports-sidebar-tab-btn ${activeTab === 'default' ? 'active' : ''}`}
               >
-                Own
+                Public
               </button>
             </div>
           )}

@@ -11,16 +11,19 @@ namespace BoldAdhocEmbed.Server.Controllers
         private readonly IBoldReportsService _boldReportsService;
         private readonly ILogger<UsersController> _logger;
         private readonly ICacheService _cacheService;
+        private readonly IUserStore _userStore;
 
         public UsersController(
             IBoldReportsService boldReportsService,
             ILogger<UsersController> logger,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IUserStore userStore)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+            _userStore = userStore ?? throw new ArgumentNullException(nameof(userStore));
         }
 
         [HttpGet]
@@ -213,6 +216,18 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var updatedUser = await _boldReportsService.GetUserAsync(token, email);
+
+                // Update local user store if user exists
+                var localUser = _userStore.Get(email);
+                if (localUser != null)
+                {
+                    localUser.FirstName = request.FirstName;
+                    localUser.LastName = request.LastName;
+                    localUser.Name = $"{request.FirstName} {request.LastName}".Trim();
+                    _userStore.Update(localUser);
+                    _logger.LogInformation("Updated local user store for {Email}", email);
+                }
+
                 _logger.LogInformation("Successfully updated user: {Email}", email);
                 
                 // Invalidate users cache

@@ -332,3 +332,44 @@
 .reports-viewer-container.flex-col {
   flex-direction: column;
 }
+
+/* Sidebar Tab Buttons & Container */
+.reports-sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 16px 16px 8px 16px;
+  border-bottom: 1px solid var(--brand-200);
+  background: var(--surface);
+}
+
+.reports-sidebar-tab-btn {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.reports-sidebar-tab-btn:hover {
+  background: rgba(19, 31, 59, 0.04);
+  color: var(--text-strong);
+}
+
+.dark .reports-sidebar-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-strong);
+}
+
+.reports-sidebar-tab-btn.active {
+  background: linear-gradient(135deg, #FF6A00, #FF4800) !important;
+  color: #FFFFFF !important;
+  border-color: #FF4800 !important;
+  box-shadow: 0 2px 4px rgba(255, 72, 0, 0.15), 0 1px 2px rgba(255, 72, 0, 0.1) !important;
+}
+
