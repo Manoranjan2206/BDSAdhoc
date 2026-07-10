@@ -97,16 +97,17 @@ export default function DashboardDesigner() {
         </div>
         <div style={actionsStyle}>
           <button style={btnStyle} onClick={() => navigate('/dashboards')}>
-            Back to Dashboards
+            ← Back to Dashboards
           </button>
         </div>
       </div>
 
       <div style={canvasContainerStyle}>
         {loading && (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justify: 'center', zIndex: 10, backdropFilter: 'blur(4px)' }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600"></div>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
             <p style={{ marginTop: 16, fontSize: 14, fontWeight: 500, color: '#334155' }}>Loading BoldBI Designer Interface...</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         )}
 

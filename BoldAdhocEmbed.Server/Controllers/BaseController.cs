@@ -126,7 +126,32 @@ namespace BoldAdhocEmbed.Server.Controllers
         /// </summary>
         protected string GetEmailFromToken(string token)
         {
-            if (string.IsNullOrEmpty(token)) return null;
+            if (string.IsNullOrEmpty(token))
+            {
+                var headerEmailVal = Request.Headers["X-User-Email"].ToString();
+                if (!string.IsNullOrEmpty(headerEmailVal))
+                {
+                    return headerEmailVal;
+                }
+
+                var headerUserIdVal = Request.Headers["X-User-Id"].ToString();
+                if (!string.IsNullOrEmpty(headerUserIdVal))
+                {
+                    return headerUserIdVal;
+                }
+
+                if (Request.Query.TryGetValue("email", out var queryEmail) && !string.IsNullOrEmpty(queryEmail))
+                {
+                    return queryEmail;
+                }
+
+                if (Request.Query.TryGetValue("userId", out var queryUserId) && !string.IsNullOrEmpty(queryUserId))
+                {
+                    return queryUserId;
+                }
+
+                return null;
+            }
 
             // 1. Try decoding as local session token (Email:Ticks)
             try
@@ -180,11 +205,27 @@ namespace BoldAdhocEmbed.Server.Controllers
                 // Not a valid JWT token
             }
 
-            // 3. Fallback: check headers
+            // 3. Fallback: check headers and query params
             var headerEmail = Request.Headers["X-User-Email"].ToString();
             if (!string.IsNullOrEmpty(headerEmail))
             {
                 return headerEmail;
+            }
+
+            var headerUserId = Request.Headers["X-User-Id"].ToString();
+            if (!string.IsNullOrEmpty(headerUserId))
+            {
+                return headerUserId;
+            }
+
+            if (Request.Query.TryGetValue("email", out var qEmail) && !string.IsNullOrEmpty(qEmail))
+            {
+                return qEmail;
+            }
+
+            if (Request.Query.TryGetValue("userId", out var qUserId) && !string.IsNullOrEmpty(qUserId))
+            {
+                return qUserId;
             }
 
             return null;
@@ -196,8 +237,6 @@ namespace BoldAdhocEmbed.Server.Controllers
         protected async Task<string> GetBoldReportsTokenAsync(IBoldReportsService boldReportsService)
         {
             var token = GetTokenFromRequest();
-            if (string.IsNullOrEmpty(token)) return null;
-
             var email = GetEmailFromToken(token);
             if (!string.IsNullOrEmpty(email))
             {

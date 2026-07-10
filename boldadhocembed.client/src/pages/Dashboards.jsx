@@ -269,8 +269,7 @@ const Dashboards = () => {
 
   const handleSelectDashboard = (dashboard) => {
     setSelectedDashboard(dashboard);
-    // Always collapse after selection
-    setDashboardsSidebarCollapsed(true);
+    // Keep sidebar visible - user can collapse manually if needed
   };
 
   const toggleCategory = (categoryId) => {
@@ -293,18 +292,39 @@ const Dashboards = () => {
           <h1 className="reports-topbar-title">Dashboards</h1>
           <p className="reports-topbar-sub">Browse, preview & manage your dashboards</p>
         </div>
-        <div className="flex gap-3">
-          <Link to="/dashboards/designer">
-            <button className="e-primary modern-btn flex items-center gap-2">
-              <PlusIcon className="w-5 h-5" />
-              New Dashboard
+        <div className="flex gap-3 items-center">
+          {selectedDashboard && (
+            <button
+              onClick={() => { setSelectedDashboard(null); setDashboardsSidebarCollapsed(false); }}
+              className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-strong)] transition-colors"
+            >
+              ← Back to list
             </button>
-          </Link>
+          )}
+          <button
+            className="e-primary modern-btn flex items-center gap-2"
+            onClick={() => { window.location.href = '/dashboards/designer'; }}
+          >
+            <PlusIcon className="w-5 h-5" />
+            New Dashboard
+          </button>
         </div>
       </div>
 
       {/* Main layout */}
       <div className="reports-main" ref={mainRef}>
+        {/* Sidebar Toggle Button */}
+        <button
+          onClick={() => setDashboardsSidebarCollapsed(!dashboardsSidebarCollapsed)}
+          className={`absolute top-4 z-50 flex items-center justify-center w-7 h-7 rounded-full border border-[var(--brand-200)] bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200 ${
+            dashboardsSidebarCollapsed ? 'left-4' : 'left-[calc(var(--tree-width,260px)+20px)]'
+          }`}
+          style={dashboardsSidebarCollapsed ? {} : { left: sidebarWidth + 20 }}
+          title={dashboardsSidebarCollapsed ? 'Show dashboard list' : 'Hide dashboard list'}
+        >
+          <ChevronRightIcon className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-200 ${dashboardsSidebarCollapsed ? '' : 'rotate-180'}`} />
+        </button>
+
         {/* Sidebar */}
         <div
           className={`reports-sidebar ${dashboardsSidebarCollapsed ? 'collapsed' : ''}`}
@@ -391,8 +411,6 @@ const Dashboards = () => {
           )}
         </div>
 
-        {/* Resizer hidden based on feedback */}
-
         {/* Viewer area */}
         <div className="reports-view">
           {selectedDashboard ? (
@@ -401,16 +419,44 @@ const Dashboards = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
-              className="reports-viewer-container"
+              className="reports-viewer-container flex flex-col"
             >
+              {/* Dashboard Info Bar */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-[var(--surface)] flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ChartBarIcon className="w-4 h-4 text-[var(--info)] flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-strong)] truncate">{selectedDashboard.name}</p>
+                    {selectedDashboard.category && <p className="text-xs text-[var(--text-muted)] truncate">{selectedDashboard.category}</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => { setSelectedDashboard(null); setDashboardsSidebarCollapsed(false); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] border border-[var(--brand-200)] rounded-lg hover:bg-[var(--brand-100)] transition-colors"
+                    title="Close viewer"
+                  >
+                    <ChevronLeftIcon className="w-3.5 h-3.5" />
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 relative">
               {error ? (
-                <div className="reports-viewer-error">
+                <div className="reports-viewer-error h-full flex flex-col items-center justify-center">
                   <p>{error}</p>
                   <p className="text-sm mt-2 opacity-80">Please try refreshing or contact support.</p>
+                  <button
+                    onClick={() => { setError(null); loadDashboardViewer(); }}
+                    className="mt-4 px-4 py-2 bg-[var(--info)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition"
+                  >
+                    Try Again
+                  </button>
                 </div>
               ) : (
                 <div id="dashboard-container" style={{ height: '100%', width: '100%' }} />
               )}
+              </div>
             </motion.div>
           ) : (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -422,13 +468,20 @@ const Dashboards = () => {
                 <div className="w-16 h-16 bg-[var(--brand-100)] dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-[var(--brand-500)]">
                   <ChartBarIcon className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold mb-2 text-[var(--text-strong)]">Welcome to Dashboards Viewer</h2>
+                <h2 className="text-xl font-bold mb-2 text-[var(--text-strong)]">Select a Dashboard</h2>
                 <p className="text-sm text-[var(--text-muted)] mb-6">
-                  Select a dashboard from the sidebar to view and interact with live data analytics.
+                  {dashboardsSidebarCollapsed
+                    ? 'Click the arrow button to open the dashboard list.'
+                    : 'Select a dashboard from the panel on the left to view live data.'}
                 </p>
-                <div className="text-xs text-[var(--text-light)]">
-                  Choose a category to browse available dashboards.
-                </div>
+                {dashboardsSidebarCollapsed && (
+                  <button
+                    onClick={() => setDashboardsSidebarCollapsed(false)}
+                    className="px-4 py-2 bg-[var(--info)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition"
+                  >
+                    Open Dashboard List
+                  </button>
+                )}
               </motion.div>
             </div>
           )}

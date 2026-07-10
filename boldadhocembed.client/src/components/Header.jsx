@@ -4,9 +4,14 @@ import {
   MoonIcon,
   ChevronDownIcon,
   XMarkIcon,
+  MagnifyingGlassIcon,
+  UserCircleIcon,
+  ArrowRightOnRectangleIcon,
+  QuestionMarkCircleIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useData } from '../context/DataContext';
 import { reportsAPI } from '../services/apiService';
@@ -17,9 +22,14 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [results, setResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [user, setUser] = useState(null);
   const menuRef = useRef(null);
+  const searchRef = useRef(null);
+  const notifRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load user info on mount
   const [reportsSettings, setReportsSettings] = useState(null);
@@ -39,28 +49,37 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     fetchSettings();
   }, []);
 
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowProfileMenu(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setResults([]);
+      }
     };
 
-    if (showProfileMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showProfileMenu]);
+  // Clear search results when navigating
+  useEffect(() => {
+    setSearchValue('');
+    setResults([]);
+  }, [location.pathname]);
 
   // Search handler
   useEffect(() => {
     let active = true;
     const run = async () => {
       const term = (searchValue || '').trim().toLowerCase();
-      if (term.length < 2) { setResults([]); return; }
+      if (term.length < 2) { setResults([]); setSearchLoading(false); return; }
+      setSearchLoading(true);
       try {
         const [reports, dashboards] = await Promise.all([
           getReports(),
@@ -82,9 +101,12 @@ export default function Header({ darkMode, onToggleDarkMode }) {
           category: d.CategoryName || d.category,
         })).filter(x => (x.name || '').toLowerCase().includes(term) || (x.category || '').toLowerCase().includes(term));
 
-        if (active) setResults([ ...rep.slice(0, 10), ...dash.slice(0, 10) ].slice(0, 10));
+        if (active) {
+          setResults([ ...rep.slice(0, 10), ...dash.slice(0, 10) ].slice(0, 10));
+          setSearchLoading(false);
+        }
       } catch (e) {
-        if (active) setResults([]);
+        if (active) { setResults([]); setSearchLoading(false); }
       }
     };
     run();
@@ -136,150 +158,210 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   };
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000]" style={{ background: 'var(--surface)', borderBottom: '2px solid var(--brand-200)' }}>
+    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000]" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--brand-200)' }}>
       {/* Left: Logo & Title */}
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold hidden md:block" style={{ color: 'var(--brand-700)' }}>
+        <h1 className="text-lg font-bold hidden md:block" style={{ color: 'var(--brand-700)' }}>
           Acme Analytics
         </h1>
       </div>
 
       {/* Center: Search Bar */}
-      <div className="flex-1 max-w-2xl px-4 hidden md:block">
+      <div className="flex-1 max-w-xl px-4 hidden md:block" ref={searchRef}>
         <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
           <input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setSearchValue(''); setResults([]); }
+            }}
             placeholder="Search reports, dashboards..."
-            className="w-full pl-4 pr-10 py-2.5 rounded-full border"
+            className="w-full pl-10 pr-10 py-2 rounded-full border text-sm"
             style={{ borderColor: 'var(--brand-200)', background: 'var(--surface)', color: 'var(--text-strong)' }}
+            aria-label="Search reports and dashboards"
           />
           {searchValue && (
             <button
               onClick={() => { setSearchValue(''); setResults([]); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition"
-              title="Clear"
+              title="Clear search"
+              aria-label="Clear search"
               style={{ background: 'transparent' }}
             >
-              <XMarkIcon className="h-5 w-5" style={{ color: '#7C84A1' }} />
+              <XMarkIcon className="h-4 w-4" style={{ color: '#7C84A1' }} />
             </button>
           )}
 
-          {(searchValue && results.length > 0) && (
-            <div className="absolute mt-2 w-full rounded-xl shadow-xl z-40 max-h-80 overflow-auto"
+          {/* Search Results Dropdown */}
+          {searchValue.trim().length >= 2 && (
+            <div className="absolute mt-2 w-full rounded-xl shadow-xl z-40 overflow-hidden"
                  style={{ background: 'var(--surface)', border: '1px solid var(--brand-200)' }}>
-              {results.map((r, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    if (r.type === 'report') {
-                      const q = new URLSearchParams();
-                      q.set('report', r.name);
-                      if (r.category) q.set('category', r.category);
-                      navigate(`/reports?${q.toString()}`);
-                    } else if (r.type === 'dashboard') {
-                      const q = new URLSearchParams();
-                      q.set('dashboardId', r.id);
-                      navigate(`/dashboards?${q.toString()}`);
-                    }
-                    setSearchValue('');
-                    setResults([]);
-                  }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-between"
-                >
-                  <span className="text-sm text-gray-800 dark:text-gray-100">
-                    {r.name}
-                    {r.category ? <span className="text-xs text-gray-500"> — {r.category}</span> : null}
-                  </span>
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    {r.type}
-                  </span>
-                </button>
-              ))}
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin" />
+                </div>
+              ) : results.length > 0 ? (
+                <div className="max-h-80 overflow-auto">
+                  {results.map((r, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        if (r.type === 'report') {
+                          const q = new URLSearchParams();
+                          q.set('report', r.name);
+                          if (r.category) q.set('category', r.category);
+                          navigate(`/reports?${q.toString()}`);
+                        } else if (r.type === 'dashboard') {
+                          const q = new URLSearchParams();
+                          q.set('dashboardId', r.id);
+                          navigate(`/dashboards?${q.toString()}`);
+                        }
+                        setSearchValue('');
+                        setResults([]);
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          r.type === 'report' ? 'bg-blue-500' : 'bg-orange-500'
+                        }`} />
+                        <span className="text-sm truncate" style={{ color: 'var(--text-strong)' }}>
+                          {r.name}
+                        </span>
+                        {r.category && <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>— {r.category}</span>}
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--brand-100)', color: 'var(--text-muted)' }}>
+                        {r.type}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No results for "{searchValue}"</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-light)' }}>Try a different keyword</p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-4">
-        <button className="relative p-2 transition" style={{ color: 'var(--text-strong)' }}>
-          <BellIcon className="h-6 w-6" />
-          <span className="absolute top-0 right-0 h-2.5 w-2.5 bg-red-500 rounded-full ring-2" style={{ boxShadow: '0 0 0 2px var(--surface) inset' }} />
-        </button>
+      <div className="flex items-center gap-2">
+        {/* Notification Bell */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 rounded-lg transition hover:bg-gray-100 dark:hover:bg-gray-800"
+            style={{ color: 'var(--text-strong)' }}
+            aria-label="Notifications"
+            title="Notifications"
+          >
+            <BellIcon className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full" />
+          </button>
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">Notifications</p>
+              </div>
+              <div className="px-4 py-8 text-center">
+                <BellIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm text-gray-500">No new notifications</p>
+              </div>
+            </div>
+          )}
+        </div>
 
+        {/* Dark Mode Toggle */}
         <button
           onClick={onToggleDarkMode}
-          className="p-2 transition"
+          className="p-2 rounded-lg transition hover:bg-gray-100 dark:hover:bg-gray-800"
           style={{ color: 'var(--text-strong)' }}
+          aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={darkMode ? 'Light Mode' : 'Dark Mode'}
         >
-          {darkMode ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
+          {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
         </button>
 
+        {/* Profile Menu */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+            className="flex items-center gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+            aria-label="Profile menu"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
               {getInitials()}
             </div>
-            <div className="hidden lg:flex flex-col items-start">
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="hidden lg:flex flex-col items-start max-w-[120px]">
+              <span className="text-sm font-medium text-gray-900 dark:text-white truncate w-full">
                 {getUserName()}
               </span>
-              <span className="text-xs text-gray-500">{user?.email}</span>
+              <span className="text-xs text-gray-500 truncate w-full">{user?.email}</span>
             </div>
-            <ChevronDownIcon className={`hidden lg:block h-4 w-4 text-gray-600 dark:text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+            <ChevronDownIcon className={`hidden lg:block h-3.5 w-3.5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${showProfileMenu ? 'rotate-180' : ''}`} />
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
-              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {getUserName()}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">{user?.email}</p>
+            <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                    {getInitials()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      {getUserName()}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                  </div>
+                </div>
               </div>
-              <a
-                href={reportsSettings?.serverUrl ? `${reportsSettings.serverUrl}/profile` : 'https://account.boldreports.com/profile'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-              >
-                Profile Settings
-              </a>
-              <a
-                href={reportsSettings?.serverUrl ? `${reportsSettings.serverUrl}/profile` : 'https://account.boldreports.com'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-              >
-                Account
-              </a>
-              <a
-                href="https://help.boldreports.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-              >
-                Help & Support
-              </a>
-              <button
-                onClick={() => {
-                  setShowLogoutConfirm(true);
-                  setShowProfileMenu(false);
-                }}
-                className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700 transition cursor-pointer font-medium"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Logout
-              </button>
+              <div className="py-1">
+                <a
+                  href={reportsSettings?.serverUrl ? `${reportsSettings.serverUrl}/profile` : '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                  onClick={() => setShowProfileMenu(false)}
+                >
+                  <UserCircleIcon className="w-4 h-4 text-gray-400" />
+                  Profile Settings
+                </a>
+                <button
+                  onClick={() => { setShowProfileMenu(false); navigate('/settings'); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                >
+                  <Cog6ToothIcon className="w-4 h-4 text-gray-400" />
+                  App Settings
+                </button>
+                <a
+                  href="https://help.boldreports.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                  onClick={() => setShowProfileMenu(false)}
+                >
+                  <QuestionMarkCircleIcon className="w-4 h-4 text-gray-400" />
+                  Help & Support
+                </a>
+              </div>
+              <div className="border-t border-gray-100 dark:border-gray-700 py-1">
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(true);
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                >
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           )}
         </div>

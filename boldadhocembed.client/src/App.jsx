@@ -87,12 +87,13 @@ export default function App() {
 
   if (!isAuthChecked) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'linear-gradient(135deg, #F3F3F7, #DDE0EB)' }}>
         <div className="text-center">
-          <div className="inline-block">
-            <div className="w-12 h-12 border-4 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></div>
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF4800] to-[#ff7b00] flex items-center justify-center font-bold text-2xl text-white shadow-xl mx-auto mb-6">
+            AA
           </div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-[#FF4800] rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-sm font-medium text-gray-500">Loading Acme Analytics...</p>
         </div>
       </div>
     );

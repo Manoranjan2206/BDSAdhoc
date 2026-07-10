@@ -1,8 +1,11 @@
 /* eslint-disable */
 import React, { useEffect, useMemo, useState } from 'react';
 import { reportsAPI } from '../services/apiService';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 
 export default function Designer() {
+    const navigate = useNavigate();
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -131,6 +134,16 @@ export default function Designer() {
     };
 
     const ajaxBeforeSend = (args) => {
+        if (args && args.headers) {
+            const currentUser = authService.getUser()?.user || authService.getUser();
+            if (currentUser && currentUser.email) {
+                args.headers.push({ Key: 'X-User-Email', Value: currentUser.email });
+            }
+            const currentUserId = currentUser?.id || currentUser?.userId;
+            if (currentUserId) {
+                args.headers.push({ Key: 'X-User-Id', Value: String(currentUserId) });
+            }
+        }
         if (
             args?.actionType === 'openServerReport' ||
             args?.actionType === 'saveServerReport' ||
@@ -353,8 +366,22 @@ export default function Designer() {
         setShowDialog(false);
     };
 
-    if (loading) return <div style={{ padding: 16 }}>Loading designer…</div>;
-    if (error) return <div style={{ padding: 16, color: '#b91c1c' }}>{error}</div>;
+    if (loading) return (
+        <div style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
+            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <p style={{ fontSize: 14, color: '#6b7280', fontWeight: 500 }}>Loading Report Designer…</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+    if (error) return (
+        <div style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
+            <p style={{ fontSize: 14, color: '#b91c1c', fontWeight: 500 }}>{error}</p>
+            <button style={{ padding: '8px 16px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+                onClick={() => navigate('/reports')}>
+                Back to Reports
+            </button>
+        </div>
+    );
     if (!settings) return null;
 
     const rootStyle = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
@@ -370,7 +397,7 @@ export default function Designer() {
             <div style={toolbarStyle}>
                 <h2 style={titleStyle}>{isEdit ? 'Edit Report' : 'New Report'}</h2>
                 <div style={actionsStyle}>
-                    <button style={btnStyle} onClick={() => window.history.back()}>Back</button>
+                    <button style={btnStyle} onClick={() => navigate('/reports')}>← Back to Reports</button>
                     <button
                         style={btnPrimaryStyle}
                         onClick={() => {

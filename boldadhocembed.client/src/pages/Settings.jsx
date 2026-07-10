@@ -18,6 +18,7 @@ export default function Settings() {
   const [biSettings, setBiSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copiedField, setCopiedField] = useState(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   // General Settings States
   const [notificationConfig, setNotificationConfig] = useState(() => {
@@ -71,7 +72,8 @@ export default function Settings() {
     
     // Dispatch custom event to notify other parts of the app (like App.jsx) of theme changes
     window.dispatchEvent(new Event('theme-changed'));
-    alert('General Preferences saved successfully!');
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   const handleCopy = (text, fieldName) => {
@@ -213,14 +215,18 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="pt-4">
-                  <button
-                    onClick={handleSavePreferences}
-                    className="e-primary modern-btn"
-                  >
-                    Save Preferences
-                  </button>
-                </div>
+                {savedSuccess && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-lg border border-emerald-200 dark:border-emerald-900/50 text-sm font-medium">
+                    <CheckCircleIcon className="w-4 h-4" />
+                    Preferences saved successfully!
+                  </div>
+                )}
+                <button
+                  onClick={handleSavePreferences}
+                  className="e-primary modern-btn"
+                >
+                  {savedSuccess ? 'Saved!' : 'Save Preferences'}
+                </button>
               </div>
             )}
 
@@ -310,7 +316,11 @@ export default function Settings() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500 italic">No settings configuration found on the server. Please check your appsettings.json file configuration.</p>
+                  <div className="text-center py-8">
+                    <ExclamationCircleIcon className="w-12 h-12 text-red-400 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Configuration Not Found</p>
+                    <p className="text-xs text-gray-500">No settings found on the server. Please check your appsettings.json file configuration.</p>
+                  </div>
                 )}
               </div>
             )}

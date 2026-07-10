@@ -33,7 +33,7 @@ export default function Reports() {
   const [viewerSettings, setViewerSettings] = useState(null);
   const [viewerLoading, setViewerLoading] = useState(false);
   const [viewerKey, setViewerKey] = useState(0);
-  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
   const isResizingRef = useRef(false);
   const mainRef = useRef(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
@@ -216,8 +216,7 @@ export default function Reports() {
     setSelectedReport(report);
     setSelectedCategory(category || null);
     setViewerKey(prev => prev + 1);
-    // Collapse folder tree sidebar when report renders
-    setReportsSidebarCollapsed(true);
+    // Keep sidebar visible - user can collapse manually
   };
 
   const handleEditReport = (reportName, category) => {
@@ -481,6 +480,16 @@ export default function Reports() {
         ajaxRequestFailure: (args) => console.error('AJAX failure:', args),
         reportError: (args) => console.error('Report error:', args),
         serviceAuthorizationToken,
+        ajaxBeforeLoad: (args) => {
+          const currentUser = authService.getUser()?.user || authService.getUser();
+          if (currentUser && currentUser.email) {
+            args.headers.push({ Key: 'X-User-Email', Value: currentUser.email });
+          }
+          const currentUserId = currentUser?.id || currentUser?.userId;
+          if (currentUserId) {
+            args.headers.push({ Key: 'X-User-Id', Value: String(currentUserId) });
+          }
+        },
         locale: 'en-US',
         processingMode: 'Remote',
         height: '100%',
@@ -545,17 +554,40 @@ export default function Reports() {
       <div className="reports-topbar">
         <div className="flex items-center gap-4">
           <h1 className="reports-topbar-title">Reports</h1>
-          <p className="reports-topbar-sub">Browse, preview & manage your reports</p>
+          <p className="reports-topbar-sub hidden md:block">Browse, preview & manage your reports</p>
         </div>
-        <Link to="/designer">
-          <button className="e-primary modern-btn flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {selectedReport && (
+            <button
+              onClick={() => { setSelectedReport(null); setSelectedCategory(null); setReportsSidebarCollapsed(false); }}
+              className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-strong)] transition-colors"
+            >
+              ← Back to list
+            </button>
+          )}
+          <button
+            className="e-primary modern-btn flex items-center gap-2"
+            onClick={() => navigate('/designer')}
+          >
             <PlusIcon className="w-5 h-5" />
             New Report
           </button>
-        </Link>
+        </div>
       </div>
 
       <div className="reports-main" ref={mainRef}>
+        {/* Sidebar Toggle Button */}
+        <button
+          onClick={() => setReportsSidebarCollapsed(!reportsSidebarCollapsed)}
+          className={`absolute top-4 z-50 flex items-center justify-center w-7 h-7 rounded-full border border-[var(--brand-200)] bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200 ${
+            reportsSidebarCollapsed ? 'left-4' : 'left-[calc(var(--tree-width,260px)+20px)]'
+          }`}
+          style={reportsSidebarCollapsed ? {} : { left: sidebarWidth + 20 }}
+          title={reportsSidebarCollapsed ? 'Show report list' : 'Hide report list'}
+        >
+          <ChevronRightIcon className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-200 ${reportsSidebarCollapsed ? '' : 'rotate-180'}`} />
+        </button>
+
         {/* Sidebar */}
         <div
           className={`reports-sidebar ${reportsSidebarCollapsed ? 'collapsed' : ''}`}
@@ -647,8 +679,6 @@ export default function Reports() {
           )}
         </div>
 
-        {/* Resizer hidden based on feedback */}
-
         {/* Viewer / Placeholder */}
         <div className="reports-view">
           {selectedReport && reportPath ? (
@@ -656,25 +686,55 @@ export default function Reports() {
               key={viewerKey}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="reports-viewer-container"
+              className="reports-viewer-container flex flex-col"
             >
-              {viewerLoading ? (
-                <div className="reports-viewer-loading">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
-                  <p>Loading viewer...</p>
+              {/* Report Info Bar */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-[var(--surface)] flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <DocumentIcon className="w-4 h-4 text-[var(--info)] flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-strong)] truncate">{reportName}</p>
+                    {categoryName && <p className="text-xs text-[var(--text-muted)] truncate">{categoryName}</p>}
+                  </div>
                 </div>
-              ) : !viewerSettings ? (
-                <div className="reports-viewer-error">
-                  <p>Viewer configuration not loaded</p>
-                  <p className="text-sm mt-2">Check console for errors</p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleEditReport(reportName, categoryName)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--text-strong)] border border-[var(--brand-200)] rounded-lg hover:bg-[var(--brand-100)] transition-colors"
+                    title="Edit in Designer"
+                  >
+                    <PencilIcon className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => { setSelectedReport(null); setSelectedCategory(null); setReportsSidebarCollapsed(false); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] border border-[var(--brand-200)] rounded-lg hover:bg-[var(--brand-100)] transition-colors"
+                    title="Close viewer"
+                  >
+                    <ChevronLeftIcon className="w-3.5 h-3.5" />
+                    Close
+                  </button>
                 </div>
-              ) : (
-                <div
-                  id={`reportviewer-${viewerKey}`}
-                  ref={viewerDivRef}
-                  style={{ height: '100%', width: '100%' }}
-                />
-              )}
+              </div>
+              <div className="flex-1 min-h-0">
+                {viewerLoading ? (
+                  <div className="reports-viewer-loading h-full flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
+                    <p>Loading viewer...</p>
+                  </div>
+                ) : !viewerSettings ? (
+                  <div className="reports-viewer-error h-full flex flex-col items-center justify-center">
+                    <p>Viewer configuration not loaded</p>
+                    <p className="text-sm mt-2">Check console for errors</p>
+                  </div>
+                ) : (
+                  <div
+                    id={`reportviewer-${viewerKey}`}
+                    ref={viewerDivRef}
+                    style={{ height: '100%', width: '100%' }}
+                  />
+                )}
+              </div>
             </motion.div>
           ) : (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -686,13 +746,20 @@ export default function Reports() {
                 <div className="w-16 h-16 bg-[var(--brand-100)] dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-[var(--brand-500)]">
                   <DocumentIcon className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold mb-2 text-[var(--text-strong)]">Welcome to Reports Viewer</h2>
+                <h2 className="text-xl font-bold mb-2 text-[var(--text-strong)]">Select a Report</h2>
                 <p className="text-sm text-[var(--text-muted)] mb-6">
-                  Select a report from the sidebar to view, analyze, and export its data.
+                  {reportsSidebarCollapsed
+                    ? 'Click the arrow button to open the report list.'
+                    : 'Choose a report from the panel on the left to view it here.'}
                 </p>
-                <div className="text-xs text-[var(--text-light)]">
-                  Use search or categories to find a specific report.
-                </div>
+                {reportsSidebarCollapsed && (
+                  <button
+                    onClick={() => setReportsSidebarCollapsed(false)}
+                    className="px-4 py-2 bg-[var(--info)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition"
+                  >
+                    Open Report List
+                  </button>
+                )}
               </motion.div>
             </div>
           )}
@@ -701,3 +768,4 @@ export default function Reports() {
     </div>
   );
 }
+

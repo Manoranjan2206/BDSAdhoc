@@ -154,13 +154,12 @@ export default function Login() {
                   <label htmlFor="password" className="form-label">
                     Password
                   </label>
-                  <span className="optional-badge">Optional</span>
                 </div>
                 <div className="password-field">
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter password (optional)"
+                    placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
@@ -197,16 +196,16 @@ export default function Login() {
                     Signing in...
                   </>
                 ) : (
-                  'Login'
+                  'Sign In'
                 )}
               </button>
             </form>
 
             <div className="login-footer">
               <div className="footer-divider">
-                <span>System Login</span>
+                <span>Secure Organization Login</span>
               </div>
-              <p className="footer-text">Access your Acme Analytics account with your organization credentials</p>
+              <p className="footer-text">Access your Acme Analytics workspace with your organization credentials</p>
             </div>
           </div>
         </div>

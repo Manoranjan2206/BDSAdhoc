@@ -1,13 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChartBarIcon, DocumentTextIcon, ClockIcon, UserGroupIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, DocumentTextIcon, ClockIcon, UserGroupIcon, ArrowRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useData } from '../context/DataContext';
+import { authService } from '../services/authService';
 import { motion } from 'framer-motion';
 import '../styles/home.css';
 
 export default function Home() {
   const navigate = useNavigate();
   const { getReports, getDashboards, getSchedules, getUsers } = useData();
+  const [user] = useState(() => {
+    const u = authService.getUser();
+    return u?.user || u;
+  });
   const [stats, setStats] = useState({
     reports: 0,
     dashboards: 0,
@@ -162,9 +167,19 @@ export default function Home() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics Overview</h1>
-          <p className="text-sm text-[var(--text-muted)]">System status and resource breakdown</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {user?.name ? `Welcome back, ${user.name.split(' ')[0]}!` : 'Analytics Overview'}
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-0.5">System status and resource breakdown</p>
         </div>
+        <button
+          onClick={() => { window.location.reload(); }}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-muted)] border border-[var(--brand-200)] rounded-lg hover:bg-[var(--brand-100)] transition-colors"
+          title="Refresh data"
+        >
+          <ArrowPathIcon className="w-4 h-4" />
+          Refresh
+        </button>
       </div>
 
       {/* Analytics KPI Row */}
@@ -173,7 +188,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="dashboard-kpi-card"
+          className="dashboard-kpi-card cursor-pointer"
+          onClick={() => navigate('/reports')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/reports')}
+          title="Go to Reports"
         >
           <div className="flex justify-between items-start">
             <div>
@@ -201,7 +221,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.05 }}
-          className="dashboard-kpi-card"
+          className="dashboard-kpi-card cursor-pointer"
+          onClick={() => navigate('/dashboards')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboards')}
+          title="Go to Dashboards"
         >
           <div className="flex justify-between items-start">
             <div>
@@ -229,7 +254,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="dashboard-kpi-card"
+          className="dashboard-kpi-card cursor-pointer"
+          onClick={() => navigate('/schedules')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/schedules')}
+          title="Go to Schedules"
         >
           <div className="flex justify-between items-start">
             <div>
@@ -257,7 +287,12 @@ export default function Home() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
-          className="dashboard-kpi-card"
+          className="dashboard-kpi-card cursor-pointer"
+          onClick={() => navigate('/settings')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/settings')}
+          title="Go to Settings"
         >
           <div className="flex justify-between items-start">
             <div>
@@ -422,6 +457,14 @@ export default function Home() {
           <div>
             <h3 className="font-bold text-base">Recently Modified Assets</h3>
             <p className="text-xs text-[var(--text-muted)]">Quick access to your most recently updated reports and dashboards</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate('/reports')}
+              className="text-xs font-semibold text-[var(--accent)] hover:underline"
+            >
+              View All Reports →
+            </button>
           </div>
         </div>
 
