@@ -9,7 +9,23 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [demoUsers, setDemoUsers] = useState([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchDemoUsers = async () => {
+      try {
+        const res = await fetch('/api/auth/users');
+        const data = await res.json();
+        if (data && data.success) {
+          setDemoUsers(data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load demo users:', err);
+      }
+    };
+    fetchDemoUsers();
+  }, []);
 
   // Redirect to home if already authenticated
   useEffect(() => {
@@ -131,6 +147,48 @@ export default function Login() {
                 {error}
               </div>
             )}
+
+            {/* Quick Demo User Selection */}
+            <div className="mb-6 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-700/60">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 text-left">Quick Demo User Selection</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(demoUsers.length > 0 ? demoUsers : [
+                  { email: 'admin@example.com', name: 'Admin User', role: 'Admin' },
+                  { email: 'sales@example.com', name: 'Sales User', role: 'Sales' },
+                  { email: 'manager@example.com', name: 'Manager User', role: 'Manager' }
+                ]).map((u) => {
+                  const pwd = u.email.includes('admin') ? 'admin123' : u.email.includes('sales') ? 'sales123' : 'manager123';
+                  return (
+                    <button
+                      key={u.email}
+                      type="button"
+                      onClick={async () => {
+                        setEmail(u.email);
+                        setPassword(pwd);
+                        setIsLoading(true);
+                        setError('');
+                        try {
+                          const loginData = await authService.login(u.email, pwd);
+                          if (loginData && (loginData.token || loginData.sessionToken)) {
+                            navigate('/', { replace: true });
+                          }
+                        } catch (err) {
+                          setError(err.message || 'Login failed.');
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="flex flex-col items-center p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#FF4800] dark:hover:border-[#FF4800] hover:shadow-md transition text-center cursor-pointer select-none"
+                      style={{ cursor: 'pointer' }}
+                      title={`Login as ${u.name}`}
+                    >
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate w-full">{u.role}</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5 truncate w-full">{u.name.split(' ')[0]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">

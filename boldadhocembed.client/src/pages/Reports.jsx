@@ -27,7 +27,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('own'); // own | shared | default
+  const [activeTab, setActiveTab] = useState('default'); // own | shared | default
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [viewerSettings, setViewerSettings] = useState(null);

@@ -26,7 +26,7 @@ const Dashboards = () => {
   const isResizingRef = useRef(false);
   const mainRef = useRef(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
-  const [activeTab, setActiveTab] = useState('own'); // own | shared | default
+  const [activeTab, setActiveTab] = useState('default'); // own | shared | default
 
   // Normalize dashboard props
   const normalizeDashboard = (d) => ({
