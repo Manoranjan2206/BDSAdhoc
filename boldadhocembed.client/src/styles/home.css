@@ -1,7 +1,7 @@
-/* home.css - Premium Analytical Dashboard Styles */
+/* home.css - Clean Enterprise Dashboard Styles */
 
 .home-dashboard {
-  background: linear-gradient(135deg, var(--bg-grad-a), var(--bg-grad-b));
+  background: var(--bg-grad-a, #F8FAFC);
   min-height: 100%;
 }
 
@@ -11,42 +11,30 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px;
+  padding: 22px;
   border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--brand-200);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: var(--surface, #FFFFFF);
+  border: 1px solid var(--brand-200, #E2E8F0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  z-index: 1;
 }
 
 .dark .dashboard-kpi-card {
-  background: rgba(24, 28, 44, 0.85);
-  border-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  background: #181c2c;
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .dashboard-kpi-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--brand-500);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+  border-color: rgba(255, 72, 0, 0.3);
 }
 
 .dark .dashboard-kpi-card:hover {
-  border-color: var(--brand-500);
-  box-shadow: 0 12px 24px rgba(255, 72, 0, 0.15);
-}
-
-/* Donut Chart Animation */
-@keyframes dash {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-circle {
-  transition: stroke-dasharray 0.3s ease, stroke-dashoffset 0.3s ease;
+  border-color: rgba(255, 72, 0, 0.4);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Table styling fixes */
@@ -57,8 +45,4 @@ table {
 
 th, td {
   text-align: left;
-}
-
-.dark table tr:hover td {
-  background-color: rgba(255, 255, 255, 0.02);
 }

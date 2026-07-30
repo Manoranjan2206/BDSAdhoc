@@ -11,7 +11,7 @@ export default function Designer() {
     const [error, setError] = useState(null);
     const [isEdit, setIsEdit] = useState(false);
 
-    // expose compat window variables (for provided snippet)
+    // expose compat window variables
     useEffect(() => {
         if (settings) {
             window.info = {
@@ -41,8 +41,6 @@ export default function Designer() {
     }, []);
 
     const currentItem = useMemo(() => {
-        // prefer explicit URL params, but fall back to window.currentItem if the host page
-        // set it when opening the designer (single-page navigation / edit button flows).
         const q = new URLSearchParams(window.location.search);
         const urlName = q.get('name');
         const urlCategory = q.get('category');
@@ -57,13 +55,10 @@ export default function Designer() {
     }, []);
 
     useEffect(() => {
-        // only overwrite window.currentItem when we have one from URL or derived value.
         if (currentItem) {
             window.currentItem = currentItem;
             setIsEdit(!!currentItem.Name);
         } else if (window.currentItem) {
-            // if an external caller already populated window.currentItem (edit button),
-            // honor that and enable edit mode.
             setIsEdit(!!window.currentItem.Name);
         } else {
             setIsEdit(false);
@@ -170,7 +165,7 @@ export default function Designer() {
         setIsEdit(true);
         try { notifyReportSaved(); } catch (e) {}
     };
-    // Notify other parts of the app that a report was saved so lists can refresh
+
     const notifyReportSaved = () => {
         try {
             window.dispatchEvent(new CustomEvent('reports:changed'));
@@ -287,36 +282,24 @@ export default function Designer() {
                 if (args && args.type === 'Save') {
                     saveAsServer(args.name, args.category, args.categoryId, args.description, args.tags, args.callBackInfo);
                     try { notifyReportSaved(); } catch (e) {}
-                    // Attempt to close the publish dialog. Prefer the designer API if available,
-                    // otherwise remove/hide the dialog and overlay from DOM as a fallback.
                     try {
                         const d = getDesigner();
                         if (d && typeof d.closePublishDialog === 'function') {
                             d.closePublishDialog();
                             return;
                         }
-                    } catch (e) {
-                        // ignore
-                    }
+                    } catch (e) { }
                     setTimeout(() => {
                         try {
-                            // Remove specific publish dialog(s)
                             const dlgSelectors = ['#reportdesigner-container_publish_report_dialog', '.e-dlg-container.e-publish', '.e-publish-dialog'];
                             dlgSelectors.forEach(sel => document.querySelectorAll(sel).forEach(n => n.remove()));
-
-                            // Remove any overlay/backdrop elements that may block interaction
                             const overlaySelectors = ['.e-dlg-overlay', '.e-overlay', '.e-modal-overlay', '.modal-backdrop', '.ej-overlay'];
                             overlaySelectors.forEach(sel => document.querySelectorAll(sel).forEach(n => n.remove()));
-
-                            // Remove any body-level classes that indicate a modal is open
                             ['e-popup-open', 'modal-open', 'dialog-open'].forEach(c => document.body.classList.remove(c));
-
-                            // Restore pointer events and aria-hidden on the designer container
                             const designerRoot = document.getElementById('reportdesigner-container');
                             if (designerRoot) {
                                 designerRoot.style.pointerEvents = '';
                                 designerRoot.removeAttribute('aria-hidden');
-                                // also clear inline pointer-events on immediate children
                                 designerRoot.querySelectorAll('*').forEach(el => { if (el && el.style) el.style.pointerEvents = ''; });
                             }
                         } catch (e) { }
@@ -327,11 +310,7 @@ export default function Designer() {
             tagInfo,
             reportName
         );
-        // We observed the designer creates a publish dialog with id
-        // `reportdesigner-container_publish_report_dialog` and container class
-        // `e-dlg-container e-publish`. Move that specific dialog and its overlay
-        // to document.body and force fixed centering so it appears in the viewport
-        // center (avoids being clipped/offset by parent layout).
+
         setTimeout(() => {
             try {
                 const dlg = document.getElementById('reportdesigner-container_publish_report_dialog') || document.querySelector('.e-dlg-container.e-publish');
@@ -351,12 +330,10 @@ export default function Designer() {
                     overlay.style.inset = '0';
                     overlay.style.zIndex = '19990';
                 }
-            } catch (e) {
-                // ignore
-            }
+            } catch (e) { }
         }, 120);
-        
     };
+
     const confirmSave = () => {
         const name = (pendingName || '').trim();
         if (!name) return;
@@ -368,50 +345,62 @@ export default function Designer() {
 
     if (loading) return (
         <div style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
-            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-            <p style={{ fontSize: 14, color: '#6b7280', fontWeight: 500 }}>Loading Report Designer…</p>
+            <div style={{ width: 36, height: 36, border: '3px solid #e2e8f0', borderTopColor: '#FF4800', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <p style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Loading Report Designer…</p>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
+
     if (error) return (
         <div style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
             <p style={{ fontSize: 14, color: '#b91c1c', fontWeight: 500 }}>{error}</p>
-            <button style={{ padding: '8px 16px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+            <button style={{ padding: '8px 16px', background: '#FF4800', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
                 onClick={() => navigate('/reports')}>
                 Back to Reports
             </button>
         </div>
     );
+
     if (!settings) return null;
 
-    const rootStyle = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
-    const toolbarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: '1px solid #e5e7eb', background: '#fff' };
-    const titleStyle = { margin: 0, fontSize: 18, fontWeight: 600, color: '#111827' };
-    const actionsStyle = { display: 'flex', gap: 8 };
-    const btnStyle = { padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer' };
-    const btnPrimaryStyle = { ...btnStyle, background: '#4f46e5', borderColor: '#4f46e5', color: '#fff' };
-    const canvasStyle = { height: 'calc(100vh - 64px)', width: '100%' };
-
     return (
-        <div style={rootStyle}>
-            <div style={toolbarStyle}>
-                <h2 style={titleStyle}>{isEdit ? 'Edit Report' : 'New Report'}</h2>
-                <div style={actionsStyle}>
-                    <button style={btnStyle} onClick={() => navigate('/reports')}>← Back to Reports</button>
+        <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 dark:bg-[#111422]">
+            {/* Sleek, Compact Sub-Header */}
+            <div className="h-12 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181c2c] flex items-center justify-between flex-shrink-0 z-20">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-semibold text-slate-400">Reports /</span>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {isEdit ? (window.currentItem?.Name || 'Edit Report') : 'New Report'}
+                    </h2>
+                    {isEdit && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-orange-50 text-[#FF4800] dark:bg-orange-950/40 rounded-full border border-orange-200/60 dark:border-orange-900/40">
+                            Editing
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2">
                     <button
-                        style={btnPrimaryStyle}
+                        onClick={() => navigate('/reports')}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        ← Back to Reports
+                    </button>
+                    <button
                         onClick={() => {
                             const designer = getDesigner();
                             if (!designer) return;
                             if (isEdit) designer.saveReport(); else openSaveDialog();
                         }}
+                        className="px-4 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
                     >
-                        {isEdit ? 'Save' : 'Publish'}
+                        {isEdit ? 'Save Report' : 'Publish Report'}
                     </button>
                 </div>
             </div>
 
-            <div style={canvasStyle}>
+            {/* Designer Canvas Viewport */}
+            <div className="flex-1 w-full relative overflow-hidden" style={{ height: 'calc(100vh - 112px)' }}>
                 <BoldReportDesignerComponent
                     id="reportdesigner-container"
                     serviceUrl={designerServiceUrl}
@@ -438,19 +427,19 @@ export default function Designer() {
 
             {showDialog && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-                    <div style={{ width: 'min(420px, 90vw)', background: '#fff', borderRadius: 8, padding: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
-                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Save As</h3>
-                        <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 6 }}>Report Name</label>
+                    <div style={{ width: 'min(420px, 90vw)', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Save As</h3>
+                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6 }}>Report Name</label>
                         <input
                             type="text"
                             value={pendingName}
                             onChange={(e) => setPendingName(e.target.value)}
                             placeholder="Enter report name"
-                            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px', marginBottom: 12 }}
+                            style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 16 }}
                         />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                            <button style={btnStyle} onClick={() => setShowDialog(false)}>Cancel</button>
-                            <button style={btnPrimaryStyle} onClick={confirmSave}>Save</button>
+                            <button style={{ padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 500 }} onClick={() => setShowDialog(false)}>Cancel</button>
+                            <button style={{ padding: '6px 16px', background: '#FF4800', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600 }} onClick={confirmSave}>Save</button>
                         </div>
                     </div>
                 </div>

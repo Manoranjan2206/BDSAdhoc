@@ -31,7 +31,7 @@ export default function Sidebar({ onWidthChange }) {
   } = useData();
 
   // notify parent about width changes
-  const width = collapsed ? 72 : 240;
+  const width = collapsed ? 64 : 200;
   if (typeof onWidthChange === 'function') {
     onWidthChange(width);
   }
@@ -62,7 +62,7 @@ export default function Sidebar({ onWidthChange }) {
   return (
     <aside
       className={`fixed left-0 top-0 h-screen flex flex-col text-white shadow-2xl transition-all duration-300 ease-in-out z-40 ${
-          collapsed ? 'w-[72px]' : 'w-[240px]'
+          collapsed ? 'w-[64px]' : 'w-[200px]'
         } bg-gradient-to-b from-[#131F3B] via-[#1a233a] to-[#0d1220] border-r border-white/5`}
     >
       {/* Logo Area */}

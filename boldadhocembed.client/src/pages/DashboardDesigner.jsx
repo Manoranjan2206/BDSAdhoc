@@ -17,7 +17,6 @@ export default function DashboardDesigner() {
     destroyDashboard();
 
     try {
-      // Fetch embed settings for a generic/new dashboard from the backend
       const data = await dashboardsAPI.getEmbedConfig('new');
       if (!data) {
         throw new Error('Could not retrieve embed details from server.');
@@ -28,7 +27,6 @@ export default function DashboardDesigner() {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
       const authorizationUrl = `${API_BASE_URL}/dashboards/authorize`;
 
-      // Create and load the Bold BI designer
       const dashboard = BoldBI.create({
         serverUrl: serverUrl,
         embedContainerId: 'dashboard-designer-container',
@@ -44,13 +42,12 @@ export default function DashboardDesigner() {
       dashboard.loadDesigner();
       setDashboardInstance(dashboard);
 
-      // Hide loader after designer loads/initializes
       setTimeout(() => {
         setLoading(false);
       }, 2000);
     } catch (err) {
       console.error('Dashboard designer initialize error:', err);
-      setError('Failed to load the dashboard designer. Please check that the backend server is running and configured correctly.');
+      setError('Failed to load the dashboard designer. Please check that the backend server is running.');
       setLoading(false);
     }
   };
@@ -78,53 +75,50 @@ export default function DashboardDesigner() {
     };
   }, []);
 
-  const rootStyle = { display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', boxSizing: 'border-box', background: '#f8fafc' };
-  const toolbarStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderBottom: '1px solid #e2e8f0', background: '#fff', flexShrink: 0 };
-  const infoStyle = { display: 'flex', flexDirection: 'column' };
-  const titleStyle = { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' };
-  const subStyle = { margin: '2px 0 0 0', fontSize: 12, color: '#64748b' };
-  const actionsStyle = { display: 'flex', gap: 12 };
-  const btnStyle = { padding: '8px 16px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', color: '#334155', cursor: 'pointer', fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s' };
-  const btnPrimaryStyle = { ...btnStyle, background: '#4f46e5', borderColor: '#4f46e5', color: '#fff' };
-  const canvasContainerStyle = { flexGrow: 1, width: '100%', position: 'relative', background: '#f1f5f9', overflow: 'hidden' };
-  const canvasStyle = { height: '100%', width: '100%' };
-
   return (
-    <div style={rootStyle}>
-      <div style={toolbarStyle}>
-        <div style={infoStyle}>
-          <h2 style={titleStyle}>Dashboard Designer</h2>
+    <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 dark:bg-[#111422]">
+      {/* Sleek Compact Sub-Header */}
+      <div className="h-12 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181c2c] flex items-center justify-between flex-shrink-0 z-20">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-semibold text-slate-400">Dashboards /</span>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+            Dashboard Designer
+          </h2>
         </div>
-        <div style={actionsStyle}>
-          <button style={btnStyle} onClick={() => navigate('/dashboards')}>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/dashboards')}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
             ← Back to Dashboards
           </button>
         </div>
       </div>
 
-      <div style={canvasContainerStyle}>
+      {/* Canvas Viewport */}
+      <div className="flex-1 w-full relative overflow-hidden" style={{ height: 'calc(100vh - 112px)' }}>
         {loading && (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-            <p style={{ marginTop: 16, fontSize: 14, fontWeight: 500, color: '#334155' }}>Loading BoldBI Designer Interface...</p>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div className="absolute inset-0 bg-white/90 dark:bg-[#181c2c]/90 flex flex-col items-center justify-center z-10">
+            <div className="w-9 h-9 border-3 border-slate-200 border-t-[#FF4800] rounded-full animate-spin" />
+            <p className="mt-3 text-xs font-semibold text-slate-600 dark:text-slate-300">Loading Dashboard Designer Interface...</p>
           </div>
         )}
 
         {error && (
-          <div style={{ position: 'absolute', inset: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: 24 }}>
-            <div style={{ maxWidth: 460, textAlign: 'center', border: '1px solid #fee2e2', borderRadius: 12, padding: 32, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', background: '#fff' }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: 18, color: '#ef4444' }}>Configuration Required</h3>
-              <p style={{ margin: '0 0 20px 0', fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>{error}</p>
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                <button style={btnPrimaryStyle} onClick={initDesigner}>Try Again</button>
-                <button style={btnStyle} onClick={() => navigate('/dashboards')}>Cancel</button>
+          <div className="absolute inset-0 bg-white dark:bg-[#181c2c] flex items-center justify-center z-20 p-6">
+            <div className="max-w-md text-center border border-red-200 dark:border-red-900/40 rounded-2xl p-8 bg-white dark:bg-slate-900 shadow-md">
+              <h3 className="text-base font-bold text-red-600 mb-2">Configuration Required</h3>
+              <p className="text-xs text-slate-500 mb-4">{error}</p>
+              <div className="flex gap-2 justify-center">
+                <button onClick={initDesigner} className="px-4 py-1.5 bg-[#FF4800] text-white text-xs font-semibold rounded-xl">Try Again</button>
+                <button onClick={() => navigate('/dashboards')} className="px-4 py-1.5 border border-slate-200 text-xs font-semibold rounded-xl">Cancel</button>
               </div>
             </div>
           </div>
         )}
 
-        <div id="dashboard-designer-container" ref={containerRef} style={canvasStyle} />
+        <div id="dashboard-designer-container" ref={containerRef} style={{ height: '100%', width: '100%' }} />
       </div>
     </div>
   );

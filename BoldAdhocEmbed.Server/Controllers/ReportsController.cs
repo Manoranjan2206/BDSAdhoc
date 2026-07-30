@@ -84,20 +84,11 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
                 }
 
-                // Try to get from cache first
-                var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
-                var cacheKey = $"report-tree-{userEmail}";
-                var cachedTree = await _cacheService.GetAsync<dynamic>(cacheKey);
-                
-                if (cachedTree != null)
-                {
-                    Logger.LogInformation("Report tree retrieved from cache");
-                    return Ok(ApiResponse<dynamic>.SuccessResponse(cachedTree, "Report tree retrieved successfully"));
-                }
-
+                // Fetch reports directly to ensure latest date properties
                 var reports = await _boldReportsService.GetReportsAsync(token);
                 
+                var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
                 // Group reports by category
                 var tree = reports
                     .GroupBy(r => r.CategoryName ?? "Uncategorized")
@@ -113,7 +104,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                             r.CanRead,
                             r.CanWrite,
                             CreatedById = r.CreatedById,
-                            IsPublic = r.IsPublic
+                            IsPublic = r.IsPublic,
+                            ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
+                            CreatedDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
+                            ModifiedDateString = !string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso)
                         }).ToList()
                     })
                     .ToList();

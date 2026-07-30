@@ -811,6 +811,15 @@ namespace BoldAdhocEmbed.Server.Services
 
         [JsonProperty("IsPublic")]
         public bool IsPublic { get; set; }
+
+        [JsonProperty("ModifiedDate")]
+        public string ModifiedDate { get; set; }
+
+        [JsonProperty("CreatedDate")]
+        public string CreatedDate { get; set; }
+
+        [JsonProperty("ModifiedDateString")]
+        public string ModifiedDateString { get; set; }
     }
 
     public class ExportResponse

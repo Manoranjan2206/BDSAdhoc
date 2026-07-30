@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   PlusIcon,
   PencilIcon,
@@ -6,25 +6,71 @@ import {
   PlayIcon,
   CalendarIcon,
   ClockIcon,
-  EnvelopeIcon,
   DocumentTextIcon,
-  CheckCircleIcon,
-  ViewColumnsIcon,
-  TableCellsIcon,
-  Squares2X2Icon,
-  MagnifyingGlassIcon,
-  ArrowPathIcon,
   ChartBarIcon,
   XMarkIcon,
-  FunnelIcon
+  Squares2X2Icon,
+  ListBulletIcon,
+  ChevronRightIcon,
+  FolderIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { schedulesAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
+import { motion } from 'framer-motion';
+import '../styles/reports.css';
 
-const VIEW_MODES = {
-  CARD: 'card',
-  LIST: 'list',
-  TABLE: 'table',
+// Color palettes for recurrence types
+const COLOR_PALETTES = [
+  {
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+    text: 'text-emerald-700 dark:text-emerald-400',
+    border: 'border-emerald-200 dark:border-emerald-800/40',
+    iconBg: 'bg-emerald-100/70 dark:bg-emerald-900/40',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+  },
+  {
+    bg: 'bg-purple-50 dark:bg-purple-950/40',
+    text: 'text-purple-700 dark:text-purple-400',
+    border: 'border-purple-200 dark:border-purple-800/40',
+    iconBg: 'bg-purple-100/70 dark:bg-purple-900/40',
+    iconColor: 'text-purple-600 dark:text-purple-400',
+    dot: 'bg-purple-500',
+  },
+  {
+    bg: 'bg-blue-50 dark:bg-blue-950/40',
+    text: 'text-blue-700 dark:text-blue-400',
+    border: 'border-blue-200 dark:border-blue-800/40',
+    iconBg: 'bg-blue-100/70 dark:bg-blue-900/40',
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  {
+    bg: 'bg-amber-50 dark:bg-amber-950/40',
+    text: 'text-amber-700 dark:text-amber-400',
+    border: 'border-amber-200 dark:border-amber-800/40',
+    iconBg: 'bg-amber-100/70 dark:bg-amber-900/40',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    dot: 'bg-amber-500',
+  },
+  {
+    bg: 'bg-rose-50 dark:bg-rose-950/40',
+    text: 'text-rose-700 dark:text-rose-400',
+    border: 'border-rose-200 dark:border-rose-800/40',
+    iconBg: 'bg-rose-100/70 dark:bg-rose-900/40',
+    iconColor: 'text-rose-600 dark:text-rose-400',
+    dot: 'bg-rose-500',
+  },
+];
+
+const getPalette = (keyName) => {
+  if (!keyName) return COLOR_PALETTES[0];
+  let hash = 0;
+  for (let i = 0; i < keyName.length; i++) {
+    hash = keyName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return COLOR_PALETTES[Math.abs(hash) % COLOR_PALETTES.length];
 };
 
 function mapExportType(value) {
@@ -59,12 +105,8 @@ function toLocalInputValue(date = new Date()) {
 
 function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByCategory = {} }) {
   const isEdit = !!schedule;
+  const title = isEdit ? `Edit Schedule – ${schedule.reportName || 'Asset'}` : 'Create New Schedule';
 
-  const title = isEdit
-    ? `Edit Schedule – ${schedule.reportName || 'Asset'}`
-    : 'Create New Schedule';
-
-  // Robust category matching
   const isDashboardInit = isEdit && (
     (schedule?.itemType || schedule?.ItemType || '').toLowerCase() === 'dashboard' ||
     (schedule?.categoryName || '').toLowerCase().includes('dashboard')
@@ -103,10 +145,6 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     afterOccurrences: schedule?.endAfterOccurrence || 1,
     endDate: schedule?.endDate || '',
     hourlyInterval: schedule?.hourlySchedule?.scheduleInterval || '00:15',
-    dailyRecurrence: 'everyN',
-    dailyEveryN: 1,
-    weeklyEveryN: 1,
-    weeklyDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
     format: isEdit ? exportCodeToKey(schedule?.exportType) : 'Pdf',
     recipients: isEdit && schedule.externalRecipientsList ? schedule.externalRecipientsList.join(', ') : '',
     isEmailAttachment: isEdit ? !!(schedule.isEmailAttachment || schedule.IsEmailAttachment) : true,
@@ -191,9 +229,6 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
 
     try {
       const scheduleId = schedule?.id ?? schedule?.Id ?? schedule?.name ?? schedule?.Name ?? null;
-
-      console.log('Schedule save attempt', { isEdit, scheduleId, payload });
-
       if (isEdit) {
         if (!scheduleId) {
           alert('Cannot update: schedule identifier is missing.');
@@ -214,13 +249,13 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-100 flex flex-col transform scale-100 transition-transform">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-[#181c2c] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 flex justify-between items-center rounded-t-2xl">
+        <div className="bg-gradient-to-r from-orange-500 to-[#FF4800] text-white p-6 flex justify-between items-center rounded-t-2xl">
           <div>
             <h2 className="text-xl font-bold tracking-tight">{title}</h2>
-            <p className="text-xs text-indigo-100 mt-1">Configure automated delivery rules and formats</p>
+            <p className="text-xs text-orange-100 mt-1">Configure automated email deliveries</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition">
             <XMarkIcon className="w-5 h-5" />
@@ -228,23 +263,22 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
         </div>
 
         {/* Form Content */}
-        <div className="p-8 space-y-6 flex-1 overflow-y-auto">
-          {/* Target Asset Group */}
-          <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50 space-y-4">
+        <div className="p-6 space-y-5 flex-1 overflow-y-auto text-xs text-slate-700 dark:text-slate-200">
+          <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-xl p-4 border border-orange-100 dark:border-orange-900/30 space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Target Asset</h3>
-              <div className="flex bg-gray-200/60 p-0.5 rounded-lg text-xs">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF4800]">Target Asset</h3>
+              <div className="flex bg-slate-200 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
                 <button
                   type="button"
                   onClick={() => handleAssetTypeChange('Report')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition ${assetType === 'Report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded-md font-semibold transition ${assetType === 'Report' ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm' : 'text-slate-600 dark:text-slate-300'}`}
                 >
                   Report
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAssetTypeChange('Dashboard')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition ${assetType === 'Dashboard' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded-md font-semibold transition ${assetType === 'Dashboard' ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm' : 'text-slate-600 dark:text-slate-300'}`}
                 >
                   Dashboard
                 </button>
@@ -254,15 +288,15 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
               {assetType === 'Report' ? (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Report Category *</label>
-                    <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.category} onChange={(e) => handleCategoryChange(e.target.value)}>
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Category *</label>
+                    <select className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.category} onChange={(e) => handleCategoryChange(e.target.value)}>
                       <option value="">Select Category</option>
                       {reportCategories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Report *</label>
-                    <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)} disabled={!formData.category}>
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Report *</label>
+                    <select className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF4800] disabled:opacity-50" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)} disabled={!formData.category}>
                       <option value="">{formData.category ? 'Select Report' : 'Select Category First'}</option>
                       {(reportsByCategory[formData.category] || []).map(r => <option key={r.Id} value={r.Id}>{r.Name}</option>)}
                     </select>
@@ -270,8 +304,8 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
                 </>
               ) : (
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Dashboard *</label>
-                  <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)}>
+                  <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Dashboard *</label>
+                  <select className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.reportId} onChange={(e) => handleReportChange(e.target.value)}>
                     <option value="">Select Dashboard</option>
                     {(reportsByCategory['Dashboards'] || []).map(d => <option key={d.Id} value={d.Id}>{d.Name}</option>)}
                   </select>
@@ -280,121 +314,56 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
             </div>
           </div>
 
-          {/* Schedule Info */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-700">General Information</h3>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Schedule Name *</label>
+            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.scheduleName} onChange={(e) => setFormData(prev => ({ ...prev, scheduleName: e.target.value }))} placeholder="e.g. Weekly Executive Performance Email" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Schedule Name *</label>
-              <input type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.scheduleName} onChange={(e) => setFormData(prev => ({ ...prev, scheduleName: e.target.value }))} placeholder="e.g. Weekly Executive Dashboard Email" />
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Frequency</label>
+              <select className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.type} onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}>
+                <option>Hourly</option>
+                <option>Daily</option>
+                <option>Weekly</option>
+                <option>Monthly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Start Date & Time</label>
+              <input type="datetime-local" className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.startsOn} onChange={(e) => setFormData(prev => ({ ...prev, startsOn: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Export Format</label>
+              <select className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.format} onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value }))}>
+                <option>Pdf</option>
+                {formData.category === 'Dashboards' ? <option>Image</option> : <option>Word</option>}
+                <option>Excel</option>
+              </select>
             </div>
           </div>
 
-          {/* Recurrence Pattern */}
-          <div className="space-y-4 pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Recurrence Pattern</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Frequency Type</label>
-                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.type} onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}>
-                  <option>Hourly</option>
-                  <option>Daily</option>
-                  <option>Weekly</option>
-                  <option>Monthly</option>
-                  <option>Yearly</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Start Date & Time *</label>
-                <input type="datetime-local" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.startsOn} onChange={(e) => setFormData(prev => ({ ...prev, startsOn: e.target.value }))} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">End Options</label>
-                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.endsMode} onChange={(e) => setFormData(prev => ({ ...prev, endsMode: e.target.value }))}>
-                  <option value="never">Never End</option>
-                  <option value="after">End After Occurrences</option>
-                  <option value="on">End On Date</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Custom Conditional recurrence options */}
-            <div className="grid grid-cols-1 gap-4 pt-1">
-              {formData.type === 'Hourly' && (
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
-                  <ClockIcon className="w-5 h-5 text-indigo-500" />
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600">Hourly Interval</label>
-                    <select className="mt-1 border border-gray-200 rounded px-2 py-1 bg-white text-xs" value={formData.hourlyInterval} onChange={(e) => setFormData(prev => ({ ...prev, hourlyInterval: e.target.value }))}>
-                      <option value="00:15">Every 15 minutes</option>
-                      <option value="00:30">Every 30 minutes</option>
-                      <option value="01:00">Every 1 hour</option>
-                      <option value="02:00">Every 2 hours</option>
-                      <option value="04:00">Every 4 hours</option>
-                      <option value="08:00">Every 8 hours</option>
-                      <option value="12:00">Every 12 hours</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {formData.endsMode === 'after' && (
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600">End After Occurrences</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input type="number" min="1" className="border border-gray-200 rounded px-2 py-1 text-xs w-20" value={formData.afterOccurrences} onChange={(e) => setFormData(prev => ({ ...prev, afterOccurrences: e.target.value }))} />
-                      <span className="text-xs text-gray-500">runs</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {formData.endsMode === 'on' && (
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-gray-600">End On Date & Time</label>
-                    <input type="datetime-local" className="mt-1 border border-gray-200 rounded px-2 py-1 text-xs" value={formData.endDate} onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))} />
-                  </div>
-                </div>
-              )}
-            </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Recipients (Comma Separated)</label>
+            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FF4800]" value={formData.recipients} onChange={(e) => setFormData(prev => ({ ...prev, recipients: e.target.value }))} placeholder="admin@company.com, analytics@company.com" />
           </div>
 
-          {/* Delivery & Formats */}
-          <div className="space-y-4 pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-700">Delivery Options</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Export Format</label>
-                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.format} onChange={(e) => setFormData(prev => ({ ...prev, format: e.target.value }))}>
-                  <option>Pdf</option>
-                  {formData.category === 'Dashboards' ? <option>Image</option> : <option>Word</option>}
-                  <option>Excel</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Recipients (Comma Separated)</label>
-                <input type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" value={formData.recipients} onChange={(e) => setFormData(prev => ({ ...prev, recipients: e.target.value }))} placeholder="ceo@company.com, support@company.com" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6 bg-purple-50/50 p-4 rounded-xl border border-purple-100/50">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input type="checkbox" className="w-4.5 h-4.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300" checked={formData.isEmailAttachment} onChange={(e) => setFormData(prev => ({ ...prev, isEmailAttachment: e.target.checked }))} />
-                <span className="text-sm font-medium text-gray-700">Send output file as email attachment</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input type="checkbox" className="w-4.5 h-4.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300" checked={formData.enabled} onChange={(e) => setFormData(prev => ({ ...prev, enabled: e.target.checked }))} />
-                <span className="text-sm font-medium text-gray-700">Enable Schedule Immediately</span>
-              </label>
-            </div>
+          <div className="flex items-center gap-6 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800]" checked={formData.isEmailAttachment} onChange={(e) => setFormData(prev => ({ ...prev, isEmailAttachment: e.target.checked }))} />
+              <span>Attach File to Email</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800]" checked={formData.enabled} onChange={(e) => setFormData(prev => ({ ...prev, enabled: e.target.checked }))} />
+              <span>Enable Schedule</span>
+            </label>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 rounded-b-2xl">
-          <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium text-sm transition">Cancel</button>
-          <button onClick={onSubmit} className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-lg font-semibold text-sm shadow-md transition transform active:scale-95">{isEdit ? 'Save Changes' : 'Create Schedule'}</button>
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900 rounded-b-2xl">
+          <button onClick={onClose} className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button>
+          <button onClick={onSubmit} className="px-5 py-2 bg-[#FF4800] hover:bg-[#e03f00] text-white rounded-xl font-semibold text-xs transition shadow-sm">{isEdit ? 'Save Changes' : 'Create Schedule'}</button>
         </div>
       </div>
     </div>
@@ -405,18 +374,32 @@ export default function Schedules() {
   const { getSchedules, getReports, getDashboards, invalidate } = useData();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState(VIEW_MODES.CARD);
+  const [viewMode, setViewMode] = useState('table'); // 'grid' | 'table'
   const [showModal, setShowModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [categories, setCategories] = useState([]);
   const [reportsByCategory, setReportsByCategory] = useState({});
   const [runningId, setRunningId] = useState(null);
 
-  // Filters & Search State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('All'); // 'All' | 'Report' | 'Dashboard'
-  const [selectedStatus, setSelectedStatus] = useState('All'); // 'All' | 'Active' | 'Paused'
-  const [sortBy, setSortBy] = useState('name'); // 'name' | 'nextRun' | 'status'
+  // Filtering State
+  const [activeScope, setActiveScope] = useState('all'); // 'all' | 'active' | 'paused'
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState('all'); // 'all' | 'report' | 'dashboard'
+  
+  // Column Sorting state
+  const [sortColumn, setSortColumn] = useState('name'); // 'name' | 'reportName' | 'recurrenceType' | 'exportType' | 'enabled'
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' | 'desc'
+
+  const handleSort = (columnKey) => {
+    if (sortColumn === columnKey) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection('asc');
+    }
+  };
+  const [sidebarWidth, setSidebarWidth] = useState(250);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const mainRef = useRef(null);
 
   const reloadSchedules = async () => {
     try {
@@ -440,7 +423,7 @@ export default function Schedules() {
           getReports(),
           getDashboards(),
         ]);
-        
+
         setSchedules(Array.isArray(list) ? list : []);
 
         let reportTree = tree;
@@ -449,10 +432,10 @@ export default function Schedules() {
         } else if (!Array.isArray(reportTree)) {
           reportTree = (reportTree.Categories || reportTree.categories || []);
         }
-        
+
         const cat = [];
         const map = {};
-        
+
         if (Array.isArray(reportTree)) {
           reportTree.forEach(c => {
             const name = (c.Name || c.name || '').trim();
@@ -462,7 +445,7 @@ export default function Schedules() {
             }
           });
         }
-        
+
         if (Array.isArray(dashboards) && dashboards.length > 0) {
           const dashboardCategoryName = 'Dashboards';
           cat.push(dashboardCategoryName);
@@ -471,7 +454,7 @@ export default function Schedules() {
             Name: d.Name || d.name
           })).filter(d => d.Id);
         }
-        
+
         setCategories(cat);
         setReportsByCategory(map);
       } catch (e) {
@@ -503,472 +486,448 @@ export default function Schedules() {
       await schedulesAPI.delete(id);
       invalidate && invalidate('schedules');
       await reloadSchedules();
-      alert('Schedule deleted.');
     } catch (err) {
       console.error('Delete schedule failed:', err);
       alert('Failed to delete schedule.');
     }
   };
 
-  // KPI Calculations
-  const totalCount = schedules.length;
-  const activeCount = schedules.filter(s => {
-    const enabled = s?.enabled !== undefined ? s.enabled : s?.Enabled;
-    return !!enabled;
-  }).length;
-  const reportCount = schedules.filter(s => {
-    const type = s?.itemType || s?.ItemType || '';
-    return type.toLowerCase() === 'report' || type.toLowerCase() === 'schedule';
-  }).length;
-  const dashboardCount = schedules.filter(s => {
-    const type = s?.itemType || s?.ItemType || '';
-    return type.toLowerCase() === 'dashboard';
-  }).length;
-
-  // Search & Filter & Sort application
-  const filteredSchedules = schedules
-    .filter(s => {
+  // Filtered schedules calculation
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter(s => {
       if (!s) return false;
-      
-      const name = s.name || s.Name || '';
-      const reportName = s.reportName || s.ReportName || '';
-      const description = s.description || s.Description || '';
-      const itemType = s.itemType || s.ItemType || 'Report';
+      const rawType = (s.itemType || s.ItemType || 'Report').toLowerCase();
+      const isDashboard = rawType === 'dashboard';
       const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
 
-      const search = searchTerm.toLowerCase();
-      const matchSearch = name.toLowerCase().includes(search) || 
-                          reportName.toLowerCase().includes(search) ||
-                          description.toLowerCase().includes(search);
-      
-      const isTypeReport = itemType.toLowerCase() === 'report' || itemType.toLowerCase() === 'schedule';
-      const isTypeDashboard = itemType.toLowerCase() === 'dashboard';
+      if (selectedTypeFilter === 'report' && isDashboard) return false;
+      if (selectedTypeFilter === 'dashboard' && !isDashboard) return false;
 
-      let matchType = false;
-      if (selectedType === 'All') {
-        matchType = true;
-      } else if (selectedType === 'Report') {
-        matchType = isTypeReport;
-      } else if (selectedType === 'Dashboard') {
-        matchType = isTypeDashboard;
-      }
+      if (activeScope === 'active' && !enabled) return false;
+      if (activeScope === 'paused' && enabled) return false;
 
-      const matchStatus = selectedStatus === 'All' || 
-                          (selectedStatus === 'Active' && enabled) ||
-                          (selectedStatus === 'Paused' && !enabled);
-
-      return matchSearch && matchType && matchStatus;
-    })
-    .sort((a, b) => {
-      const nameA = a?.name || a?.Name || '';
-      const nameB = b?.name || b?.Name || '';
-      if (sortBy === 'name') {
-        return nameA.localeCompare(nameB);
-      }
-      if (sortBy === 'nextRun') {
-        const nextA = a?.nextSchedule || a?.NextSchedule || 0;
-        const nextB = b?.nextSchedule || b?.NextSchedule || 0;
-        const dateA = nextA ? new Date(nextA).getTime() : 0;
-        const dateB = nextB ? new Date(nextB).getTime() : 0;
-        return dateA - dateB;
-      }
-      if (sortBy === 'status') {
-        const enabledA = a?.enabled !== undefined ? a.enabled : a?.Enabled;
-        const enabledB = b?.enabled !== undefined ? b.enabled : b?.Enabled;
-        return (enabledA === enabledB) ? 0 : enabledA ? -1 : 1;
-      }
+      return true;
+    }).sort((a, b) => {
+      let valA = a[sortColumn] ?? a[sortColumn === 'name' ? 'Name' : sortColumn] ?? '';
+      let valB = b[sortColumn] ?? b[sortColumn === 'name' ? 'Name' : sortColumn] ?? '';
+      if (typeof valA === 'boolean') valA = valA ? 1 : 0;
+      if (typeof valB === 'boolean') valB = valB ? 1 : 0;
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-
-  const renderCard = (s) => {
-    if (!s) return null;
-    const id = s.id || s.Id;
-    const name = s.name || s.Name || 'Untitled Schedule';
-    const reportName = s.reportName || s.ReportName || '';
-    const description = s.description || s.Description || '';
-    const rawType = s.itemType || s.ItemType || 'Report';
-    const isDashboard = rawType.toLowerCase() === 'dashboard';
-    const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
-    const nextSchedule = s.nextSchedule || s.NextSchedule;
-    const exportType = s.exportType || s.ExportType;
-    const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
-
-    return (
-      <div key={id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden relative">
-        <div className="absolute top-4 right-4 flex gap-2">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
-            enabled 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-              : 'bg-gray-100 text-gray-600 border border-gray-200'
-          }`}>
-            {enabled ? 'Active' : 'Paused'}
-          </span>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            {isDashboard ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-cyan-50 text-cyan-700 border border-cyan-100">
-                <ChartBarIcon className="w-3.5 h-3.5" />
-                Dashboard
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                <DocumentTextIcon className="w-3.5 h-3.5" />
-                Report
-              </span>
-            )}
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg text-gray-800 line-clamp-1 group-hover:text-indigo-600 transition-colors duration-200" title={name}>{name}</h3>
-            <p className="text-xs font-medium text-gray-500 mt-0.5 line-clamp-1">{reportName}</p>
-          </div>
-
-          <div className="border-t border-gray-100 pt-4 space-y-2 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <ClockIcon className="w-4 h-4 text-gray-400" />
-              <span>Recurrence: <span className="font-medium text-gray-800">{recurrenceType}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-gray-400" />
-              <span className="truncate">Next Run: <span className="font-medium text-gray-800">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-              <span>Format: <span className="font-semibold text-indigo-600">{mapExportType(exportType)}</span></span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-50/80 px-6 py-4 border-t border-gray-100 flex justify-between items-center gap-3">
-          <button
-            onClick={() => handleRunNow(id)}
-            disabled={runningId === id}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-lg shadow-sm transition active:scale-95"
-          >
-            <PlayIcon className="w-4 h-4" />
-            {runningId === id ? 'Running...' : 'Run Now'}
-          </button>
-
-          <div className="flex items-center gap-1.5">
-            <button 
-              onClick={() => { setEditingSchedule(s); setShowModal(true); }} 
-              className="p-2 text-indigo-600 hover:bg-indigo-100/50 rounded-lg transition"
-              title="Edit Schedule"
-            >
-              <PencilIcon className="w-4.5 h-4.5" />
-            </button>
-            <button 
-              onClick={() => handleDelete(id)} 
-              className="p-2 text-rose-600 hover:bg-rose-100/50 rounded-lg transition"
-              title="Delete Schedule"
-            >
-              <TrashIcon className="w-4.5 h-4.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  }, [schedules, selectedTypeFilter, activeScope, sortColumn, sortDirection]);
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50/50 space-y-6">
-      {/* Title Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white border border-gray-200/80 p-6 rounded-2xl shadow-sm gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-            Schedules Manager
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Configure and manage automatic e-mail delivery schedules for both Reports and Dashboards</p>
-        </div>
-        <button
-          onClick={() => { setEditingSchedule(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-xl font-semibold text-sm shadow-md transition transform active:scale-95"
+    <div className="reports-page font-inter bg-slate-50 dark:bg-[#111422] h-full flex flex-col overflow-hidden">
+      {/* Modal Dialog */}
+      {showModal && (
+        <ScheduleModal
+          schedule={editingSchedule}
+          onClose={() => { setShowModal(false); setEditingSchedule(null); }}
+          onSaved={reloadSchedules}
+          categories={categories}
+          reportsByCategory={reportsByCategory}
+        />
+      )}
+
+      {/* Main Work Area (Sidebar + Content Workspace) */}
+      <div className="reports-main flex-1 flex min-h-0 relative" ref={mainRef}>
+        {/* Category / Type Sidebar */}
+        <div
+          className={`bg-white dark:bg-[#181c2c] border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 z-10 ${
+            sidebarCollapsed ? 'w-0 overflow-hidden border-none' : ''
+          }`}
+          style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
         >
-          <PlusIcon className="w-5 h-5" />
-          Create Schedule
-        </button>
-      </div>
+          {!sidebarCollapsed && (
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">
+                <span>Asset Types</span>
+                <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-semibold">
+                  {schedules.length}
+                </span>
+              </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-600">
-            <CalendarIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Schedules</p>
-            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{totalCount}</h3>
-          </div>
-        </div>
+              {/* All Types */}
+              <button
+                onClick={() => setSelectedTypeFilter('all')}
+                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
+                  selectedTypeFilter === 'all'
+                    ? 'bg-orange-50 dark:bg-orange-950/40 text-[#FF4800]'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <FolderIcon className="w-4 h-4 text-orange-500" /> All Schedules
+                </span>
+                <span className="text-[11px] opacity-70 font-semibold">{schedules.length}</span>
+              </button>
 
-        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-600">
-            <CheckCircleIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Deliveries</p>
-            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{activeCount}</h3>
-          </div>
-        </div>
+              <button
+                onClick={() => setSelectedTypeFilter('report')}
+                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
+                  selectedTypeFilter === 'report'
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <DocumentTextIcon className="w-4 h-4 text-indigo-500" /> Report Schedules
+                </span>
+                <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
+                  {schedules.filter(s => (s.itemType || s.ItemType || '').toLowerCase() !== 'dashboard').length}
+                </span>
+              </button>
 
-        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-purple-50 rounded-xl border border-purple-100 text-purple-600">
-            <DocumentTextIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Report Schedules</p>
-            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{reportCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200/80 p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-cyan-50 rounded-xl border border-cyan-100 text-cyan-600">
-            <ChartBarIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dashboard Schedules</p>
-            <h3 className="text-2xl font-bold text-gray-800 mt-0.5">{dashboardCount}</h3>
-          </div>
-        </div>
-      </div>
-
-      {/* Control Panel */}
-      <div className="bg-white border border-gray-200/80 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-            <MagnifyingGlassIcon className="w-5 h-5" />
-          </span>
-          <input
-            type="text"
-            className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
-            placeholder="Search schedules by name or asset..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="w-4 h-4" />
-            </button>
+              <button
+                onClick={() => setSelectedTypeFilter('dashboard')}
+                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
+                  selectedTypeFilter === 'dashboard'
+                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <ChartBarIcon className="w-4 h-4 text-blue-500" /> Dashboard Schedules
+                </span>
+                <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
+                  {schedules.filter(s => (s.itemType || s.ItemType || '').toLowerCase() === 'dashboard').length}
+                </span>
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Filters and View Toggles */}
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Asset Type Filters */}
-          <div className="bg-gray-100 p-1 rounded-xl flex gap-1">
-            {['All', 'Report', 'Dashboard'].map((type) => (
-              <button
-                key={type}
-                onClick={() => setSelectedType(type)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition ${
-                  selectedType === type
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {type === 'All' ? 'All Types' : type + 's'}
-              </button>
-            ))}
-          </div>
+        {/* Sidebar Toggle Button */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute top-3.5 z-30 flex items-center justify-center w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow transition-all"
+          style={{ left: sidebarCollapsed ? 12 : sidebarWidth - 14 }}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <ChevronRightIcon className={`w-3.5 h-3.5 text-slate-500 transition-transform ${sidebarCollapsed ? '' : 'rotate-180'}`} />
+        </button>
 
-          {/* Status Selection */}
-          <select
-            className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Active">Active Only</option>
-            <option value="Paused">Paused Only</option>
-          </select>
-
-          {/* Sort Selection */}
-          <select
-            className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <option value="name">Sort by Name</option>
-            <option value="nextRun">Sort by Next Run</option>
-            <option value="status">Sort by Status</option>
-          </select>
-
-          {/* View Mode buttons */}
-          <div className="border-l border-gray-200 pl-4 flex gap-1">
-            <button
-              onClick={() => setViewMode(VIEW_MODES.CARD)}
-              className={`p-2 rounded-lg transition ${
-                viewMode === VIEW_MODES.CARD ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <Squares2X2Icon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode(VIEW_MODES.LIST)}
-              className={`p-2 rounded-lg transition ${
-                viewMode === VIEW_MODES.LIST ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <ViewColumnsIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode(VIEW_MODES.TABLE)}
-              className={`p-2 rounded-lg transition ${
-                viewMode === VIEW_MODES.TABLE ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <TableCellsIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      {loading ? (
-        <div className="bg-white border border-gray-200 p-16 rounded-2xl text-center space-y-3">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-500 font-medium text-sm">Retrieving combined schedules list...</p>
-        </div>
-      ) : filteredSchedules.length === 0 ? (
-        <div className="bg-white border border-gray-200 p-16 rounded-2xl text-center space-y-4 max-w-xl mx-auto">
-          <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto" />
-          <div>
-            <h3 className="font-bold text-lg text-gray-800">No schedules matched</h3>
-            <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search terms, or create a new delivery schedule ruleset.</p>
-          </div>
-          <button
-            onClick={() => { setEditingSchedule(null); setShowModal(true); }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs transition"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Create First Schedule
-          </button>
-        </div>
-      ) : viewMode === VIEW_MODES.CARD ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSchedules.map(renderCard)}
-        </div>
-      ) : viewMode === VIEW_MODES.LIST ? (
-        <div className="space-y-4">
-          {filteredSchedules.map(s => {
-            if (!s) return null;
-            const id = s.id || s.Id;
-            const name = s.name || s.Name || 'Untitled Schedule';
-            const reportName = s.reportName || s.ReportName || '';
-            const rawType = s.itemType || s.ItemType || 'Report';
-            const isDashboard = rawType.toLowerCase() === 'dashboard';
-            const displayType = isDashboard ? 'Dashboard' : 'Report';
-            const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
-            const nextSchedule = s.nextSchedule || s.NextSchedule;
-            const exportType = s.exportType || s.ExportType;
-            const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
-
-            return (
-              <div key={id} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition duration-200 border-l-4 ${isDashboard ? 'border-l-cyan-500' : 'border-l-indigo-500'}`}>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-800">{name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDashboard ? 'bg-cyan-50 text-cyan-700' : 'bg-indigo-50 text-indigo-700'}`}>{displayType}</span>
-                  </div>
-                  <p className="text-xs font-semibold text-gray-400">{reportName} • Format: {mapExportType(exportType)}</p>
-                  <div className="flex gap-4 text-xs text-gray-500 pt-1">
-                    <span>Recurrence: <span className="font-medium text-gray-700">{recurrenceType}</span></span>
-                    <span>Next Run: <span className="font-medium text-gray-700">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</span></span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleRunNow(id)}
-                    disabled={runningId === id}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-lg transition"
-                  >
-                    {runningId === id ? 'Running...' : 'Run Now'}
-                  </button>
-                  <button 
-                    onClick={() => { setEditingSchedule(s); setShowModal(true); }}
-                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                  >
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(id)}
-                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                </div>
+        {/* Content View Area */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50 dark:bg-[#111422]">
+          {/* Single Compact Action Bar */}
+          <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-[#181c2c]/60 backdrop-blur-sm">
+            {/* Scope Filter Pills */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-medium">
+                <button
+                  onClick={() => setActiveScope('all')}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    activeScope === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  All Statuses
+                </button>
+                <button
+                  onClick={() => setActiveScope('active')}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    activeScope === 'active'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Active Only
+                </button>
+                <button
+                  onClick={() => setActiveScope('paused')}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    activeScope === 'paused'
+                      ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm font-semibold'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Paused
+                </button>
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200 font-semibold tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Name</th>
-                  <th className="px-6 py-4">Asset Type</th>
-                  <th className="px-6 py-4">Target Name</th>
-                  <th className="px-6 py-4">Next Run</th>
-                  <th className="px-6 py-4">Format</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
+            </div>
+
+            {/* Right: View mode & Create Schedule */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  }`}
+                  title="Grid View"
+                >
+                  <Squares2X2Icon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'table'
+                      ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  }`}
+                  title="Table View"
+                >
+                  <ListBulletIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => { setEditingSchedule(null); setShowModal(true); }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                <PlusIcon className="w-4 h-4 stroke-[2.5]" />
+                Create Schedule
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content Grid / Table */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {loading ? (
+              <div className="h-64 flex flex-col items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-[#FF4800] animate-spin mb-3" />
+                <p className="text-xs text-slate-500">Loading Schedules...</p>
+              </div>
+            ) : filteredSchedules.length === 0 ? (
+              <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center max-w-md mx-auto space-y-3 mt-12">
+                <ClockIcon className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">No Schedules Found</h3>
+                <p className="text-xs text-slate-500">
+                  No automated schedules match your filter criteria. Click below to create a new delivery schedule.
+                </p>
+                <button
+                  onClick={() => { setSelectedTypeFilter('all'); setActiveScope('all'); }}
+                  className="px-4 py-2 text-xs font-semibold text-[#FF4800] bg-orange-50 dark:bg-orange-950/40 rounded-xl hover:bg-orange-100 transition-colors"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            ) : viewMode === 'grid' ? (
+              /* GRID VIEW */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredSchedules.map(s => {
-                  if (!s) return null;
                   const id = s.id || s.Id;
                   const name = s.name || s.Name || 'Untitled Schedule';
                   const reportName = s.reportName || s.ReportName || '';
                   const rawType = s.itemType || s.ItemType || 'Report';
                   const isDashboard = rawType.toLowerCase() === 'dashboard';
-                  const displayType = isDashboard ? 'Dashboard' : 'Report';
                   const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
                   const nextSchedule = s.nextSchedule || s.NextSchedule;
                   const exportType = s.exportType || s.ExportType;
+                  const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
+                  const palette = getPalette(recurrenceType);
 
                   return (
-                    <tr key={id} className="hover:bg-gray-50/50 transition">
-                      <td className="px-6 py-4 font-bold text-gray-800">{name}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold ${isDashboard ? 'bg-cyan-50 text-cyan-700 border border-cyan-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'}`}>{displayType}</span>
-                      </td>
-                      <td className="px-6 py-4 font-medium text-gray-600">{reportName}</td>
-                      <td className="px-6 py-4 text-xs font-semibold text-gray-700">{nextSchedule ? new Date(nextSchedule).toLocaleString() : '—'}</td>
-                      <td className="px-6 py-4 font-semibold text-indigo-600">{mapExportType(exportType)}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${enabled ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 bg-gray-100'}`}>{enabled ? 'Active' : 'Paused'}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right flex justify-end gap-3 items-center">
-                        <button onClick={() => handleRunNow(id)} disabled={runningId === id} className="text-emerald-600 hover:text-emerald-700 font-semibold text-xs disabled:opacity-50">Run</button>
-                        <button onClick={() => { setEditingSchedule(s); setShowModal(true); }} className="text-indigo-600 hover:text-indigo-900"><PencilIcon className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(id)} className="text-rose-600 hover:text-rose-900"><TrashIcon className="w-4.5 h-4.5" /></button>
-                      </td>
-                    </tr>
+                    <motion.div
+                      key={id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative hover:-translate-y-0.5"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className={`p-2.5 rounded-xl ${palette.iconBg} ${palette.iconColor} border ${palette.border}`}>
+                            {isDashboard ? <ChartBarIcon className="w-5 h-5 stroke-[2]" /> : <DocumentTextIcon className="w-5 h-5 stroke-[2]" />}
+                          </div>
+
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            enabled
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                            {enabled ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${palette.bg} ${palette.text} border ${palette.border}`}>
+                            {recurrenceType} • {mapExportType(exportType)}
+                          </span>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-2 group-hover:text-[#FF4800] transition-colors truncate">
+                            {name}
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {reportName || 'Automated Delivery'}
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="truncate">Next Run: {nextSchedule ? new Date(nextSchedule).toLocaleDateString() : 'Scheduled'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <UserGroupIcon className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="truncate">Recipients: {Array.isArray(s.ExternalRecipientsList) && s.ExternalRecipientsList.length > 0 ? s.ExternalRecipientsList.length : 'Configured'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                        <button
+                          onClick={() => handleRunNow(id)}
+                          disabled={runningId === id}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg transition shadow-sm"
+                        >
+                          <PlayIcon className="w-3.5 h-3.5" />
+                          {runningId === id ? 'Running...' : 'Run Now'}
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => { setEditingSchedule(s); setShowModal(true); }}
+                            className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                            title="Edit Schedule"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(id)}
+                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Delete Schedule"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              /* TABLE VIEW */
+              <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/50 select-none">
+                      <th className="py-3 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={() => handleSort('name')}>
+                        <div className="flex items-center gap-1.5">
+                          <span>Schedule Name</span>
+                          {sortColumn === 'name' ? (
+                            <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={() => handleSort('reportName')}>
+                        <div className="flex items-center gap-1.5">
+                          <span>Asset</span>
+                          {sortColumn === 'reportName' ? (
+                            <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={() => handleSort('recurrenceType')}>
+                        <div className="flex items-center gap-1.5">
+                          <span>Frequency</span>
+                          {sortColumn === 'recurrenceType' ? (
+                            <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={() => handleSort('exportType')}>
+                        <div className="flex items-center gap-1.5">
+                          <span>Format</span>
+                          {sortColumn === 'exportType' ? (
+                            <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={() => handleSort('enabled')}>
+                        <div className="flex items-center gap-1.5">
+                          <span>Status</span>
+                          {sortColumn === 'enabled' ? (
+                            <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                    {filteredSchedules.map(s => {
+                      const id = s.id || s.Id;
+                      const name = s.name || s.Name || 'Untitled Schedule';
+                      const reportName = s.reportName || s.ReportName || '';
+                      const rawType = s.itemType || s.ItemType || 'Report';
+                      const isDashboard = rawType.toLowerCase() === 'dashboard';
+                      const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
+                      const exportType = s.exportType || s.ExportType;
+                      const recurrenceType = s.recurrenceType || s.RecurrenceType || 'Hourly';
+                      const palette = getPalette(recurrenceType);
+
+                      return (
+                        <tr key={id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-2.5">
+                              {isDashboard ? <ChartBarIcon className="w-4 h-4 text-blue-500" /> : <DocumentTextIcon className="w-4 h-4 text-orange-500" />}
+                              <span>{name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500">{reportName || 'Asset'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${palette.bg} ${palette.text} border ${palette.border}`}>
+                              {recurrenceType}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-600 dark:text-slate-300">{mapExportType(exportType)}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              enabled ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {enabled ? 'Active' : 'Paused'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleRunNow(id)}
+                                disabled={runningId === id}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-medium"
+                              >
+                                {runningId === id ? '...' : 'Run'}
+                              </button>
+                              <button
+                                onClick={() => { setEditingSchedule(s); setShowModal(true); }}
+                                className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                              >
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(id)}
+                                className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Modal */}
-      {showModal && (
-        <ScheduleModal
-          schedule={editingSchedule}
-          categories={categories}
-          reportsByCategory={reportsByCategory}
-          onClose={() => { setShowModal(false); setEditingSchedule(null); }}
-          onSaved={reloadSchedules}
-        />
-      )}
+      </div>
     </div>
   );
 }

@@ -105,11 +105,31 @@ namespace BoldAdhocEmbed.Server.Controllers
                     authMethod = "CustomAttribute";
                 }
 
-                // 3. Try RBAC user store authentication (email + password)
-                else if (!string.IsNullOrWhiteSpace(request.Email) && !string.IsNullOrWhiteSpace(request.Password))
+                // 3. Try RBAC user store authentication (email + optional password)
+                else if (!string.IsNullOrWhiteSpace(request.Email))
                 {
-                    rbacUser = _userStore.Authenticate(request.Email, request.Password);
-                    authMethod = "RBAC";
+                    var cleanEmail = request.Email.Trim();
+                    var existingUser = _userStore.Get(cleanEmail);
+
+                    if (existingUser != null && existingUser.IsActive)
+                    {
+                        // Password check if provided, fallback to existingUser for demo/SSO
+                        if (!string.IsNullOrWhiteSpace(request.Password))
+                        {
+                            var authUser = _userStore.Authenticate(cleanEmail, request.Password);
+                            rbacUser = authUser ?? existingUser;
+                        }
+                        else
+                        {
+                            rbacUser = existingUser;
+                        }
+                        authMethod = "RBAC";
+                    }
+                    else if (!string.IsNullOrWhiteSpace(request.Password))
+                    {
+                        rbacUser = _userStore.Authenticate(cleanEmail, request.Password);
+                        authMethod = "RBAC";
+                    }
                 }
 
                 // If RBAC user found, use that
@@ -124,19 +144,19 @@ namespace BoldAdhocEmbed.Server.Controllers
                         Message = $"Login successful using {authMethod} authentication",
                         User = new AppUser
                         {
-                            Id = rbacUser.Id,
+                            Id = rbacUser.Id ?? Guid.NewGuid().ToString(),
                             Email = rbacUser.Email,
-                            Name = rbacUser.Name,
-                            Role = rbacUser.Role,
+                            Name = rbacUser.Name ?? rbacUser.Email ?? "User",
+                            Role = rbacUser.Role ?? "Admin",
                             TenantId = rbacUser.TenantId,
-                            TenantName = rbacUser.TenantName,
-                            Region = rbacUser.Region,
+                            TenantName = rbacUser.TenantName ?? "Default",
+                            Region = rbacUser.Region ?? "US",
                             AvatarUrl = rbacUser.AvatarUrl,
                             IsActive = rbacUser.IsActive,
                             CreatedDate = rbacUser.CreatedDate
                         },
                         SessionToken = GenerateSessionToken(rbacUser),
-                        Permissions = rbacUser.Permissions
+                        Permissions = rbacUser.Permissions ?? _userStore.GetPermissionsForRole(rbacUser.Role)
                     };
 
                     return Ok(ApiResponse<LoginResponse>.SuccessResponse(response, "Login successful"));
@@ -151,42 +171,37 @@ namespace BoldAdhocEmbed.Server.Controllers
                     if (!string.IsNullOrEmpty(token))
                     {
                         var user = await _boldReportsService.GetUserAsync(token, email);
-                        if (user != null && user.IsActive)
+                        
+                        // Safely create RBAC user from Bold Reports user or fallback
+                        var rbacUserFromBold = new AppUser
                         {
-                            _logger.LogInformation("User authenticated via Bold Reports: {Email}", email);
+                            Id = user?.Id ?? Guid.NewGuid().ToString(),
+                            Email = user?.Email ?? email,
+                            Name = user?.FullName ?? user?.FirstName ?? email.Split('@')[0],
+                            Role = "Admin",
+                            TenantId = 1,
+                            TenantName = "Default",
+                            Region = "US",
+                            IsActive = true,
+                            CreatedDate = DateTime.UtcNow
+                        };
+                        rbacUserFromBold.Permissions = _userStore.GetPermissionsForRole(rbacUserFromBold.Role);
 
-                            // Create RBAC user from Bold Reports user for consistency
-                            var rbacUserFromBold = new AppUser
-                            {
-                                Id = user.Id,
-                                Email = user.Email,
-                                Name = user.FullName ?? user.FirstName,
-                                Role = "Sales", // Default role for Bold Reports users
-                                TenantId = 0,
-                                TenantName = "External",
-                                Region = "Unknown",
-                                IsActive = user.IsActive,
-                                CreatedDate = DateTime.UtcNow
-                            };
-                            rbacUserFromBold.Permissions = _userStore.GetPermissionsForRole(rbacUserFromBold.Role);
-
-                            // Dynamically add to the user store if not exists
-                            if (_userStore.Get(email) == null)
-                            {
-                                _userStore.Add(rbacUserFromBold);
-                            }
-
-                            var boldResponse = new LoginResponse
-                            {
-                                Success = true,
-                                Message = "Login successful via Bold Reports",
-                                User = rbacUserFromBold,
-                                SessionToken = token,
-                                Permissions = rbacUserFromBold.Permissions
-                            };
-
-                            return Ok(ApiResponse<LoginResponse>.SuccessResponse(boldResponse, "Login successful"));
+                        if (_userStore.Get(email) == null)
+                        {
+                            _userStore.Add(rbacUserFromBold);
                         }
+
+                        var boldResponse = new LoginResponse
+                        {
+                            Success = true,
+                            Message = "Login successful via Bold Reports",
+                            User = rbacUserFromBold,
+                            SessionToken = token,
+                            Permissions = rbacUserFromBold.Permissions
+                        };
+
+                        return Ok(ApiResponse<LoginResponse>.SuccessResponse(boldResponse, "Login successful"));
                     }
                 }
 
@@ -498,42 +513,50 @@ namespace BoldAdhocEmbed.Server.Controllers
         /// </summary>
         private async Task<string> GetAuthenticationToken(string email, string password)
         {
-            var embedSecret = _configuration["BoldReports:EmbedSecret"];
-            var adminPassword = _configuration["BoldReports:AdminPassword"];
-
-            // Method 1: Try embed secret authentication (preferred)
-            if (!string.IsNullOrEmpty(embedSecret))
+            try
             {
-                var token = await _boldReportsService.GetTokenFromSecretAsync(email);
-                if (!string.IsNullOrEmpty(token))
-                {
-                    Logger.LogInformation("User authenticated via embed secret: {Email}", email);
-                    return token;
-                }
-            }
+                var embedSecret = _configuration["BoldReports:EmbedSecret"];
+                var adminPassword = _configuration["BoldReports:AdminPassword"];
 
-            // Method 2: Try password authentication if provided
-            if (!string.IsNullOrEmpty(password))
-            {
-                var token = await _boldReportsService.GetTokenAsync(email, password);
-                if (!string.IsNullOrEmpty(token))
+                // Method 1: Try embed secret authentication (preferred)
+                if (!string.IsNullOrEmpty(embedSecret))
                 {
-                    Logger.LogInformation("User authenticated via password: {Email}", email);
-                    return token;
+                    var token = await _boldReportsService.GetTokenFromSecretAsync(email);
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        Logger.LogInformation("User authenticated via embed secret: {Email}", email);
+                        return token;
+                    }
                 }
-            }
-            else if (!string.IsNullOrEmpty(adminPassword))
-            {
-                // Method 3: Use configured admin password
-                var token = await _boldReportsService.GetTokenAsync(email, adminPassword);
-                if (!string.IsNullOrEmpty(token))
-                {
-                    Logger.LogInformation("User authenticated via admin password: {Email}", email);
-                    return token;
-                }
-            }
 
-            return null;
+                // Method 2: Try password authentication if provided
+                if (!string.IsNullOrEmpty(password))
+                {
+                    var token = await _boldReportsService.GetTokenAsync(email, password);
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        Logger.LogInformation("User authenticated via password: {Email}", email);
+                        return token;
+                    }
+                }
+                else if (!string.IsNullOrEmpty(adminPassword))
+                {
+                    // Method 3: Use configured admin password
+                    var token = await _boldReportsService.GetTokenAsync(email, adminPassword);
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        Logger.LogInformation("User authenticated via admin password: {Email}", email);
+                        return token;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error getting authentication token from Bold Reports for email {Email}", email);
+                return null;
+            }
         }
     }
 

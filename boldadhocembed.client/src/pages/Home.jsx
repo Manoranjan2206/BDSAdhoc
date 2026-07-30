@@ -1,6 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChartBarIcon, DocumentTextIcon, ClockIcon, UserGroupIcon, ArrowRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import {
+  ChartBarIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  UserGroupIcon,
+  ArrowRightIcon,
+  ArrowPathIcon,
+  PlusIcon,
+  FolderPlusIcon,
+  SparklesIcon,
+  StarIcon as StarIconOutline,
+} from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useData } from '../context/DataContext';
 import { authService } from '../services/authService';
 import { motion } from 'framer-motion';
@@ -13,6 +25,16 @@ export default function Home() {
     const u = authService.getUser();
     return u?.user || u;
   });
+  const [activeAssetTab, setActiveAssetTab] = useState('all');
+  const [starredReports, setStarredReports] = useState(() => {
+    try {
+      const saved = localStorage.getItem('starred_reports');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [stats, setStats] = useState({
     reports: 0,
     dashboards: 0,
@@ -26,6 +48,14 @@ export default function Home() {
     recentReports: [],
     recentDashboards: []
   });
+
+  // Client-side local time greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
 
   useEffect(() => {
     const loadReports = async () => {
@@ -54,6 +84,8 @@ export default function Home() {
                 type: 'report',
                 category: catName,
                 date: r.ModifiedDate || r.modifiedDate || new Date().toISOString(),
+                description: r.Description || r.description || 'Paginated analytics report',
+                owner: 'System Administrator'
               });
             });
           });
@@ -83,8 +115,10 @@ export default function Home() {
               id: d.Id || d.id,
               name: d.Name || d.name,
               type: 'dashboard',
-              category: d.CategoryName || d.category || d.Category || 'Uncategorized',
+              category: d.CategoryName || d.category || d.Category || 'General',
               date: d.ModifiedDate || d.modifiedDate || new Date().toISOString(),
+              description: d.Description || d.description || 'Interactive BI dashboard',
+              owner: 'Analytics Team'
             });
           });
         }
@@ -135,6 +169,15 @@ export default function Home() {
     loadUsers();
   }, [getReports, getDashboards, getSchedules, getUsers]);
 
+  const toggleStar = (id, e) => {
+    e.stopPropagation();
+    setStarredReports(prev => {
+      const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+      localStorage.setItem('starred_reports', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const formatDate = (dateStr) => {
     try {
       const date = new Date(dateStr);
@@ -154,382 +197,370 @@ export default function Home() {
       : 0;
   }, [stats.categoriesData]);
 
-  const totalAssets = stats.reports + stats.dashboards;
-
   const recentAssets = useMemo(() => {
     const combined = [...(stats.recentReports || []), ...(stats.recentDashboards || [])];
     combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return combined.slice(0, 5);
+    return combined;
   }, [stats.recentReports, stats.recentDashboards]);
 
+  const filteredAssets = useMemo(() => {
+    if (activeAssetTab === 'reports') {
+      return recentAssets.filter(a => a.type === 'report').slice(0, 6);
+    }
+    if (activeAssetTab === 'dashboards') {
+      return recentAssets.filter(a => a.type === 'dashboard').slice(0, 6);
+    }
+    if (activeAssetTab === 'favorites') {
+      return recentAssets.filter(a => starredReports.includes(a.id)).slice(0, 6);
+    }
+    return recentAssets.slice(0, 6);
+  }, [recentAssets, activeAssetTab, starredReports]);
+
   return (
-    <div className="home-dashboard p-6 space-y-6 overflow-y-auto h-full text-[var(--text-strong)]">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="home-dashboard p-6 space-y-6 overflow-y-auto h-full text-[var(--text-strong)] font-inter">
+      {/* 1. Header with dynamic time-of-day greeting */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-[#181c2c] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {user?.name ? `Welcome back, ${user.name.split(' ')[0]}!` : 'Analytics Overview'}
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {greeting}, {user?.name || 'Amanulla Aman'}
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-0.5">System status and resource breakdown</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            No tasks are due today. Enjoy your day!
+          </p>
         </div>
-        <button
-          onClick={() => { window.location.reload(); }}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-muted)] border border-[var(--brand-200)] rounded-lg hover:bg-[var(--brand-100)] transition-colors"
-          title="Refresh data"
-        >
-          <ArrowPathIcon className="w-4 h-4" />
-          Refresh
-        </button>
+
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <button
+            onClick={() => navigate('/designer')}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
+          >
+            <PlusIcon className="w-4 h-4 stroke-[2.5]" />
+            New Report
+          </button>
+          <button
+            onClick={() => navigate('/dashboards')}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+          >
+            <FolderPlusIcon className="w-4 h-4" />
+            New Dashboard
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="p-2.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
+            title="Refresh Overview"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Analytics KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
+      {/* 2. KPI Cards matching soft pastel palette of reference screenshot */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Reports KPI Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="dashboard-kpi-card cursor-pointer"
+          transition={{ duration: 0.3 }}
+          className="bg-[#f0edff] dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
           onClick={() => navigate('/reports')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/reports')}
-          title="Go to Reports"
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Total Reports</p>
+              <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Total Reports</p>
               {stats.loadingReports ? (
-                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+                <div className="h-8 w-16 bg-indigo-200/50 animate-pulse rounded mt-2" />
               ) : (
-                <h3 className="text-3xl font-extrabold mt-1">{stats.reports}</h3>
+                <h3 className="text-3xl font-extrabold mt-1 text-indigo-950 dark:text-white">{stats.reports}</h3>
               )}
             </div>
-            <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-              <DocumentTextIcon className="w-6 h-6" />
+            <div className="p-3 bg-white/80 dark:bg-indigo-900/60 rounded-xl text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50 shadow-2xs">
+              <DocumentTextIcon className="w-6 h-6 stroke-[2]" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
-            {stats.loadingReports ? (
-              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-            ) : (
-              <><span className="font-semibold text-blue-600 dark:text-blue-400 mr-1.5">{stats.categoriesData.length}</span> categories defined</>
-            )}
+          <div className="mt-4 pt-3 border-t border-indigo-200/50 dark:border-indigo-900/60 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300">
+            <span>Paginated & RDL Reports</span>
+            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
+        {/* Dashboards KPI Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-          className="dashboard-kpi-card cursor-pointer"
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="bg-[#fff4e8] dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
           onClick={() => navigate('/dashboards')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboards')}
-          title="Go to Dashboards"
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Dashboards</p>
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Dashboards</p>
               {stats.loadingDashboards ? (
-                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+                <div className="h-8 w-16 bg-amber-200/50 animate-pulse rounded mt-2" />
               ) : (
-                <h3 className="text-3xl font-extrabold mt-1">{stats.dashboards}</h3>
+                <h3 className="text-3xl font-extrabold mt-1 text-amber-950 dark:text-white">{stats.dashboards}</h3>
               )}
             </div>
-            <div className="p-2.5 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
-              <ChartBarIcon className="w-6 h-6" />
+            <div className="p-3 bg-white/80 dark:bg-amber-900/60 rounded-xl text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 shadow-2xs">
+              <ChartBarIcon className="w-6 h-6 stroke-[2]" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
-            {stats.loadingDashboards ? (
-              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-            ) : (
-              <><span className="font-semibold text-orange-600 dark:text-orange-400 mr-1.5">{stats.dashboards > 0 ? 'Active' : 'No'}</span> instances embedded</>
-            )}
+          <div className="mt-4 pt-3 border-t border-amber-200/50 dark:border-amber-900/60 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
+            <span>Interactive Analytics</span>
+            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
+        {/* Schedules KPI Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="dashboard-kpi-card cursor-pointer"
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-[#f7edff] dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
           onClick={() => navigate('/schedules')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/schedules')}
-          title="Go to Schedules"
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Schedules</p>
+              <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Scheduled Tasks</p>
               {stats.loadingSchedules ? (
-                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+                <div className="h-8 w-16 bg-purple-200/50 animate-pulse rounded mt-2" />
               ) : (
-                <h3 className="text-3xl font-extrabold mt-1">{stats.schedules}</h3>
+                <h3 className="text-3xl font-extrabold mt-1 text-purple-950 dark:text-white">{stats.schedules}</h3>
               )}
             </div>
-            <div className="p-2.5 bg-green-50 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
-              <ClockIcon className="w-6 h-6" />
+            <div className="p-3 bg-white/80 dark:bg-purple-900/60 rounded-xl text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 shadow-2xs">
+              <ClockIcon className="w-6 h-6 stroke-[2]" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
-            {stats.loadingSchedules ? (
-              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-            ) : (
-              'Automated report deliveries'
-            )}
+          <div className="mt-4 pt-3 border-t border-purple-200/50 dark:border-purple-900/60 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300">
+            <span>Automated Deliveries</span>
+            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
+        {/* Users KPI Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-          className="dashboard-kpi-card cursor-pointer"
+          transition={{ duration: 0.3, delay: 0.15 }}
+          className="bg-[#ffe8f0] dark:bg-pink-950/40 border border-pink-100 dark:border-pink-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
           onClick={() => navigate('/settings')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/settings')}
-          title="Go to Settings"
         >
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Total Users</p>
+              <p className="text-xs font-bold text-pink-700 dark:text-pink-300 uppercase tracking-wider">Team Members</p>
               {stats.loadingUsers ? (
-                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded mt-1" />
+                <div className="h-8 w-16 bg-pink-200/50 animate-pulse rounded mt-2" />
               ) : (
-                <h3 className="text-3xl font-extrabold mt-1">{stats.users}</h3>
+                <h3 className="text-3xl font-extrabold mt-1 text-pink-950 dark:text-white">{stats.users}</h3>
               )}
             </div>
-            <div className="p-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
-              <UserGroupIcon className="w-6 h-6" />
+            <div className="p-3 bg-white/80 dark:bg-pink-900/60 rounded-xl text-pink-600 dark:text-pink-300 border border-pink-200/60 dark:border-pink-800/50 shadow-2xs">
+              <UserGroupIcon className="w-6 h-6 stroke-[2]" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-[var(--text-muted)] font-medium">
-            {stats.loadingUsers ? (
-              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-            ) : (
-              'Registered team members'
-            )}
+          <div className="mt-4 pt-3 border-t border-pink-200/50 dark:border-pink-900/60 flex items-center justify-between text-xs text-pink-700 dark:text-pink-300">
+            <span>Active Collaborators</span>
+            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </motion.div>
       </div>
 
-      {/* Main Charts & Table Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Reports by Category Bar Chart */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="lg:col-span-3 bg-white dark:bg-[#181c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-sm space-y-4"
-        >
-          <div>
-            <h3 className="font-bold text-base">Reports Distribution</h3>
-            <p className="text-xs text-[var(--text-muted)]">Number of reports grouped by category</p>
+      {/* 3. Main Content Area (Recent Activity + Shortcuts) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Recent Activity & Content Access (Col span 2) */}
+        <div className="lg:col-span-2 bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h2 className="font-bold text-base text-slate-900 dark:text-white">Recent Activity</h2>
+              <p className="text-xs text-[var(--text-muted)]">Quickly pick up where you left off</p>
+            </div>
+
+            {/* Filter Chips */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-medium">
+              <button
+                onClick={() => setActiveAssetTab('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeAssetTab === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setActiveAssetTab('reports')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeAssetTab === 'reports'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Reports
+              </button>
+              <button
+                onClick={() => setActiveAssetTab('dashboards')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeAssetTab === 'dashboards'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Dashboards
+              </button>
+              <button
+                onClick={() => setActiveAssetTab('favorites')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeAssetTab === 'favorites'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Favorites ({starredReports.length})
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-4 pt-2">
-            {stats.loadingReports ? (
-              <div className="space-y-4 py-2">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between">
-                      <div className="h-3.5 w-24 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-                      <div className="h-3.5 w-12 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
-                    </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-800 h-2.5 rounded-full overflow-hidden">
-                      <div className="bg-gray-200 dark:bg-gray-700 h-full w-1/2 animate-pulse rounded" />
-                    </div>
-                  </div>
-                ))}
+          {/* List of Recent Items */}
+          <div className="space-y-2">
+            {(stats.loadingReports || stats.loadingDashboards) ? (
+              [1, 2, 3, 4].map(i => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 animate-pulse">
+                  <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded" />
+                  <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+                </div>
+              ))
+            ) : filteredAssets.length === 0 ? (
+              <div className="py-12 text-center text-xs text-[var(--text-muted)]">
+                No items found for this filter.
               </div>
-            ) : stats.categoriesData.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)] py-8 text-center">No category data found</p>
             ) : (
-              stats.categoriesData.map((cat, idx) => {
-                const percent = maxReports > 0 ? (cat.count / maxReports) * 100 : 0;
+              filteredAssets.map(asset => {
+                const isStarred = starredReports.includes(asset.id);
                 return (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span>{cat.category}</span>
-                      <span className="font-bold text-[var(--text-muted)]">{cat.count} {cat.count === 1 ? 'report' : 'reports'}</span>
+                  <div
+                    key={asset.id}
+                    onClick={() => {
+                      if (asset.type === 'report') {
+                        navigate(`/reports?report=${encodeURIComponent(asset.name)}&category=${encodeURIComponent(asset.category)}`);
+                      } else {
+                        navigate(`/dashboards?dashboardId=${asset.id}`);
+                      }
+                    }}
+                    className="flex items-center justify-between p-3.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/60 cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-[#FF4800] transition-colors">
+                            {asset.name}
+                          </h4>
+                          <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md ${
+                            asset.type === 'report'
+                              ? 'bg-orange-50 text-[#FF4800] dark:bg-orange-950/40'
+                              : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40'
+                          }`}>
+                            {asset.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{asset.description}</p>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-800 h-2.5 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${percent}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full"
-                      />
+
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <span className="text-xs text-[var(--text-muted)] hidden sm:block">
+                        {formatDate(asset.date)}
+                      </span>
+                      <button
+                        onClick={(e) => toggleStar(asset.id, e)}
+                        className="p-1.5 text-slate-400 hover:text-amber-400 transition-colors"
+                        title={isStarred ? "Remove from Favorites" : "Add to Favorites"}
+                      >
+                        {isStarred ? (
+                          <StarIconSolid className="w-4 h-4 text-amber-400" />
+                        ) : (
+                          <StarIconOutline className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        className="flex items-center gap-1 text-xs font-semibold text-[#FF4800] hover:text-[#e03f00] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        View <ArrowRightIcon className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 );
               })
             )}
           </div>
-        </motion.div>
+        </div>
 
-        {/* Assets Summary Circular Ring */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-          className="lg:col-span-2 bg-white dark:bg-[#181c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-sm flex flex-col justify-between"
-        >
-          <div>
-            <h3 className="font-bold text-base">Asset Allocation</h3>
-            <p className="text-xs text-[var(--text-muted)]">Comparison between reports and dashboards</p>
-          </div>
-
-          {(stats.loadingReports || stats.loadingDashboards) ? (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <div className="w-16 h-16 rounded-full border-4 border-gray-200 dark:border-gray-800 border-t-blue-500 animate-spin" />
-              <div className="h-4 w-28 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" />
+        {/* Right: Quick Launch & Category Summary (Col span 1) */}
+        <div className="space-y-6">
+          {/* Top Categories Card */}
+          <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">Categories</h3>
+              <button
+                onClick={() => navigate('/reports')}
+                className="text-xs font-semibold text-[#FF4800] hover:underline"
+              >
+                View All
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="flex justify-center items-center py-6 relative">
-                <svg width="150" height="150" viewBox="0 0 36 36" className="transform -rotate-90">
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--brand-100)" strokeWidth="3.2" className="dark:stroke-gray-800" />
-                  {totalAssets > 0 && (
-                    <circle 
-                      cx="18" 
-                      cy="18" 
-                      r="15.915" 
-                      fill="none" 
-                      stroke="var(--info)" 
-                      strokeWidth="3.2" 
-                      strokeDasharray={`${(stats.reports / totalAssets) * 100} ${100 - (stats.reports / totalAssets) * 100}`}
-                      strokeDashoffset="0"
-                    />
-                  )}
-                  {totalAssets > 0 && (
-                    <circle 
-                      cx="18" 
-                      cy="18" 
-                      r="15.915" 
-                      fill="none" 
-                      stroke="var(--accent)" 
-                      strokeWidth="3.2" 
-                      strokeDasharray={`${(stats.dashboards / totalAssets) * 100} ${100 - (stats.dashboards / totalAssets) * 100}`}
-                      strokeDashoffset={`${100 - (stats.reports / totalAssets) * 100}`}
-                    />
-                  )}
-                </svg>
-                <div className="absolute text-center">
-                  <span className="text-2xl font-black block">{totalAssets}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Total Assets</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t border-gray-100 dark:border-gray-800 pt-4 text-xs font-semibold">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[var(--info)] block" />
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Reports</span>
-                    <span>{stats.reports} ({totalAssets > 0 ? Math.round((stats.reports / totalAssets) * 100) : 0}%)</span>
+            <div className="space-y-3">
+              {stats.loadingReports ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" />
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[var(--accent)] block" />
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Dashboards</span>
-                    <span>{stats.dashboards} ({totalAssets > 0 ? Math.round((stats.dashboards / totalAssets) * 100) : 0}%)</span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </motion.div>
-      </div>
-
-      {/* Recent Activity Table */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-        className="bg-white dark:bg-[#181c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-sm space-y-4"
-      >
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="font-bold text-base">Recently Modified Assets</h3>
-            <p className="text-xs text-[var(--text-muted)]">Quick access to your most recently updated reports and dashboards</p>
+                ))
+              ) : stats.categoriesData.length === 0 ? (
+                <p className="text-xs text-[var(--text-muted)] py-4 text-center">No categories found</p>
+              ) : (
+                stats.categoriesData.slice(0, 5).map((cat, idx) => {
+                  const percent = maxReports > 0 ? (cat.count / maxReports) * 100 : 0;
+                  return (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-slate-800 dark:text-slate-200 truncate">{cat.category}</span>
+                        <span className="text-[var(--text-muted)] font-semibold">{cat.count}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${percent}%` }}
+                          className="bg-[#FF4800] h-full rounded-full transition-all duration-500"
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">
+
+          {/* Report Designer Shortcut Card */}
+          <div className="bg-gradient-to-br from-slate-900 to-[#181c2c] text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-orange-400 uppercase tracking-wider">
+              <SparklesIcon className="w-4 h-4" /> Adhoc Report Builder
+            </div>
+            <div>
+              <h3 className="text-lg font-extrabold">Build Custom Reports</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Design custom RDL reports with our drag-and-drop report designer interface.
+              </p>
+            </div>
             <button
-              onClick={() => navigate('/reports')}
-              className="text-xs font-semibold text-[var(--accent)] hover:underline"
+              onClick={() => navigate('/designer')}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
             >
-              View All Reports →
+              Launch Designer <ArrowRightIcon className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                <th className="pb-3 pr-4">Asset Name</th>
-                <th className="pb-3 px-4">Type</th>
-                <th className="pb-3 px-4">Category</th>
-                <th className="pb-3 px-4">Modified Date</th>
-                <th className="pb-3 pl-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(stats.loadingReports || stats.loadingDashboards) ? (
-                [1, 2, 3].map(i => (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800/50">
-                    <td className="py-4 pr-4"><div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
-                    <td className="py-4 px-4"><div className="h-5 w-16 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
-                    <td className="py-4 px-4"><div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
-                    <td className="py-4 px-4"><div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 animate-pulse rounded" /></td>
-                    <td className="py-4 pl-4 text-right"><div className="h-4 w-12 bg-gray-200 dark:bg-gray-800 animate-pulse rounded ml-auto" /></td>
-                  </tr>
-                ))
-              ) : recentAssets.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-sm text-[var(--text-muted)]">No assets found</td>
-                </tr>
-              ) : (
-                recentAssets.map((asset, idx) => (
-                  <tr key={idx} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="py-3.5 pr-4 font-semibold text-sm truncate max-w-[200px]" title={asset.name}>{asset.name}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        asset.type === 'report' 
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' 
-                          : 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                      }`}>
-                        {asset.type === 'report' ? 'Report' : 'Dashboard'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-[var(--text-muted)]">{asset.category}</td>
-                    <td className="py-3.5 px-4 text-xs text-[var(--text-muted)]">{formatDate(asset.date)}</td>
-                    <td className="py-3.5 pl-4 text-right">
-                      <button
-                        onClick={() => {
-                          if (asset.type === 'report') {
-                            navigate(`/reports?report=${encodeURIComponent(asset.name)}&category=${encodeURIComponent(asset.category)}`);
-                          } else {
-                            navigate(`/dashboards?dashboardId=${asset.id}`);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent)] hover:text-orange-700 transition-colors"
-                      >
-                        View <ArrowRightIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

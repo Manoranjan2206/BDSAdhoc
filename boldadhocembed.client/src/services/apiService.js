@@ -11,9 +11,7 @@ import { authService } from './authService';
 // on a different port (configured in the server SpaProxyServerUrl). If the
 // env var is not set, detect common dev ports and point requests to the
 // backend host so calls don't hit the Vite dev server and return 404/405.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '5274')
-  ? 'https://localhost:64940/api' // server SpaProxyLaunchCommand target in csproj
-  : '/api');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function buildApiUrl(path) {
   const base = (API_BASE_URL || '').replace(/\/+$/, '');

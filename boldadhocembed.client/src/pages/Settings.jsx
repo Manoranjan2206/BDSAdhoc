@@ -69,7 +69,7 @@ export default function Settings() {
     localStorage.setItem('settings_notifications', JSON.stringify(notificationConfig));
     localStorage.setItem('settings_theme', appTheme);
     localStorage.setItem('settings_default_format', defaultFormat);
-    
+
     // Dispatch custom event to notify other parts of the app (like App.jsx) of theme changes
     window.dispatchEvent(new Event('theme-changed'));
     setSavedSuccess(true);
@@ -113,11 +113,10 @@ export default function Settings() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.id
                       ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white border border-transparent'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-5 h-5" />
                   {tab.name}

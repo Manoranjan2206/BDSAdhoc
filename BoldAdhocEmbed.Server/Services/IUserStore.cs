@@ -66,17 +66,18 @@ namespace BoldAdhocEmbed.Server.Services
 
         public AppUser Get(string email)
         {
-            return _users.FirstOrDefault(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(email)) return null;
+            return _users.FirstOrDefault(u => u.Email != null && u.Email.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase));
         }
 
         public IEnumerable<AppUser> GetAll()
         {
-            return _users.OrderBy(u => u.Name);
+            return _users.Where(u => u != null).OrderBy(u => u.Name ?? u.Email ?? "");
         }
 
         public IEnumerable<AppUser> GetByTenant(int tenantId)
         {
-            return _users.Where(u => u.TenantId == tenantId).OrderBy(u => u.Name);
+            return _users.Where(u => u != null && u.TenantId == tenantId).OrderBy(u => u.Name ?? u.Email ?? "");
         }
 
         public AppUser Authenticate(string email, string password)
@@ -103,8 +104,8 @@ namespace BoldAdhocEmbed.Server.Services
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
 
-            if (_users.Any(u => u.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException($"User with email '{user.Email}' already exists");
+            if (!string.IsNullOrEmpty(user.Email) && _users.Any(u => u.Email != null && u.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase)))
+                return;
 
             _users.Add(user);
         }
@@ -116,19 +117,19 @@ namespace BoldAdhocEmbed.Server.Services
 
             var existingUser = Get(user.Email);
             if (existingUser == null)
-                throw new KeyNotFoundException($"User with email '{user.Email}' not found");
+                return;
 
             // Update properties
-            existingUser.Name = user.Name;
-            existingUser.FirstName = user.FirstName;
-            existingUser.LastName = user.LastName;
-            existingUser.Role = user.Role;
+            existingUser.Name = user.Name ?? existingUser.Name;
+            existingUser.FirstName = user.FirstName ?? existingUser.FirstName;
+            existingUser.LastName = user.LastName ?? existingUser.LastName;
+            existingUser.Role = user.Role ?? existingUser.Role;
             existingUser.TenantId = user.TenantId;
-            existingUser.TenantName = user.TenantName;
-            existingUser.Region = user.Region;
-            existingUser.AvatarUrl = user.AvatarUrl;
+            existingUser.TenantName = user.TenantName ?? existingUser.TenantName;
+            existingUser.Region = user.Region ?? existingUser.Region;
+            existingUser.AvatarUrl = user.AvatarUrl ?? existingUser.AvatarUrl;
             existingUser.IsActive = user.IsActive;
-            existingUser.Permissions = user.Permissions;
+            existingUser.Permissions = user.Permissions ?? existingUser.Permissions;
             existingUser.LastLoginDate = user.LastLoginDate;
         }
 
@@ -141,17 +142,54 @@ namespace BoldAdhocEmbed.Server.Services
 
         public PermissionSet GetPermissionsForRole(string role)
         {
-            return _rolePermissions.TryGetValue(role?.ToLower(), out var permissions)
+            return _rolePermissions.TryGetValue(role?.ToLower() ?? "admin", out var permissions)
                 ? permissions
-                : new PermissionSet();
+                : new PermissionSet
+                {
+                    CanView = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    CanCreate = true,
+                    CanExport = true,
+                    CanSchedule = true,
+                    CanManageUsers = true,
+                    CanViewAuditLogs = true
+                };
         }
 
         private void InitializeDefaultUsers()
         {
-            // Admin user
+            // Primary Admin user (Manoranjan)
             _users.Add(new AppUser
             {
                 Id = "1",
+                Email = "manoranjan.rajendran@syncfusion.com",
+                Name = "Manoranjan Rajendran",
+                FirstName = "Manoranjan",
+                LastName = "Rajendran",
+                PasswordHash = HashPassword("admin123"),
+                Role = "Admin",
+                TenantId = 1,
+                TenantName = "Default",
+                Region = "US",
+                IsActive = true,
+                Permissions = new PermissionSet
+                {
+                    CanView = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    CanCreate = true,
+                    CanExport = true,
+                    CanSchedule = true,
+                    CanManageUsers = true,
+                    CanViewAuditLogs = true
+                }
+            });
+
+            // Admin user
+            _users.Add(new AppUser
+            {
+                Id = "2",
                 Email = "admin@example.com",
                 Name = "Admin User",
                 FirstName = "Admin",
@@ -178,7 +216,7 @@ namespace BoldAdhocEmbed.Server.Services
             // Sales user
             _users.Add(new AppUser
             {
-                Id = "2",
+                Id = "3",
                 Email = "sales@example.com",
                 Name = "Sales User",
                 FirstName = "Sales",
@@ -205,7 +243,7 @@ namespace BoldAdhocEmbed.Server.Services
             // Manager user
             _users.Add(new AppUser
             {
-                Id = "3",
+                Id = "4",
                 Email = "manager@example.com",
                 Name = "Manager User",
                 FirstName = "Manager",

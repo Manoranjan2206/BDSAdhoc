@@ -14,7 +14,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useData } from '../context/DataContext';
-import { reportsAPI, usersAPI } from '../services/apiService';
+import { reportsAPI } from '../services/apiService';
 
 export default function Header({ darkMode, onToggleDarkMode }) {
   const { getReports, getDashboards } = useData();
@@ -40,11 +40,6 @@ export default function Header({ darkMode, onToggleDarkMode }) {
 
   // Profile modal states
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [editFirstName, setEditFirstName] = useState('');
-  const [editLastName, setEditLastName] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
 
   useEffect(() => {
     const currentUser = authService.getUser();
@@ -60,68 +55,6 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     };
     fetchSettings();
   }, []);
-
-  // Pre-populate profile fields
-  useEffect(() => {
-    if (showProfileModal && user) {
-      setEditFirstName(user.firstName || '');
-      setEditLastName(user.lastName || '');
-      setProfileError('');
-      setProfileSuccess('');
-    }
-  }, [showProfileModal, user]);
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setIsSavingProfile(true);
-    setProfileError('');
-    setProfileSuccess('');
-
-    try {
-      if (!user?.email) {
-        throw new Error('User email not found. Please log in again.');
-      }
-
-      // Update on backend
-      const updatedUser = await usersAPI.updateUser(user.email, {
-        firstName: editFirstName,
-        lastName: editLastName
-      });
-
-      // Update localStorage
-      const storedData = JSON.parse(localStorage.getItem('boldreports_user'));
-      if (storedData) {
-        if (storedData.user) {
-          storedData.user.firstName = editFirstName;
-          storedData.user.lastName = editLastName;
-          storedData.user.name = `${editFirstName} ${editLastName}`.trim();
-        } else {
-          storedData.firstName = editFirstName;
-          storedData.lastName = editLastName;
-          storedData.name = `${editFirstName} ${editLastName}`.trim();
-        }
-        localStorage.setItem('boldreports_user', JSON.stringify(storedData));
-      }
-
-      // Update local state
-      setUser(prev => ({
-        ...prev,
-        firstName: editFirstName,
-        lastName: editLastName,
-        name: `${editFirstName} ${editLastName}`.trim()
-      }));
-
-      setProfileSuccess('Profile updated successfully!');
-      setTimeout(() => {
-        setShowProfileModal(false);
-      }, 1500);
-    } catch (err) {
-      console.error('Failed to update profile:', err);
-      setProfileError(err.message || 'Failed to update profile settings.');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -180,7 +113,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
         })).filter(x => (x.name || '').toLowerCase().includes(term) || (x.category || '').toLowerCase().includes(term));
 
         if (active) {
-          setResults([ ...rep.slice(0, 10), ...dash.slice(0, 10) ].slice(0, 10));
+          setResults([...rep.slice(0, 10), ...dash.slice(0, 10)].slice(0, 10));
           setSearchLoading(false);
         }
       } catch (e) {
@@ -210,7 +143,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
 
   const getInitials = () => {
     if (!user) return 'U';
-    
+
     // Try to get initials from name field
     if (user.name) {
       const nameParts = user.name.split(' ');
@@ -218,14 +151,14 @@ export default function Header({ darkMode, onToggleDarkMode }) {
       const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0).toUpperCase() : '';
       return (firstInitial + lastInitial) || firstInitial || 'U';
     }
-    
+
     // Fallback to firstName/lastName if available
     const firstInitial = user.firstName ? user.firstName.charAt(0).toUpperCase() : '';
     const lastInitial = user.lastName ? user.lastName.charAt(0).toUpperCase() : '';
     if (firstInitial || lastInitial) {
       return (firstInitial + lastInitial) || firstInitial || 'U';
     }
-    
+
     // Last resort: use email
     return user.email ? user.email.charAt(0).toUpperCase() : 'U';
   };
@@ -582,10 +515,10 @@ export default function Header({ darkMode, onToggleDarkMode }) {
             onKeyDown={(e) => {
               if (e.key === 'Escape') { setSearchValue(''); setResults([]); }
             }}
-            placeholder="Search reports, dashboards..."
+            placeholder="Search reports, dashboards, folders..."
             className="w-full pl-4 pr-10 py-2 rounded-full border text-sm"
             style={{ borderColor: 'var(--brand-200)', background: 'var(--surface)', color: 'var(--text-strong)' }}
-            aria-label="Search reports and dashboards"
+            aria-label="Search reports, dashboards, folders"
           />
           {searchValue && (
             <button
@@ -602,7 +535,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
           {/* Search Results Dropdown */}
           {searchValue.trim().length >= 2 && (
             <div className="absolute mt-2 w-full rounded-xl shadow-xl z-40 overflow-hidden"
-                 style={{ background: 'var(--surface)', border: '1px solid var(--brand-200)' }}>
+              style={{ background: 'var(--surface)', border: '1px solid var(--brand-200)' }}>
               {searchLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <div className="w-5 h-5 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin" />
@@ -629,9 +562,8 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                       className="w-full text-left px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          r.type === 'report' ? 'bg-blue-500' : 'bg-orange-500'
-                        }`} />
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${r.type === 'report' ? 'bg-blue-500' : 'bg-orange-500'
+                          }`} />
                         <span className="text-sm truncate" style={{ color: 'var(--text-strong)' }}>
                           {r.name}
                         </span>
@@ -804,11 +736,11 @@ export default function Header({ darkMode, onToggleDarkMode }) {
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setShowLogoutConfirm(false)}
           ></div>
-          
+
           {/* Modal Content */}
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full p-6 text-center transform transition-all scale-100">
             <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4">
@@ -818,14 +750,14 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                 <line x1="21" y1="12" x2="9" y2="12"></line>
               </svg>
             </div>
-            
+
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
               Confirm Logout
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               Are you sure you want to sign out of your account? You will need to log in again to access your reports and dashboards.
             </p>
-            
+
             <div className="flex gap-3 justify-center">
               <button
                 type="button"
@@ -865,18 +797,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
             </div>
 
             {/* Content */}
-            <form onSubmit={handleSaveProfile} className="mt-4 space-y-4">
-              {profileError && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/20 dark:text-red-400 rounded-lg border border-red-200/50 dark:border-red-900/50">
-                  {profileError}
-                </div>
-              )}
-              {profileSuccess && (
-                <div className="p-3 text-sm text-green-600 bg-green-50 dark:bg-green-950/20 dark:text-green-400 rounded-lg border border-green-200/50 dark:border-green-900/50">
-                  {profileSuccess}
-                </div>
-              )}
-
+            <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -884,10 +805,9 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                   </label>
                   <input
                     type="text"
-                    required
-                    value={editFirstName}
-                    onChange={(e) => setEditFirstName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF4800] focus:border-transparent dark:text-white"
+                    disabled
+                    value={user?.firstName || (user?.name ? user.name.split(' ')[0] : '')}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-sm cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -896,10 +816,9 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                   </label>
                   <input
                     type="text"
-                    required
-                    value={editLastName}
-                    onChange={(e) => setEditLastName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF4800] focus:border-transparent dark:text-white"
+                    disabled
+                    value={user?.lastName || (user?.name ? user.name.split(' ').slice(1).join(' ') : '')}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-sm cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -946,26 +865,12 @@ export default function Header({ darkMode, onToggleDarkMode }) {
                 <button
                   type="button"
                   onClick={() => setShowProfileModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition cursor-pointer"
+                  className="px-5 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl transition cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-[#FF4800] hover:opacity-95 shadow-lg shadow-orange-500/20 rounded-xl transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {isSavingProfile ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
+                  Close
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

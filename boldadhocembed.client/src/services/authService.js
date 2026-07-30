@@ -3,10 +3,7 @@
  * Handles login, logout, and token management
  */
 
-// Resolve API base similar to apiService so dev server requests go to backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '5274')
-  ? 'https://localhost:64940/api'
-  : '/api');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function buildApiUrl(path) {
   const base = (API_BASE_URL || '').replace(/\/+$/, '');
