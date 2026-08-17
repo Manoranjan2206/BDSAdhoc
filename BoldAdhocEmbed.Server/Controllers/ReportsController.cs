@@ -84,6 +84,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
                 }
 
+                var cacheKey = $"report_tree_{token}";
+
                 // Fetch reports directly to ensure latest date properties
                 var reports = await _boldReportsService.GetReportsAsync(token);
                 

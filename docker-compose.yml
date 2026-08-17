@@ -1,0 +1,112 @@
+services:
+  # =========================================================================
+  # 1. PostgreSQL Service (Shared database for Bold BI and Bold Reports)
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: bdsadhoc-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Password123!
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bds-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # =========================================================================
+  # 2. Syncfusion Bold BI Service
+  # =========================================================================
+  boldbi:
+    image: syncfusion/boldbi:latest
+    container_name: bdsadhoc-boldbi
+    ports:
+      - "8075:80"
+    environment:
+      - APP_BASE_URL=http://localhost:8075
+      - BOLD_SERVICES_HOSTING_ENVIRONMENT=docker
+    volumes:
+      - boldbi_app_data:/app/idp/app_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bds-network
+    restart: always
+
+  # =========================================================================
+  # 3. Syncfusion Bold Reports Service
+  # =========================================================================
+  boldreports:
+    image: syncfusion/boldreports:13.1.27_06262026_070424_KC445338
+    container_name: bdsadhoc-boldreports
+    ports:
+      - "8095:80"
+    environment:
+      - APP_BASE_URL=http://localhost:8095
+      - BOLD_SERVICES_HOSTING_ENVIRONMENT=docker
+    volumes:
+      - boldreports_app_data:/app/idp/app_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bds-network
+    restart: always
+
+  # =========================================================================
+  # 4. BDSAdhoc Application (.NET Backend + React Frontend)
+  # =========================================================================
+  bdsadhoc:
+    build:
+      context: .
+      dockerfile: BoldAdhocEmbed.Server/Dockerfile
+    container_name: bdsadhoc-app
+    ports:
+      - "5050:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Bold Reports Configuration (from appsettings.json)
+      - BoldReports__ReportRootUrl=https://cloud.boldreports.com/reporting
+      - BoldReports__ReportsSiteIdentifier=b1159702
+      - BoldReports__AdminUser=manoranjan.rajendran@syncfusion.com
+      - BoldReports__AdminPassword=Admin@123
+      - BoldReports__EmbedSecret=Yhfw5o9c01TVdPk8HWhQQnGKAl0K9HP
+      # Bold BI Configuration (from appsettings.json)
+      - BoldBI__ServerUrl=https://cloud.boldbi.com/bi
+      - BoldBI__SiteIdentifier=b1159702
+      - BoldBI__AdminUser=manoranjan.rajendran@syncfusion.com
+      - BoldBI__AdminPassword=Admin@123
+      - BoldBI__EmbedSecret=nhXoWeoMdDfCkSFD3AxiriqPLreL9VJe
+      - BoldBI__UserEmail=manoranjan.rajendran@syncfusion.com
+      - BoldBI__Environment=onpremise
+    depends_on:
+      - boldbi
+      - boldreports
+    networks:
+      - bds-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+
+# =========================================================================
+# Shared Volumes and Networks
+# =========================================================================
+volumes:
+  postgres_data:
+    driver: local
+  boldbi_app_data:
+    driver: local
+  boldreports_app_data:
+    driver: local
+
+networks:
+  bds-network:
+    driver: bridge
