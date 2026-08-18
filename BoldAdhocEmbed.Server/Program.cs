@@ -60,22 +60,24 @@ builder.Services.AddScoped<ITokenHelper, TokenHelper>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Add CORS - Allow all localhost ports for development
+// Add CORS - Allow all localhost ports for development and Docker deployment
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        // Allow all localhost variations for development debugging
+        // Allow all localhost variations for development debugging and Docker deployment
         policy
             .WithOrigins(
                 "http://localhost:3000",
-                "http://localhost:5173",
-                "http://localhost:5274",
-                "https://localhost:7029",
-                "https://localhost:44300",
-                "https://localhost:64940",
-                "https://localhost:64941",
-                "http://127.0.0.1:5173"
+                "http://localhost:5050",        // Docker deployment
+                "http://localhost:5173",        // Vite dev server
+                "http://localhost:5274",        // ASP.NET dev server
+                "https://localhost:7029",       // HTTPS dev
+                "https://localhost:44300",      // HTTPS dev
+                "https://localhost:64940",      // HTTPS dev
+                "https://localhost:64941",      // HTTPS dev
+                "http://127.0.0.1:5173",        // Loopback Vite
+                "http://127.0.0.1:5050"         // Loopback Docker
             )
             .AllowAnyMethod()
             .AllowAnyHeader()

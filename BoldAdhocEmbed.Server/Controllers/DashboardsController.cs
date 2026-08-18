@@ -61,7 +61,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("Failed to generate dashboard token for {UserEmail}", request.UserEmail);
-                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                    return StatusCode(503, ApiResponse<dynamic>.ErrorResponse(
+                        "Dashboard Service Unavailable",
+                        "Bold BI service is not responding. Please try again later."));
                 }
 
                 // Cache token for 2 hours
@@ -104,7 +106,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                 if (string.IsNullOrEmpty(token))
                 {
                     Logger.LogWarning("Failed to get token for dashboard list retrieval");
-                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                    // Return 503 Service Unavailable instead of 401, so frontend doesn't log out
+                    return StatusCode(503, ApiResponse<dynamic>.ErrorResponse(
+                        "Dashboard Service Unavailable",
+                        "Bold BI service is not responding. Please try again later."));
                 }
 
                 var dashboards = await _dashboardService.GetDashboardsAsync(token);

@@ -1,6 +1,41 @@
 services:
   # =========================================================================
-  # 1. PostgreSQL Service (Shared database for Bold BI and Bold Reports)
+  # 1. Nginx Reverse Proxy (Entry Point - Multiple Container Deployment)
+  # =========================================================================
+  nginx:
+    image: nginx:1.22-alpine
+    container_name: bdsadhoc-nginx
+    # Disabled - using separate ports for each service instead
+    # ports:
+    #   - "8000:80"
+    #   - "8443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_cache:/var/cache/nginx
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
+    depends_on:
+      - bdsadhoc
+      - boldbi
+      - boldreports
+    networks:
+      - bds-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =========================================================================
+  # 2. PostgreSQL Database Service (Shared for Bold BI and Bold Reports)
   # =========================================================================
   postgres:
     image: postgres:16-alpine
@@ -8,8 +43,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Password123!
-    ports:
-      - "5434:5432"
+      POSTGRES_INITDB_ARGS: "-c max_connections=200"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -20,17 +54,24 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Note: Database exposed only internally via docker network
+    # For development access: docker exec bdsadhoc-postgres psql -U postgres
 
   # =========================================================================
-  # 2. Syncfusion Bold BI Service
+  # 3. Syncfusion Bold BI Service (Internal - No Direct Port Exposure)
   # =========================================================================
   boldbi:
     image: syncfusion/boldbi:latest
     container_name: bdsadhoc-boldbi
     ports:
-      - "8075:80"
+      - "8080:80"
     environment:
-      - APP_BASE_URL=http://localhost:8075
+      - APP_BASE_URL=http://boldbi:80
       - BOLD_SERVICES_HOSTING_ENVIRONMENT=docker
     volumes:
       - boldbi_app_data:/app/idp/app_data
@@ -40,17 +81,23 @@ services:
     networks:
       - bds-network
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Note: Accessed through Nginx reverse proxy at http://localhost/bi
 
   # =========================================================================
-  # 3. Syncfusion Bold Reports Service
+  # 4. Syncfusion Bold Reports Service (Internal - No Direct Port Exposure)
   # =========================================================================
   boldreports:
-    image: syncfusion/boldreports:13.1.27_06262026_070424_KC445338
+    image: syncfusion/boldreports:latest
     container_name: bdsadhoc-boldreports
     ports:
-      - "8095:80"
+      - "8081:80"
     environment:
-      - APP_BASE_URL=http://localhost:8095
+      - APP_BASE_URL=http://boldreports:80
       - BOLD_SERVICES_HOSTING_ENVIRONMENT=docker
     volumes:
       - boldreports_app_data:/app/idp/app_data
@@ -60,9 +107,15 @@ services:
     networks:
       - bds-network
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Note: Accessed through Nginx reverse proxy at http://localhost/reports
 
   # =========================================================================
-  # 4. BDSAdhoc Application (.NET Backend + React Frontend)
+  # 5. BDSAdhoc Application (.NET Backend + React Frontend - Internal)
   # =========================================================================
   bdsadhoc:
     build:
@@ -73,13 +126,14 @@ services:
       - "5050:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # Bold Reports Configuration (from appsettings.json)
+      - ASPNETCORE_URLS=http://+:8080
+      # Bold Reports Configuration - Points to CLOUD Bold Reports
       - BoldReports__ReportRootUrl=https://cloud.boldreports.com/reporting
       - BoldReports__ReportsSiteIdentifier=b1159702
       - BoldReports__AdminUser=manoranjan.rajendran@syncfusion.com
       - BoldReports__AdminPassword=Admin@123
       - BoldReports__EmbedSecret=Yhfw5o9c01TVdPk8HWhQQnGKAl0K9HP
-      # Bold BI Configuration (from appsettings.json)
+      # Bold BI Configuration - Points to CLOUD Bold BI
       - BoldBI__ServerUrl=https://cloud.boldbi.com/bi
       - BoldBI__SiteIdentifier=b1159702
       - BoldBI__AdminUser=manoranjan.rajendran@syncfusion.com
@@ -88,25 +142,39 @@ services:
       - BoldBI__UserEmail=manoranjan.rajendran@syncfusion.com
       - BoldBI__Environment=onpremise
     depends_on:
-      - boldbi
-      - boldreports
+      postgres:
+        condition: service_healthy
     networks:
       - bds-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Note: Accessed through Nginx reverse proxy at http://localhost/app
 
 # =========================================================================
-# Shared Volumes and Networks
+# Volumes Configuration (Persistent Data Storage)
 # =========================================================================
 volumes:
   postgres_data:
     driver: local
+
   boldbi_app_data:
     driver: local
+
   boldreports_app_data:
     driver: local
 
+  nginx_cache:
+    driver: local
+
+# =========================================================================
+# Networks Configuration (Service Communication)
+# =========================================================================
 networks:
   bds-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-bdsadhoc
