@@ -168,13 +168,36 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     return user.name || user.fullName || user.firstName || user.email || 'User';
   };
 
+  const getRoleColorClass = (role) => {
+    const r = (role || '').toLowerCase();
+    if (r === 'admin') return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300';
+    if (r === 'sales') return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300';
+    if (r === 'finance') return 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300';
+    if (r === 'support') return 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300';
+    if (r === 'operations') return 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-300';
+    return 'bg-gray-100 text-gray-700 border-gray-300';
+  };
+
+  const tenantName = user?.tenantName || (user?.email?.includes('alpha') ? 'AlphaCorp' : user?.email?.includes('beta') ? 'BetaSolutions' : user?.email?.includes('gamma') ? 'GammaIndustries' : user?.email?.includes('delta') ? 'DeltaEnterprises' : 'AlphaCorp');
+  const userRegion = user?.region || 'North America';
+  const userRole = user?.role || 'Admin';
+
   return (
-    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000]" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--brand-200)' }}>
-      {/* Left: Logo & Title */}
-      <div className="flex items-center gap-6">
-        <h1 className="text-lg font-bold hidden md:block flex-shrink-0" style={{ color: 'var(--brand-700)' }}>
-          Acme Analytics
-        </h1>
+    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000] glass-header bg-[#f8f9ff]/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-b border-glass-border">
+      {/* Left: Tenant Badge & Region */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="font-bold text-lg text-primary dark:text-purple-400">
+            {tenantName}
+          </span>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1 bg-surface-container text-on-surface-variant border-outline-variant/40">
+            <span className="material-symbols-outlined text-[14px]">location_on</span>
+            {userRegion}
+          </span>
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${getRoleColorClass(userRole)}`}>
+            {userRole}
+          </span>
+        </div>
 
         {/* Navigation Link for Resources */}
         <div className="relative hidden md:block" ref={resourcesRef}>

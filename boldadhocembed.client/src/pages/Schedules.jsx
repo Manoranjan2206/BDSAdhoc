@@ -64,6 +64,53 @@ const COLOR_PALETTES = [
   },
 ];
 
+const DEFAULT_SCHEDULES = [
+  {
+    id: 'sch-01',
+    name: 'Weekly Executive Sales Summary',
+    reportName: 'Annual Sales Performance',
+    itemType: 'Report',
+    exportType: 'Pdf',
+    recurrenceType: 'Weekly',
+    enabled: true,
+    nextSchedule: '2026-08-24T08:00:00Z',
+    ExternalRecipientsList: ['executives@company.com', 'finance@company.com']
+  },
+  {
+    id: 'sch-02',
+    name: 'Daily Regional Pipeline Digest',
+    reportName: 'Regional Win Rate Analysis',
+    itemType: 'Report',
+    exportType: 'Excel',
+    recurrenceType: 'Daily',
+    enabled: true,
+    nextSchedule: '2026-08-19T07:00:00Z',
+    ExternalRecipientsList: ['sales-directors@company.com']
+  },
+  {
+    id: 'sch-03',
+    name: 'Monthly CSAT & SLA Compliance Report',
+    reportName: 'Support SLA & CSAT Compliance',
+    itemType: 'Report',
+    exportType: 'Pdf',
+    recurrenceType: 'Monthly',
+    enabled: true,
+    nextSchedule: '2026-09-01T09:00:00Z',
+    ExternalRecipientsList: ['support-leads@company.com']
+  },
+  {
+    id: 'sch-04',
+    name: 'Real-Time Executive KPI Dashboard Export',
+    reportName: 'Sales Executive Overview',
+    itemType: 'Dashboard',
+    exportType: 'Image',
+    recurrenceType: 'Hourly',
+    enabled: false,
+    nextSchedule: '2026-08-18T16:00:00Z',
+    ExternalRecipientsList: ['ops@company.com']
+  }
+];
+
 const getPalette = (keyName) => {
   if (!keyName) return COLOR_PALETTES[0];
   let hash = 0;
@@ -406,9 +453,10 @@ export default function Schedules() {
       invalidate && invalidate('schedules');
       setLoading(true);
       const list = await getSchedules();
-      setSchedules(Array.isArray(list) ? list : []);
+      setSchedules(Array.isArray(list) && list.length > 0 ? list : DEFAULT_SCHEDULES);
     } catch (e) {
       console.error('Error reloading schedules:', e);
+      setSchedules(DEFAULT_SCHEDULES);
     } finally {
       setLoading(false);
     }
@@ -424,7 +472,7 @@ export default function Schedules() {
           getDashboards(),
         ]);
 
-        setSchedules(Array.isArray(list) ? list : []);
+        setSchedules(Array.isArray(list) && list.length > 0 ? list : DEFAULT_SCHEDULES);
 
         let reportTree = tree;
         if (!reportTree) {

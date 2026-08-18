@@ -1,274 +1,275 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
-import '../styles/Login.css';
+
+const TENANT_USERS = [
+  // AlphaCorp (Tenant 1)
+  { email: 'alpha1@alphacorp.com', name: 'Anna Smith', role: 'Admin', tenantId: 1, tenantName: 'AlphaCorp', region: 'North America', avatar: 'https://randomuser.me/api/portraits/women/11.jpg', pwd: 'Password123!' },
+  { email: 'alpha2@alphacorp.com', name: 'John Doe', role: 'Sales', tenantId: 1, tenantName: 'AlphaCorp', region: 'Europe', avatar: 'https://randomuser.me/api/portraits/men/12.jpg', pwd: 'Password123!' },
+  { email: 'alpha3@alphacorp.com', name: 'Linda Lee', role: 'Finance', tenantId: 1, tenantName: 'AlphaCorp', region: 'Asia', avatar: 'https://randomuser.me/api/portraits/women/13.jpg', pwd: 'Password123!' },
+  { email: 'alpha4@alphacorp.com', name: 'Mike Brown', role: 'Support', tenantId: 1, tenantName: 'AlphaCorp', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/men/14.jpg', pwd: 'Password123!' },
+  { email: 'alpha5@alphacorp.com', name: 'Chris Green', role: 'Operations', tenantId: 1, tenantName: 'AlphaCorp', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/men/15.jpg', pwd: 'Password123!' },
+
+  // BetaSolutions (Tenant 2)
+  { email: 'beta1@betasolutions.com', name: 'Betty Jones', role: 'Admin', tenantId: 2, tenantName: 'BetaSolutions', region: 'North America', avatar: 'https://randomuser.me/api/portraits/men/21.jpg', pwd: 'Password123!' },
+  { email: 'beta2@betasolutions.com', name: 'Julia King', role: 'Sales', tenantId: 2, tenantName: 'BetaSolutions', region: 'Europe', avatar: 'https://randomuser.me/api/portraits/women/22.jpg', pwd: 'Password123!' },
+  { email: 'beta3@betasolutions.com', name: 'Brian Adams', role: 'Finance', tenantId: 2, tenantName: 'BetaSolutions', region: 'Asia', avatar: 'https://randomuser.me/api/portraits/men/23.jpg', pwd: 'Password123!' },
+  { email: 'beta4@betasolutions.com', name: 'Diana Miller', role: 'Support', tenantId: 2, tenantName: 'BetaSolutions', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/24.jpg', pwd: 'Password123!' },
+  { email: 'beta5@betasolutions.com', name: 'Eliza Scott', role: 'Operations', tenantId: 2, tenantName: 'BetaSolutions', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/25.jpg', pwd: 'Password123!' },
+
+  // GammaIndustries (Tenant 3)
+  { email: 'gamma1@gammaindustries.com', name: 'George William', role: 'Admin', tenantId: 3, tenantName: 'GammaIndustries', region: 'North America', avatar: 'https://randomuser.me/api/portraits/men/31.jpg', pwd: 'Password123!' },
+  { email: 'gamma2@gammaindustries.com', name: 'Jack Black', role: 'Sales', tenantId: 3, tenantName: 'GammaIndustries', region: 'Europe', avatar: 'https://randomuser.me/api/portraits/men/32.jpg', pwd: 'Password123!' },
+  { email: 'gamma3@gammaindustries.com', name: 'Olivia Martin', role: 'Finance', tenantId: 3, tenantName: 'GammaIndustries', region: 'Asia', avatar: 'https://randomuser.me/api/portraits/women/33.jpg', pwd: 'Password123!' },
+  { email: 'gamma4@gammaindustries.com', name: 'Sophia White', role: 'Support', tenantId: 3, tenantName: 'GammaIndustries', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/34.jpg', pwd: 'Password123!' },
+  { email: 'gamma5@gammaindustries.com', name: 'Noah Clark', role: 'Operations', tenantId: 3, tenantName: 'GammaIndustries', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/men/35.jpg', pwd: 'Password123!' },
+
+  // DeltaEnterprises (Tenant 4)
+  { email: 'delta1@deltaenterprises.com', name: 'Megan Young', role: 'Admin', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'North America', avatar: 'https://randomuser.me/api/portraits/women/41.jpg', pwd: 'Password123!' },
+  { email: 'delta2@deltaenterprises.com', name: 'Zoe Turner', role: 'Sales', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Europe', avatar: 'https://randomuser.me/api/portraits/women/42.jpg', pwd: 'Password123!' },
+  { email: 'delta3@deltaenterprises.com', name: 'Ryan Evans', role: 'Finance', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Asia', avatar: 'https://randomuser.me/api/portraits/men/43.jpg', pwd: 'Password123!' },
+  { email: 'delta4@deltaenterprises.com', name: 'Liam Cooper', role: 'Support', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/men/44.jpg', pwd: 'Password123!' },
+  { email: 'delta5@deltaenterprises.com', name: 'Emma Hall', role: 'Operations', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/45.jpg', pwd: 'Password123!' },
+];
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+  const [selectedUserEmail, setSelectedUserEmail] = useState('alpha1@alphacorp.com');
+  const [activeTab, setActiveTab] = useState('user'); // user | jwt
+  const [jwtToken, setJwtToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [demoUsers, setDemoUsers] = useState([]);
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchDemoUsers = async () => {
-      try {
-        const res = await fetch('/api/auth/users');
-        const data = await res.json();
-        if (data && data.success) {
-          setDemoUsers(data.data || []);
-        }
-      } catch (err) {
-        console.error('Failed to load demo users:', err);
-      }
-    };
-    fetchDemoUsers();
-  }, []);
+  const selectedUser = TENANT_USERS.find(u => u.email === selectedUserEmail) || TENANT_USERS[0];
 
-  // Redirect to home if already authenticated
   useEffect(() => {
     if (authService.isAuthenticated()) {
       navigate('/', { replace: true });
     }
   }, [navigate]);
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
+    setError('');
 
     try {
-      // Validate email
-      if (!email.trim()) {
-        throw new Error('Email is required');
+      if (activeTab === 'jwt') {
+        if (!jwtToken.trim()) throw new Error('Please paste a valid JWT token');
+        await authService.loginWithToken(jwtToken);
+      } else {
+        // Log in as the selected multi-tenant user
+        const userData = {
+          email: selectedUser.email,
+          name: selectedUser.name,
+          role: selectedUser.role,
+          tenantId: selectedUser.tenantId,
+          tenantName: selectedUser.tenantName,
+          region: selectedUser.region,
+          avatarUrl: selectedUser.avatar,
+        };
+        localStorage.setItem('boldreports_user', JSON.stringify(userData));
+        localStorage.setItem('boldreports_token', 'demo-session-token-' + selectedUser.email);
       }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error('Please enter a valid email address');
-      }
-
-      // Attempt login
-      const loginData = await authService.login(email, password);
-
-      if (loginData && (loginData.token || loginData.sessionToken)) {
-        // Login successful, navigate to home with replace: true to clear history stack
-        navigate('/', { replace: true });
-      }
+      window.dispatchEvent(new Event('auth-changed'));
+      navigate('/', { replace: true });
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
-      console.error('Login error:', err);
+      setError(err.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const getRoleBadge = (role) => {
+    if (role === 'Admin') return 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300';
+    if (role === 'Sales') return 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-300';
+    if (role === 'Finance') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300';
+    if (role === 'Support') return 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 border-orange-300';
+    return 'bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-300';
+  };
+
   return (
-    <div className="login-container">
-      <div className="login-wrapper">
-        {/* Left hero — restored original Bold Reports content (no hexagon) */}
-        <div className="login-hero">
-          <div className="hero-panel">
-            <div className="side-content">
-              <h2>Welcome to Acme Analytics</h2>
-              <p>
-                Create, share, and manage beautiful reports with ease. Enterprise-grade reporting solution for your organization.
-              </p>
-              <ul className="features-list">
-                <li>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
-                  </svg>
-                  Interactive Report Viewer
-                </li>
-                <li>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
-                  </svg>
-                  Advanced Design Tools
-                </li>
-                <li>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
-                  </svg>
-                  Scheduled Exports
-                </li>
-                <li>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
-                  </svg>
-                  Team Collaboration
-                </li>
-              </ul>
-            </div>
+    <div className="min-h-screen bg-canvas flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Decorative Blobs */}
+      <div className="absolute top-10 left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div className="max-w-5xl mx-auto w-full px-4 relative z-10">
+        {/* Brand Header */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center font-bold text-2xl mx-auto mb-3 shadow-lg">
+            B
           </div>
+          <h1 className="text-3xl font-extrabold text-on-surface">
+            BDS CRM Suite
+          </h1>
+          <p className="text-sm text-on-surface-variant mt-1">
+            Enterprise Multi-Tenant Row-Level Security (RLS) & Role-Based Access Demo
+          </p>
         </div>
 
-        {/* Right card with existing form (keeps functionality) */}
-        <div className="login-card">
-          <div className="login-box">
-            <div className="login-header">
-              <div className="logo-section">
-                <div className="logo-icon">
-                  <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
-                    <defs>
-                      <linearGradient id="acmeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#FF4800" />
-                        <stop offset="100%" stopColor="#FF7F50" />
-                      </linearGradient>
-                      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#131F3B" />
-                        <stop offset="100%" stopColor="#1E293B" />
-                      </linearGradient>
-                    </defs>
-                    <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />
-                    <g transform="translate(24, 28)">
-                      <rect x="12" y="32" width="12" height="40" rx="6" fill="#006CDD" />
-                      <rect x="34" y="12" width="12" height="60" rx="6" fill="url(#acmeGrad)" />
-                      <rect x="56" y="24" width="12" height="48" rx="6" fill="#34D399" />
-                      <rect x="18" y="44" width="44" height="8" rx="4" fill="#FFFFFF" opacity="0.9" />
-                    </g>
-                  </svg>
+        {/* 2-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Left Info Panel (5 cols) */}
+          <div className="md:col-span-5 glass-card rounded-2xl p-6 flex flex-col justify-between space-y-6">
+            <div>
+              <h3 className="font-bold text-base text-on-surface mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">security</span>
+                RLS & RBAC Security Model
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
+                Sign in with any user account below. Reports, dashboards, pipeline data, and support cases automatically adapt based on your <strong>Tenant Database</strong> and <strong>Assigned Region</strong>.
+              </p>
+
+              <div className="space-y-2.5">
+                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-role-finance text-[20px] mt-0.5">verified_user</span>
+                  <div className="text-xs">
+                    <strong className="text-on-surface">Row-Level Security (RLS)</strong>
+                    <p className="text-on-surface-variant text-[11px]">Filtered via PostgreSQL session variable by user region.</p>
+                  </div>
                 </div>
-                <h1>Acme Analytics</h1>
+
+                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-primary text-[20px] mt-0.5">database</span>
+                  <div className="text-xs">
+                    <strong className="text-on-surface">Dedicated Tenant DBs</strong>
+                    <p className="text-on-surface-variant text-[11px]">AlphaCorp, BetaSolutions, Gamma, Delta in Docker Postgres.</p>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-role-sales text-[20px] mt-0.5">pie_chart</span>
+                  <div className="text-xs">
+                    <strong className="text-on-surface">Embedded Analytics</strong>
+                    <p className="text-on-surface-variant text-[11px]">Interactive Bold BI & Bold Reports embedded directly.</p>
+                  </div>
+                </div>
               </div>
-              <p className="login-subtitle">Sign in to your account</p>
+            </div>
+
+            <div className="text-[11px] text-on-surface-variant border-t border-glass-border pt-3">
+              💡 <strong>Tip:</strong> Admin accounts see ALL regions, while Sales/Finance/Support/Ops see only their assigned region.
+            </div>
+          </div>
+
+          {/* Right Login Card (7 cols) */}
+          <div className="md:col-span-7 glass-card rounded-2xl p-8 shadow-xl">
+            {/* Tabs */}
+            <div className="flex border-b border-glass-border mb-6">
+              <button
+                onClick={() => setActiveTab('user')}
+                className={`pb-3 text-xs font-bold border-b-2 mr-6 transition-colors ${
+                  activeTab === 'user'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Select Demo User
+              </button>
+              <button
+                onClick={() => setActiveTab('jwt')}
+                className={`pb-3 text-xs font-bold border-b-2 transition-colors ${
+                  activeTab === 'jwt'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Custom JWT Token
+              </button>
             </div>
 
             {error && (
-              <div className="error-message">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 text-xs mb-4 border border-red-200">
                 {error}
               </div>
             )}
 
-            {/* Quick Demo User Selection */}
-            <div className="mb-6 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-700/60">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 text-left">Quick Demo User Selection</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(demoUsers.length > 0 ? demoUsers : [
-                  { email: 'admin@example.com', name: 'Admin User', role: 'Admin' },
-                  { email: 'sales@example.com', name: 'Sales User', role: 'Sales' },
-                  { email: 'manager@example.com', name: 'Manager User', role: 'Manager' }
-                ]).map((u) => {
-                  const pwd = u.email.includes('admin') ? 'admin123' : u.email.includes('sales') ? 'sales123' : 'manager123';
-                  return (
-                    <button
-                      key={u.email}
-                      type="button"
-                      onClick={async () => {
-                        setEmail(u.email);
-                        setPassword(pwd);
-                        setIsLoading(true);
-                        setError('');
-                        try {
-                          const loginData = await authService.login(u.email, pwd);
-                          if (loginData && (loginData.token || loginData.sessionToken)) {
-                            navigate('/', { replace: true });
-                          }
-                        } catch (err) {
-                          setError(err.message || 'Login failed.');
-                        } finally {
-                          setIsLoading(false);
-                        }
-                      }}
-                      className="flex flex-col items-center p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#FF4800] dark:hover:border-[#FF4800] hover:shadow-md transition text-center cursor-pointer select-none"
-                      style={{ cursor: 'pointer' }}
-                      title={`Login as ${u.name}`}
+            <form onSubmit={handleLogin} className="space-y-4">
+              {activeTab === 'user' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                      Choose Enterprise User
+                    </label>
+                    <select
+                      value={selectedUserEmail}
+                      onChange={(e) => setSelectedUserEmail(e.target.value)}
+                      className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 text-xs text-on-surface focus:ring-primary"
                     >
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate w-full">{u.role}</span>
-                      <span className="text-[10px] text-slate-500 mt-0.5 truncate w-full">{u.name.split(' ')[0]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      {['AlphaCorp', 'BetaSolutions', 'GammaIndustries', 'DeltaEnterprises'].map(tenant => (
+                        <optgroup key={tenant} label={tenant}>
+                          {TENANT_USERS.filter(u => u.tenantName === tenant).map(u => (
+                            <option key={u.email} value={u.email}>
+                              {u.name} ({u.role}) — {u.region} [{u.email}]
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
 
-            <form onSubmit={handleSubmit} className="login-form">
-              <div className="form-group">
-                <label htmlFor="email" className="form-label">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  className="form-input"
-                  required
-                />
-              </div>
+                  {/* Selected User Preview Card */}
+                  <div className="p-3.5 rounded-xl bg-surface-container-high border border-glass-border flex items-center gap-3">
+                    <img
+                      src={selectedUser.avatar}
+                      alt={selectedUser.name}
+                      className="w-11 h-11 rounded-full object-cover border-2 border-primary shadow-sm"
+                    />
+                    <div className="flex-1 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-on-surface truncate">{selectedUser.name}</h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getRoleBadge(selectedUser.role)}`}>
+                          {selectedUser.role}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant truncate">{selectedUser.email}</p>
+                      <p className="text-[11px] text-primary font-medium">{selectedUser.tenantName} • Region: {selectedUser.region}</p>
+                    </div>
+                  </div>
 
-              <div className="form-group">
-                <div className="form-label-row">
-                  <label htmlFor="password" className="form-label">
-                    Password
-                  </label>
-                </div>
-                <div className="password-field">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    className="form-input"
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">Password</label>
+                    <input
+                      type="password"
+                      readOnly
+                      value="••••••••••••"
+                      className="w-full bg-surface-container/60 border border-outline-variant/40 rounded-xl px-3 py-2.5 text-xs text-on-surface cursor-not-allowed"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">JWT Token Payload</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Paste encoded JWT token here..."
+                    value={jwtToken}
+                    onChange={(e) => setJwtToken(e.target.value)}
+                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl p-3 text-xs font-mono text-on-surface focus:ring-primary"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="password-toggle"
-                    disabled={isLoading}
-                  >
-                    {showPassword ? (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                      </svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                        <line x1="1" y1="1" x2="23" y2="23"></line>
-                      </svg>
-                    )}
-                  </button>
                 </div>
-                <p className="field-hint">
-                  Password is optional. You can sign in with just your email using your system credentials.
-                </p>
-              </div>
+              )}
 
-              <button type="submit" disabled={isLoading} className="login-button green">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full btn-primary text-xs py-3 font-bold rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+              >
                 {isLoading ? (
-                  <>
-                    <span className="spinner"></span>
-                    Signing in...
-                  </>
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 ) : (
-                  'Sign In'
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">login</span>
+                    Sign In to {selectedUser.tenantName}
+                  </>
                 )}
               </button>
             </form>
-
-            <div className="login-footer">
-              <div className="footer-divider">
-                <span>Secure Organization Login</span>
-              </div>
-              <p className="footer-text">Access your Acme Analytics workspace with your organization credentials</p>
-            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

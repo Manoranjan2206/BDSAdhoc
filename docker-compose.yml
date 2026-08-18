@@ -46,6 +46,7 @@ services:
       POSTGRES_INITDB_ARGS: "-c max_connections=200"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
     networks:
       - bds-network
     healthcheck:

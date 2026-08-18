@@ -1,28 +1,29 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import {
-  HomeIcon,
-  DocumentTextIcon,
-  ChartBarIcon,
-  UserGroupIcon,
-  ClockIcon,
-  Cog6ToothIcon,
-  ChevronRightIcon,
-  PencilSquareIcon,
-} from '@heroicons/react/24/outline';
+import { authService } from '../services/authService';
 
-const navItems = [
-  { key: '/', label: 'Home', icon: HomeIcon, exact: true },
-  { key: '/reports', label: 'Reports', icon: DocumentTextIcon, matchPrefix: '/reports' },
-  { key: '/dashboards', label: 'Dashboards', icon: ChartBarIcon, matchPrefix: '/dashboards' },
-  { key: '/schedules', label: 'Schedules', icon: ClockIcon, matchPrefix: '/schedules' },
-  { key: '/settings', label: 'Settings', icon: Cog6ToothIcon, matchPrefix: '/settings' },
+const ALL_NAV_ITEMS = [
+  { key: '/', label: 'Home', icon: 'home', exact: true, roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
+  { key: '/dashboards', label: 'Dashboard', icon: 'dashboard', matchPrefix: '/dashboards', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
+  { key: '/reports', label: 'Reports', icon: 'assessment', matchPrefix: '/reports', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
+  { key: '/schedules', label: 'Scheduler', icon: 'calendar_month', matchPrefix: '/schedules', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
+  { key: '/contacts', label: 'Contacts', icon: 'contacts', matchPrefix: '/contacts', roles: ['Admin', 'Sales', 'Support'] },
+  { key: '/deals', label: 'Deals', icon: 'handshake', matchPrefix: '/deals', roles: ['Admin', 'Sales'] },
+  { key: '/activities', label: 'Activities', icon: 'event_note', matchPrefix: '/activities', roles: ['Admin', 'Sales', 'Support', 'Operations'] },
+  { key: '/tickets', label: 'Tickets', icon: 'confirmation_number', matchPrefix: '/tickets', roles: ['Admin', 'Support'] },
+  { key: '/invoices', label: 'Invoices', icon: 'receipt', matchPrefix: '/invoices', roles: ['Admin', 'Finance'] },
+  { key: '/campaigns', label: 'Campaigns', icon: 'campaign', matchPrefix: '/campaigns', roles: ['Admin', 'Operations', 'Sales'] },
+  { key: '/tasks', label: 'Tasks', icon: 'assignment', matchPrefix: '/tasks', roles: ['Admin', 'Sales', 'Support', 'Operations'] },
+  { key: '/audit-log', label: 'Audit Log', icon: 'history', matchPrefix: '/audit-log', roles: ['Admin'] },
 ];
 
 export default function Sidebar({ onWidthChange }) {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const currentUser = authService.getUser() || { role: 'Admin', name: 'User' };
+  const userRole = currentUser.role || 'Admin';
+
   const {
     reportsSidebarCollapsed,
     setReportsSidebarCollapsed,
@@ -30,13 +31,16 @@ export default function Sidebar({ onWidthChange }) {
     setDashboardsSidebarCollapsed,
   } = useData();
 
-  // notify parent about width changes
-  const width = collapsed ? 64 : 200;
+  // Filter items based on user role (case-insensitive)
+  const navItems = ALL_NAV_ITEMS.filter(item =>
+    !item.roles || item.roles.some(r => r.toLowerCase() === userRole.toLowerCase())
+  );
+
+  const width = collapsed ? 72 : 260;
   if (typeof onWidthChange === 'function') {
     onWidthChange(width);
   }
 
-  // Determine if a nav item is active, supporting prefix matching for nested routes
   const isItemActive = (item) => {
     if (item.exact) return location.pathname === item.key;
     if (item.matchPrefix) return location.pathname === item.key || location.pathname.startsWith(item.matchPrefix + '/');
@@ -61,29 +65,54 @@ export default function Sidebar({ onWidthChange }) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col text-white shadow-2xl transition-all duration-300 ease-in-out z-40 ${
-          collapsed ? 'w-[64px]' : 'w-[200px]'
-        } bg-gradient-to-b from-[#131F3B] via-[#1a233a] to-[#0d1220] border-r border-white/5`}
+      className={`fixed left-0 top-0 h-screen flex flex-col font-body-md transition-all duration-200 ease-in-out z-50 ${
+        collapsed ? 'w-[72px]' : 'w-[260px]'
+      } glass-sidebar shadow-sm bg-[#f8f9ff]/90 dark:bg-[#0f172a]/95`}
     >
-      {/* Logo Area */}
-      <div className="flex items-center justify-center h-16 border-b border-white/10 relative overflow-hidden flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-orange/0 via-brand-orange/10 to-brand-orange/0 opacity-50"></div>
-        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF4800] to-[#ff7b00] flex items-center justify-center font-bold text-sm text-white shadow-lg transition-transform duration-300 flex-shrink-0 ${collapsed ? 'scale-90' : 'scale-100'}`}>
-          AA
-        </div>
-        {!collapsed && (
-          <span className="ml-3 font-bold text-base tracking-wide text-white whitespace-nowrap overflow-hidden">
-            Acme Analytics
-          </span>
-        )}
+      {/* Brand Header */}
+      <div className="p-4 border-b border-glass-border flex items-center justify-between flex-shrink-0">
+        <Link to="/" className="flex items-center gap-3 overflow-hidden">
+          <div className="w-10 h-10 rounded-lg bg-primary-container text-white flex items-center justify-center font-bold text-xl shadow-md flex-shrink-0">
+            B
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <h1 className="font-headline-md text-base font-bold text-primary dark:text-purple-400 leading-tight whitespace-nowrap">
+                BDS CRM Suite
+              </h1>
+              <p className="text-[10px] text-on-surface-variant font-medium tracking-wider uppercase whitespace-nowrap">
+                Enterprise Edition
+              </p>
+            </div>
+          )}
+        </Link>
       </div>
 
-      {/* Navigation */}
-      <nav 
-        className="flex-1 overflow-y-auto py-4 px-2.5 flex flex-col gap-1 relative sidebar-nav" 
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        <style>{`.sidebar-nav::-webkit-scrollbar { display: none; }`}</style>
+      {/* Quick Action Button */}
+      {!collapsed ? (
+        <div className="p-3">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-quick-create'))}
+            className="w-full bg-primary hover:bg-[#4029ba] text-white rounded-lg py-2.5 px-4 text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Create Record
+          </button>
+        </div>
+      ) : (
+        <div className="p-2 flex justify-center">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-quick-create'))}
+            title="Create Record"
+            className="w-10 h-10 bg-primary hover:bg-[#4029ba] text-white rounded-lg flex items-center justify-center shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[20px]">add</span>
+          </button>
+        </div>
+      )}
+
+      {/* Navigation List */}
+      <nav className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1 custom-scrollbar">
         {navItems.map((item) => {
           const isActive = isItemActive(item);
           return (
@@ -91,37 +120,30 @@ export default function Sidebar({ onWidthChange }) {
               <Link
                 to={item.key}
                 onClick={() => handleNavClick(item.key)}
-                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ease-out overflow-hidden ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 relative ${
                   isActive
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-white/8'
-                } ${collapsed ? 'justify-center' : ''}`}
-                style={isActive ? { background: 'rgba(255,72,0,0.15)' } : {}}
+                    ? 'bg-primary-container/15 text-primary font-semibold border-l-4 border-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                } ${collapsed ? 'justify-center px-0' : ''}`}
               >
-                {/* Active Left Indicator Bar */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-[#FF4800] rounded-r-full"
-                       style={{ boxShadow: '0 0 8px rgba(255,72,0,0.7)' }}></div>
-                )}
+                <span
+                  className="material-symbols-outlined text-[20px]"
+                  style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+                >
+                  {item.icon}
+                </span>
 
-                <item.icon className={`w-5 h-5 flex-shrink-0 transition-all duration-200 ${
-                  isActive ? 'text-[#FF4800]' : 'group-hover:text-gray-100'
-                }`} />
-                
                 {!collapsed && (
-                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-200 ${
-                    isActive ? 'font-semibold text-white' : 'font-medium text-gray-300'
-                  }`}>
+                  <span className="text-sm truncate">
                     {item.label}
                   </span>
                 )}
               </Link>
-              
-              {/* Custom Tooltip for collapsed state */}
+
+              {/* Hover Tooltip when collapsed */}
               {collapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-200 shadow-xl border border-white/10 z-50 whitespace-nowrap">
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-xl z-50 whitespace-nowrap">
                   {item.label}
-                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45 border-l border-b border-white/10"></div>
                 </div>
               )}
             </div>
@@ -129,19 +151,30 @@ export default function Sidebar({ onWidthChange }) {
         })}
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="p-3 border-t border-white/10 flex-shrink-0">
+      {/* Bottom Section: Settings & Collapse Toggle */}
+      <div className="p-3 border-t border-glass-border space-y-1 flex-shrink-0">
+        <Link
+          to="/settings"
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors ${
+            collapsed ? 'justify-center px-0' : ''
+          }`}
+          title="Settings"
+        >
+          <span className="material-symbols-outlined text-[20px]">settings</span>
+          {!collapsed && <span className="text-sm">Settings</span>}
+        </Link>
+
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className={`w-full flex items-center p-2.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all duration-200 focus:outline-none ${
-            collapsed ? 'justify-center' : 'justify-end gap-2'
+          className={`w-full flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors ${
+            collapsed ? 'justify-center' : 'justify-between px-3'
           }`}
-          title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          title={collapsed ? 'Expand' : 'Collapse'}
         >
-          {!collapsed && <span className="text-xs font-medium text-gray-500">Collapse</span>}
-          <div className="w-7 h-7 flex items-center justify-center rounded-full bg-white/5">
-            <ChevronRightIcon className={`w-3.5 h-3.5 transition-transform duration-300 ${collapsed ? '' : 'rotate-180'}`} />
-          </div>
+          {!collapsed && <span className="text-xs text-on-surface-variant">Collapse</span>}
+          <span className="material-symbols-outlined text-[18px]">
+            {collapsed ? 'chevron_right' : 'chevron_left'}
+          </span>
         </button>
       </div>
     </aside>

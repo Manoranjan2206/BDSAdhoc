@@ -26,3 +26,8 @@ node_modules/
 
 # Logs
 *.log
+
+# Temporary and reference directories
+BasicAppCore/
+*.zip
+

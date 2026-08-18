@@ -1,78 +1,123 @@
-/* App.css - Updated Syncfusion overrides with new palette */
+/* App.css - BDS CRM Suite Enterprise Design System */
 
-/* Removed Syncfusion CSS imports */
-
-th, td {
-    padding-left: 1rem;
-    padding-right: 1rem;
+:root {
+  --primary: #5341cd;
+  --primary-container: #6c5ce7;
+  --role-admin: #6c5ce7;
+  --role-sales: #3b82f6;
+  --role-finance: #10b981;
+  --role-support: #f97316;
+  --role-ops: #14b8a6;
+  --background: #f8f9ff;
+  --surface: #f8f9ff;
+  --on-surface: #0b1c30;
+  --on-surface-variant: #474554;
+  --outline: #787586;
+  --outline-variant: #c8c4d7;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-/* Global Syncfusion overrides */
-.e-grid {
-  background: var(--surface) !important;
-  color: var(--text-strong) !important;
+.dark {
+  --background: #0b1329;
+  --surface: #0f172a;
+  --on-surface: #f8fafc;
+  --on-surface-variant: #94a3b8;
+  --outline: #64748b;
+  --outline-variant: #334155;
+  --glass-bg: rgba(15, 23, 42, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
-.e-grid .e-headercell {
-  background: var(--surface) !important;
-  color: var(--text-strong) !important;
-  border-color: var(--neutral-200) !important;
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--on-surface);
+  background-color: var(--background);
 }
 
-.e-grid .e-rowcell {
-  color: var(--text-strong) !important;
+/* Glassmorphism utility classes */
+.glass-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
-.e-grid .e-toolbar {
-  background: var(--surface) !important;
-  border-color: var(--neutral-200) !important;
+.glass-header {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
 }
 
-.e-btn.e-primary:not(#reportdesigner-container *):not(#dashboard-designer-container *) {
-  background: var(--brand-500) !important;
-  border-color: var(--brand-500) !important;
-  color: #FFFFFF !important;
+.glass-sidebar {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--glass-bg);
+  border-right: 1px solid var(--glass-border);
 }
 
-.e-btn.e-primary:not(#reportdesigner-container *):not(#dashboard-designer-container *):hover {
-  background: color-mix(in srgb, var(--brand-500) 90%, black) !important;
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
 }
 
-/* Modern Button Styling */
-.modern-btn,
-button.e-primary.modern-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-  font-size: 0.875rem;
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(83, 65, 205, 0.08);
+}
+
+.bg-canvas {
+  background-image: radial-gradient(circle at 100% 100%, #eff4ff 0%, #f8f9ff 100%);
+}
+
+.dark .bg-canvas {
+  background-image: radial-gradient(circle at 100% 100%, #0f172a 0%, #0b1329 100%);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c8c4d7;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #787586;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+/* Modern Button */
+.btn-primary {
+  background-color: var(--primary-container);
+  color: #ffffff;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid var(--brand-500) !important;
-  background: var(--brand-500) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 6px -1px rgba(255, 72, 0, 0.15), 0 2px 4px -1px rgba(255, 72, 0, 0.1) !important;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease;
 }
 
-.modern-btn:hover,
-button.e-primary.modern-btn:hover {
-  background: color-mix(in srgb, var(--brand-500) 90%, black) !important;
-  border-color: color-mix(in srgb, var(--brand-500) 90%, black) !important;
+.btn-primary:hover {
+  background-color: #5341cd;
   transform: translateY(-1px);
-  box-shadow: 0 6px 12px -1px rgba(255, 72, 0, 0.25), 0 4px 6px -1px rgba(255, 72, 0, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.25);
 }
 
-.modern-btn:active,
-button.e-primary.modern-btn:active {
-  transform: translateY(0);
+/* Material Symbols alignment helper */
+.material-symbols-outlined {
+  vertical-align: middle;
+  line-height: 1;
 }
-
-.modern-btn:disabled,
-button.e-primary.modern-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none !important;
-}

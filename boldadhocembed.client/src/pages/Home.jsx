@@ -1,563 +1,289 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ChartBarIcon,
-  DocumentTextIcon,
-  ClockIcon,
-  UserGroupIcon,
-  ArrowRightIcon,
-  ArrowPathIcon,
-  PlusIcon,
-  FolderPlusIcon,
-  SparklesIcon,
-  StarIcon as StarIconOutline,
-} from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
-import { useData } from '../context/DataContext';
+import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { motion } from 'framer-motion';
-import '../styles/home.css';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { getReports, getDashboards, getSchedules, getUsers } = useData();
-  const [user] = useState(() => {
-    const u = authService.getUser();
-    return u?.user || u;
-  });
-  const [activeAssetTab, setActiveAssetTab] = useState('all');
-  const [starredReports, setStarredReports] = useState(() => {
-    try {
-      const saved = localStorage.getItem('starred_reports');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [user, setUser] = useState(null);
 
-  const [stats, setStats] = useState({
-    reports: 0,
-    dashboards: 0,
-    schedules: 0,
-    users: 0,
-    loadingReports: true,
-    loadingDashboards: true,
-    loadingSchedules: true,
-    loadingUsers: true,
-    categoriesData: [],
-    recentReports: [],
-    recentDashboards: []
-  });
-
-  // Client-side local time greeting
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }, []);
+  const [tasks, setTasks] = useState([
+    { id: 1, title: 'Follow up with TechNova on contract terms', time: '10:00 AM', role: 'Sales', roleClass: 'bg-role-sales/10 text-role-sales border-role-sales/20', completed: false },
+    { id: 2, title: 'Review Q3 Financial Projections & invoices', time: '1:30 PM', role: 'Finance', roleClass: 'bg-role-finance/10 text-role-finance border-role-finance/20', completed: false },
+    { id: 3, title: 'Approve new vendor MSA security agreements', time: '3:00 PM', role: 'Admin', roleClass: 'bg-role-admin/10 text-role-admin border-role-admin/20', completed: false },
+    { id: 4, title: 'Resolve SSO integration ticket #TKT-2025-0042', time: '4:15 PM', role: 'Support', roleClass: 'bg-role-support/10 text-role-support border-role-support/20', completed: true },
+  ]);
 
   useEffect(() => {
-    const loadReports = async () => {
-      try {
-        const reportTree = await getReports();
-        const treeArr = Array.isArray(reportTree)
-          ? reportTree
-          : (reportTree && Array.isArray(reportTree.data) ? reportTree.data : []);
+    const currentUser = authService.getUser();
+    setUser(currentUser?.user || currentUser);
+  }, []);
 
-        const catData = [];
-        let reportCount = 0;
-        const allReports = [];
+  const userName = user?.name || user?.firstName || 'Anna';
+  const userRole = user?.role || 'Admin';
+  const tenantName = user?.tenantName || (user?.email?.includes('alpha') ? 'AlphaCorp' : user?.email?.includes('beta') ? 'BetaSolutions' : user?.email?.includes('gamma') ? 'GammaIndustries' : user?.email?.includes('delta') ? 'DeltaEnterprises' : 'AlphaCorp');
+  const userRegion = user?.region || 'North America';
 
-        if (Array.isArray(treeArr)) {
-          treeArr.forEach(cat => {
-            const reps = cat.Reports || cat.reports || [];
-            const count = Array.isArray(reps) ? reps.length : 0;
-            reportCount += count;
-            const catName = cat.Name || cat.name || 'Uncategorized';
-            catData.push({ category: catName, count });
-
-            reps.forEach(r => {
-              allReports.push({
-                id: r.Id || r.id,
-                name: r.Name || r.name,
-                type: 'report',
-                category: catName,
-                date: r.ModifiedDate || r.modifiedDate || new Date().toISOString(),
-                description: r.Description || r.description || 'Paginated analytics report',
-                owner: 'System Administrator'
-              });
-            });
-          });
-        }
-
-        setStats(prev => ({
-          ...prev,
-          reports: reportCount,
-          loadingReports: false,
-          categoriesData: catData,
-          recentReports: allReports
-        }));
-      } catch (err) {
-        console.error('Failed to load reports:', err);
-        setStats(prev => ({ ...prev, loadingReports: false }));
-      }
-    };
-
-    const loadDashboards = async () => {
-      try {
-        const dashboardList = await getDashboards();
-        const dashboardCount = Array.isArray(dashboardList) ? dashboardList.length : 0;
-        const allDashboards = [];
-        if (Array.isArray(dashboardList)) {
-          dashboardList.forEach(d => {
-            allDashboards.push({
-              id: d.Id || d.id,
-              name: d.Name || d.name,
-              type: 'dashboard',
-              category: d.CategoryName || d.category || d.Category || 'General',
-              date: d.ModifiedDate || d.modifiedDate || new Date().toISOString(),
-              description: d.Description || d.description || 'Interactive BI dashboard',
-              owner: 'Analytics Team'
-            });
-          });
-        }
-
-        setStats(prev => ({
-          ...prev,
-          dashboards: dashboardCount,
-          loadingDashboards: false,
-          recentDashboards: allDashboards
-        }));
-      } catch (err) {
-        console.error('Failed to load dashboards:', err);
-        setStats(prev => ({ ...prev, loadingDashboards: false }));
-      }
-    };
-
-    const loadSchedules = async () => {
-      try {
-        const scheduleList = await getSchedules();
-        setStats(prev => ({
-          ...prev,
-          schedules: Array.isArray(scheduleList) ? scheduleList.length : 0,
-          loadingSchedules: false
-        }));
-      } catch (err) {
-        console.error('Failed to load schedules:', err);
-        setStats(prev => ({ ...prev, loadingSchedules: false }));
-      }
-    };
-
-    const loadUsers = async () => {
-      try {
-        const userList = await getUsers();
-        setStats(prev => ({
-          ...prev,
-          users: Array.isArray(userList) ? userList.length : 0,
-          loadingUsers: false
-        }));
-      } catch (err) {
-        console.error('Failed to load users:', err);
-        setStats(prev => ({ ...prev, loadingUsers: false }));
-      }
-    };
-
-    loadReports();
-    loadDashboards();
-    loadSchedules();
-    loadUsers();
-  }, [getReports, getDashboards, getSchedules, getUsers]);
-
-  const toggleStar = (id, e) => {
-    e.stopPropagation();
-    setStarredReports(prev => {
-      const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
-      localStorage.setItem('starred_reports', JSON.stringify(next));
-      return next;
-    });
+  const toggleTask = (id) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
-
-  const formatDate = (dateStr) => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch {
-      return 'Recently';
-    }
-  };
-
-  const maxReports = useMemo(() => {
-    return stats.categoriesData.length > 0
-      ? Math.max(...stats.categoriesData.map(c => c.count))
-      : 0;
-  }, [stats.categoriesData]);
-
-  const recentAssets = useMemo(() => {
-    const combined = [...(stats.recentReports || []), ...(stats.recentDashboards || [])];
-    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return combined;
-  }, [stats.recentReports, stats.recentDashboards]);
-
-  const filteredAssets = useMemo(() => {
-    if (activeAssetTab === 'reports') {
-      return recentAssets.filter(a => a.type === 'report').slice(0, 6);
-    }
-    if (activeAssetTab === 'dashboards') {
-      return recentAssets.filter(a => a.type === 'dashboard').slice(0, 6);
-    }
-    if (activeAssetTab === 'favorites') {
-      return recentAssets.filter(a => starredReports.includes(a.id)).slice(0, 6);
-    }
-    return recentAssets.slice(0, 6);
-  }, [recentAssets, activeAssetTab, starredReports]);
 
   return (
-    <div className="home-dashboard p-6 space-y-6 overflow-y-auto h-full text-[var(--text-strong)] font-inter">
-      {/* 1. Header with dynamic time-of-day greeting */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-[#181c2c] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {greeting}, {user?.name || 'Amanulla Aman'}
+    <div className="p-container-padding max-w-[1600px] mx-auto space-y-gutter">
+      {/* Hero Section */}
+      <div className="glass-card rounded-xl p-8 relative overflow-hidden bg-white/80 dark:bg-slate-900/80 shadow-sm border border-glass-border">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+              {tenantName} • {userRegion}
+            </span>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surface-container text-on-surface-variant">
+              {userRole} Workspace
+            </span>
+          </div>
+          <h1 className="font-headline-lg text-3xl md:text-4xl font-bold text-on-surface mb-2">
+            Welcome Back, {userName}!
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            No tasks are due today. Enjoy your day!
+          <p className="font-body-lg text-base text-on-surface-variant max-w-2xl">
+            Here's a quick overview of your CRM organization. All data is isolated to <strong className="text-primary">{tenantName}</strong> with Row-Level Security active for <strong className="text-primary">{userRegion}</strong>.
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
-          <button
-            onClick={() => navigate('/designer')}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
-          >
-            <PlusIcon className="w-4 h-4 stroke-[2.5]" />
-            New Report
-          </button>
-          <button
-            onClick={() => navigate('/dashboards')}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
-          >
-            <FolderPlusIcon className="w-4 h-4" />
-            New Dashboard
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            className="p-2.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
-            title="Refresh Overview"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Decorative Gradients from Stitch */}
+        <div className="absolute -right-20 -top-20 w-96 h-96 bg-primary-container/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute right-40 bottom-10 w-64 h-64 bg-secondary-container/15 rounded-full blur-3xl pointer-events-none"></div>
       </div>
 
-      {/* 2. KPI Cards matching soft pastel palette of reference screenshot */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Reports KPI Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-[#f0edff] dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-          onClick={() => navigate('/reports')}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Total Reports</p>
-              {stats.loadingReports ? (
-                <div className="h-8 w-16 bg-indigo-200/50 animate-pulse rounded mt-2" />
-              ) : (
-                <h3 className="text-3xl font-extrabold mt-1 text-indigo-950 dark:text-white">{stats.reports}</h3>
-              )}
-            </div>
-            <div className="p-3 bg-white/80 dark:bg-indigo-900/60 rounded-xl text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50 shadow-2xs">
-              <DocumentTextIcon className="w-6 h-6 stroke-[2]" />
-            </div>
+      {/* CRM Quick Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+        <Link to="/deals" className="glass-card rounded-xl p-5 hover-lift transition-all flex items-center gap-4 group">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-950/40 text-primary flex items-center justify-center font-bold text-xl">
+            <span className="material-symbols-outlined text-[26px]">handshake</span>
           </div>
-          <div className="mt-4 pt-3 border-t border-indigo-200/50 dark:border-indigo-900/60 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300">
-            <span>Paginated & RDL Reports</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          <div>
+            <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Active Pipeline</p>
+            <h3 className="text-2xl font-bold text-on-surface group-hover:text-primary transition-colors">$1.24M</h3>
+            <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[14px]">trending_up</span> +14.2% this month
+            </span>
           </div>
-        </motion.div>
+        </Link>
 
-        {/* Dashboards KPI Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="bg-[#fff4e8] dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-          onClick={() => navigate('/dashboards')}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Dashboards</p>
-              {stats.loadingDashboards ? (
-                <div className="h-8 w-16 bg-amber-200/50 animate-pulse rounded mt-2" />
-              ) : (
-                <h3 className="text-3xl font-extrabold mt-1 text-amber-950 dark:text-white">{stats.dashboards}</h3>
-              )}
-            </div>
-            <div className="p-3 bg-white/80 dark:bg-amber-900/60 rounded-xl text-amber-600 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 shadow-2xs">
-              <ChartBarIcon className="w-6 h-6 stroke-[2]" />
-            </div>
+        <Link to="/contacts" className="glass-card rounded-xl p-5 hover-lift transition-all flex items-center gap-4 group">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-role-sales flex items-center justify-center font-bold text-xl">
+            <span className="material-symbols-outlined text-[26px]">contacts</span>
           </div>
-          <div className="mt-4 pt-3 border-t border-amber-200/50 dark:border-amber-900/60 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
-            <span>Interactive Analytics</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          <div>
+            <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">CRM Contacts</p>
+            <h3 className="text-2xl font-bold text-on-surface group-hover:text-role-sales transition-colors">260</h3>
+            <span className="text-[11px] text-on-surface-variant">Across 4 global regions</span>
           </div>
-        </motion.div>
+        </Link>
 
-        {/* Schedules KPI Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-[#f7edff] dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-          onClick={() => navigate('/schedules')}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Scheduled Tasks</p>
-              {stats.loadingSchedules ? (
-                <div className="h-8 w-16 bg-purple-200/50 animate-pulse rounded mt-2" />
-              ) : (
-                <h3 className="text-3xl font-extrabold mt-1 text-purple-950 dark:text-white">{stats.schedules}</h3>
-              )}
-            </div>
-            <div className="p-3 bg-white/80 dark:bg-purple-900/60 rounded-xl text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 shadow-2xs">
-              <ClockIcon className="w-6 h-6 stroke-[2]" />
-            </div>
+        <Link to="/tickets" className="glass-card rounded-xl p-5 hover-lift transition-all flex items-center gap-4 group">
+          <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-950/40 text-role-support flex items-center justify-center font-bold text-xl">
+            <span className="material-symbols-outlined text-[26px]">confirmation_number</span>
           </div>
-          <div className="mt-4 pt-3 border-t border-purple-200/50 dark:border-purple-900/60 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300">
-            <span>Automated Deliveries</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          <div>
+            <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Support Cases</p>
+            <h3 className="text-2xl font-bold text-on-surface group-hover:text-role-support transition-colors">220</h3>
+            <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[14px]">star</span> 4.8 / 5.0 CSAT
+            </span>
           </div>
-        </motion.div>
+        </Link>
 
-        {/* Users KPI Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="bg-[#ffe8f0] dark:bg-pink-950/40 border border-pink-100 dark:border-pink-900/40 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-          onClick={() => navigate('/settings')}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-pink-700 dark:text-pink-300 uppercase tracking-wider">Team Members</p>
-              {stats.loadingUsers ? (
-                <div className="h-8 w-16 bg-pink-200/50 animate-pulse rounded mt-2" />
-              ) : (
-                <h3 className="text-3xl font-extrabold mt-1 text-pink-950 dark:text-white">{stats.users}</h3>
-              )}
-            </div>
-            <div className="p-3 bg-white/80 dark:bg-pink-900/60 rounded-xl text-pink-600 dark:text-pink-300 border border-pink-200/60 dark:border-pink-800/50 shadow-2xs">
-              <UserGroupIcon className="w-6 h-6 stroke-[2]" />
-            </div>
+        <Link to="/schedules" className="glass-card rounded-xl p-5 hover-lift transition-all flex items-center gap-4 group">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 text-role-finance flex items-center justify-center font-bold text-xl">
+            <span className="material-symbols-outlined text-[26px]">calendar_month</span>
           </div>
-          <div className="mt-4 pt-3 border-t border-pink-200/50 dark:border-pink-900/60 flex items-center justify-between text-xs text-pink-700 dark:text-pink-300">
-            <span>Active Collaborators</span>
-            <ArrowRightIcon className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          <div>
+            <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">Scheduled Reports</p>
+            <h3 className="text-2xl font-bold text-on-surface group-hover:text-role-finance transition-colors">8 Active</h3>
+            <span className="text-[11px] text-on-surface-variant">Automated email delivery</span>
           </div>
-        </motion.div>
+        </Link>
       </div>
 
-      {/* 3. Main Content Area (Recent Activity + Shortcuts) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Recent Activity & Content Access (Col span 2) */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h2 className="font-bold text-base text-slate-900 dark:text-white">Recent Activity</h2>
-              <p className="text-xs text-[var(--text-muted)]">Quickly pick up where you left off</p>
-            </div>
-
-            {/* Filter Chips */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-medium">
-              <button
-                onClick={() => setActiveAssetTab('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeAssetTab === 'all'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setActiveAssetTab('reports')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeAssetTab === 'reports'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Reports
-              </button>
-              <button
-                onClick={() => setActiveAssetTab('dashboards')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeAssetTab === 'dashboards'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Dashboards
-              </button>
-              <button
-                onClick={() => setActiveAssetTab('favorites')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeAssetTab === 'favorites'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Favorites ({starredReports.length})
-              </button>
-            </div>
-          </div>
-
-          {/* List of Recent Items */}
-          <div className="space-y-2">
-            {(stats.loadingReports || stats.loadingDashboards) ? (
-              [1, 2, 3, 4].map(i => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 animate-pulse">
-                  <div className="h-4 w-48 bg-slate-200 dark:bg-slate-700 rounded" />
-                  <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
-                </div>
-              ))
-            ) : filteredAssets.length === 0 ? (
-              <div className="py-12 text-center text-xs text-[var(--text-muted)]">
-                No items found for this filter.
-              </div>
-            ) : (
-              filteredAssets.map(asset => {
-                const isStarred = starredReports.includes(asset.id);
-                return (
-                  <div
-                    key={asset.id}
-                    onClick={() => {
-                      if (asset.type === 'report') {
-                        navigate(`/reports?report=${encodeURIComponent(asset.name)}&category=${encodeURIComponent(asset.category)}`);
-                      } else {
-                        navigate(`/dashboards?dashboardId=${asset.id}`);
-                      }
-                    }}
-                    className="flex items-center justify-between p-3.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700/60 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-[#FF4800] transition-colors">
-                            {asset.name}
-                          </h4>
-                          <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md ${
-                            asset.type === 'report'
-                              ? 'bg-orange-50 text-[#FF4800] dark:bg-orange-950/40'
-                              : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40'
-                          }`}>
-                            {asset.category}
-                          </span>
-                        </div>
-                        <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{asset.description}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                      <span className="text-xs text-[var(--text-muted)] hidden sm:block">
-                        {formatDate(asset.date)}
-                      </span>
-                      <button
-                        onClick={(e) => toggleStar(asset.id, e)}
-                        className="p-1.5 text-slate-400 hover:text-amber-400 transition-colors"
-                        title={isStarred ? "Remove from Favorites" : "Add to Favorites"}
-                      >
-                        {isStarred ? (
-                          <StarIconSolid className="w-4 h-4 text-amber-400" />
-                        ) : (
-                          <StarIconOutline className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        className="flex items-center gap-1 text-xs font-semibold text-[#FF4800] hover:text-[#e03f00] opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        View <ArrowRightIcon className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Right: Quick Launch & Category Summary (Col span 1) */}
-        <div className="space-y-6">
-          {/* Top Categories Card */}
-          <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">Categories</h3>
-              <button
-                onClick={() => navigate('/reports')}
-                className="text-xs font-semibold text-[#FF4800] hover:underline"
-              >
-                View All
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {stats.loadingReports ? (
-                [1, 2, 3].map(i => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" />
-                  </div>
-                ))
-              ) : stats.categoriesData.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted)] py-4 text-center">No categories found</p>
-              ) : (
-                stats.categoriesData.slice(0, 5).map((cat, idx) => {
-                  const percent = maxReports > 0 ? (cat.count / maxReports) * 100 : 0;
-                  return (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-slate-800 dark:text-slate-200 truncate">{cat.category}</span>
-                        <span className="text-[var(--text-muted)] font-semibold">{cat.count}</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${percent}%` }}
-                          className="bg-[#FF4800] h-full rounded-full transition-all duration-500"
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Report Designer Shortcut Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-[#181c2c] text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-orange-400 uppercase tracking-wider">
-              <SparklesIcon className="w-4 h-4" /> Adhoc Report Builder
-            </div>
-            <div>
-              <h3 className="text-lg font-extrabold">Build Custom Reports</h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                Design custom RDL reports with our drag-and-drop report designer interface.
-              </p>
-            </div>
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+        {/* Quick Actions (4 cols) */}
+        <div className="md:col-span-4 glass-card rounded-xl p-6 flex flex-col justify-between">
+          <h2 className="font-headline-md text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">bolt</span>
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 gap-3 flex-1">
             <button
-              onClick={() => navigate('/designer')}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              onClick={() => navigate('/contacts')}
+              className="bg-white/70 dark:bg-slate-800/70 hover:bg-surface-container-high hover-lift transition-all rounded-lg p-4 flex flex-col items-center justify-center text-center gap-2 border border-glass-border cursor-pointer group"
             >
-              Launch Designer <ArrowRightIcon className="w-3.5 h-3.5" />
+              <span className="material-symbols-outlined text-role-sales text-[28px] group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>
+                person_add
+              </span>
+              <span className="font-label-md text-xs font-semibold text-on-surface">Manage Contacts</span>
             </button>
+
+            <button
+              onClick={() => navigate('/activities')}
+              className="bg-white/70 dark:bg-slate-800/70 hover:bg-surface-container-high hover-lift transition-all rounded-lg p-4 flex flex-col items-center justify-center text-center gap-2 border border-glass-border cursor-pointer group"
+            >
+              <span className="material-symbols-outlined text-role-ops text-[28px] group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>
+                event_note
+              </span>
+              <span className="font-label-md text-xs font-semibold text-on-surface">Log Activity</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/deals')}
+              className="bg-white/70 dark:bg-slate-800/70 hover:bg-surface-container-high hover-lift transition-all rounded-lg p-4 flex flex-col items-center justify-center text-center gap-2 border border-glass-border cursor-pointer group"
+            >
+              <span className="material-symbols-outlined text-role-finance text-[28px] group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>
+                handshake
+              </span>
+              <span className="font-label-md text-xs font-semibold text-on-surface">Sales Pipeline</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/tickets')}
+              className="bg-white/70 dark:bg-slate-800/70 hover:bg-surface-container-high hover-lift transition-all rounded-lg p-4 flex flex-col items-center justify-center text-center gap-2 border border-glass-border cursor-pointer group"
+            >
+              <span className="material-symbols-outlined text-role-support text-[28px] group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>
+                headset_mic
+              </span>
+              <span className="font-label-md text-xs font-semibold text-on-surface">Support Tickets</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tasks (5 cols) */}
+        <div className="md:col-span-5 glass-card rounded-xl p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-headline-md text-lg font-bold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">checklist</span>
+              My Tasks for Today
+            </h2>
+            <Link to="/tasks" className="text-xs font-semibold text-primary hover:underline">
+              View All
+            </Link>
+          </div>
+
+          <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 custom-scrollbar max-h-[280px]">
+            {tasks.map(task => (
+              <div
+                key={task.id}
+                onClick={() => toggleTask(task.id)}
+                className="bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 border border-outline-variant/30 flex items-start gap-3 hover-lift transition-transform cursor-pointer"
+              >
+                <div className="mt-0.5">
+                  <span className={`material-symbols-outlined text-[20px] ${task.completed ? 'text-primary' : 'text-outline'}`}>
+                    {task.completed ? 'check_circle' : 'radio_button_unchecked'}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <h4 className={`text-xs font-semibold mb-1 ${task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>
+                    {task.title}
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px]">schedule</span> {task.time}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${task.roleClass}`}>
+                      {task.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pinned Items (3 cols) */}
+        <div className="md:col-span-3 glass-card rounded-xl p-6 flex flex-col">
+          <h2 className="font-headline-md text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              push_pin
+            </span>
+            Pinned Items
+          </h2>
+
+          <div className="space-y-3.5 flex-1">
+            <Link to="/contacts" className="block group hover:bg-white/40 dark:hover:bg-slate-800/40 p-2 rounded-lg transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-role-sales/10 text-role-sales flex items-center justify-center border border-role-sales/20 flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>corporate_fare</span>
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-xs font-semibold text-on-surface group-hover:text-primary transition-colors truncate">Global Industries Corp</p>
+                  <p className="text-[11px] text-on-surface-variant">Key Account • Enterprise</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link to="/deals" className="block group hover:bg-white/40 dark:hover:bg-slate-800/40 p-2 rounded-lg transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-role-finance/10 text-role-finance flex items-center justify-center border border-role-finance/20 flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>request_quote</span>
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-xs font-semibold text-on-surface group-hover:text-primary transition-colors truncate">Q4 Cloud Suite Expansion</p>
+                  <p className="text-[11px] text-on-surface-variant">Deal • $220,000</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link to="/dashboards" className="block group hover:bg-white/40 dark:hover:bg-slate-800/40 p-2 rounded-lg transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-role-ops/10 text-role-ops flex items-center justify-center border border-role-ops/20 flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>pie_chart</span>
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-xs font-semibold text-on-surface group-hover:text-primary transition-colors truncate">Executive Overview BI</p>
+                  <p className="text-[11px] text-on-surface-variant">Dashboard • Real-Time</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Announcements */}
+      <div className="glass-card rounded-xl p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-headline-md text-lg font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">campaign</span>
+            Recent Announcements
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/70 dark:bg-slate-800/70 rounded-lg p-4 border border-glass-border hover-lift transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-1 h-full bg-role-admin"></div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-role-admin/10 text-role-admin border border-role-admin/20">System</span>
+              <span className="text-[11px] text-on-surface-variant">2 hours ago</span>
+            </div>
+            <h4 className="text-xs font-semibold text-on-surface mb-1 group-hover:text-primary transition-colors">PostgreSQL CRM Multitenancy Active</h4>
+            <p className="text-xs text-on-surface-variant line-clamp-2">All 14 CRM tables and 12-month data are connected with automated Row-Level Security filtering.</p>
+          </div>
+
+          <div className="bg-white/70 dark:bg-slate-800/70 rounded-lg p-4 border border-glass-border hover-lift transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-1 h-full bg-role-sales"></div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-role-sales/10 text-role-sales border border-role-sales/20">Sales Team</span>
+              <span className="text-[11px] text-on-surface-variant">Yesterday</span>
+            </div>
+            <h4 className="text-xs font-semibold text-on-surface mb-1 group-hover:text-primary transition-colors">New Pipeline Stages Enabled</h4>
+            <p className="text-xs text-on-surface-variant line-clamp-2">Kanban board now tracks 6 stages from Prospecting to Closed Won/Lost with win probabilities.</p>
+          </div>
+
+          <div className="bg-white/70 dark:bg-slate-800/70 rounded-lg p-4 border border-glass-border hover-lift transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-1 h-full bg-role-finance"></div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-role-finance/10 text-role-finance border border-role-finance/20">Reports & BI</span>
+              <span className="text-[11px] text-on-surface-variant">Oct 12</span>
+            </div>
+            <h4 className="text-xs font-semibold text-on-surface mb-1 group-hover:text-primary transition-colors">Automated Report Scheduling</h4>
+            <p className="text-xs text-on-surface-variant line-clamp-2">Use the Scheduler module to configure recurring PDF/Excel/CSV exports directly to user inboxes.</p>
           </div>
         </div>
       </div>

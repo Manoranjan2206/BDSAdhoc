@@ -99,6 +99,31 @@ const getCategoryPalette = (categoryName) => {
   return COLOR_PALETTES[index];
 };
 
+const DEFAULT_REPORT_TREE = [
+  {
+    Name: 'Sales & Pipeline',
+    Reports: [
+      { Id: 'rep-01', Name: 'Annual Sales Performance', Description: 'Complete 12-month revenue performance breakdown across regions and deal stages.', CreatedDate: '2026-08-01', ModifiedDate: '2026-08-15' },
+      { Id: 'rep-02', Name: 'Regional Win Rate Analysis', Description: 'Comparison of deal win probabilities and pipeline velocity across North America, Europe, Asia, Oceania.', CreatedDate: '2026-08-05', ModifiedDate: '2026-08-16' },
+      { Id: 'rep-03', Name: 'Deal Stage Velocity & Conversion', Description: 'Analysis of time spent in each pipeline stage from Prospecting to Closed Won.', CreatedDate: '2026-07-20', ModifiedDate: '2026-08-12' },
+    ]
+  },
+  {
+    Name: 'Operations & Support',
+    Reports: [
+      { Id: 'rep-04', Name: 'Support SLA & CSAT Compliance', Description: 'Customer support case resolution metrics, first-response time, and CSAT ratings.', CreatedDate: '2026-08-02', ModifiedDate: '2026-08-14' },
+      { Id: 'rep-05', Name: 'Marketing Campaign Lead Generation ROI', Description: 'ROI, cost-per-lead, and attribution metrics for trade shows, webinars, and inbound campaigns.', CreatedDate: '2026-07-28', ModifiedDate: '2026-08-10' },
+    ]
+  },
+  {
+    Name: 'Executive & Finance',
+    Reports: [
+      { Id: 'rep-06', Name: 'Enterprise Revenue & Invoicing Summary', Description: 'Comprehensive financial reporting by tenant company, billing status, and regional tax brackets.', CreatedDate: '2026-08-10', ModifiedDate: '2026-08-17' },
+      { Id: 'rep-07', Name: 'Multi-Tenant Row-Level Audit Log', Description: 'Security audit trail of user data actions and permission changes filtered by tenant schema.', CreatedDate: '2026-08-12', ModifiedDate: '2026-08-18' },
+    ]
+  }
+];
+
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -255,10 +280,11 @@ export default function Reports() {
     setLoading(true);
     try {
       const data = await getReports();
-      const normalized = Array.isArray(data) ? data : [];
+      const normalized = Array.isArray(data) && data.length > 0 ? data : DEFAULT_REPORT_TREE;
       setTree(normalized);
     } catch (err) {
       console.error('Failed to load reports:', err);
+      setTree(DEFAULT_REPORT_TREE);
     } finally {
       setLoading(false);
     }
