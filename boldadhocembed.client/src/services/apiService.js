@@ -57,20 +57,28 @@ function getCacheKey(endpoint, options) {
  */
 function addAuthHeader(options = {}) {
   const token = authService.getToken();
-  
-  if (!token) {
-    console.warn('[API] No authentication token found');
-    return options;
+  const user = authService.getUser() || {};
+  const userObj = user.user || user;
+
+  const headers = {
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
+
+  if (userObj.email) headers['X-User-Email'] = userObj.email;
+  if (userObj.tenantName) headers['X-Tenant-Name'] = userObj.tenantName;
+  if (userObj.role) headers['X-User-Role'] = userObj.role;
+  if (userObj.region) headers['X-User-Region'] = userObj.region;
 
   return {
     ...options,
-    headers: {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-    },
+    headers,
   };
 }
+
 
 async function apiCached(endpoint, options = {}, ttl = CACHE_TTL_MS) {
   const key = getCacheKey(endpoint, options);
@@ -377,6 +385,40 @@ export const schedulesAPI = {
 };
 
 /**
+ * CRM PostgreSQL API Service
+ * Queries multi-tenant CRM datasets (Deals, Contacts, Support Tickets, Tasks, Campaigns, Audit Logs)
+ */
+export const crmAPI = {
+  getHomeSummary: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = query ? `/crm/home-summary?${query}` : '/crm/home-summary';
+    const res = await apiRequest(endpoint);
+    return unwrapResponse(res);
+  },
+  getDeals: async (stage = null) => {
+    const endpoint = stage ? `/crm/deals?stage=${encodeURIComponent(stage)}` : '/crm/deals';
+    const res = await apiRequest(endpoint);
+    return unwrapResponse(res);
+  },
+  getContacts: async () => {
+    const res = await apiRequest('/crm/contacts');
+    return unwrapResponse(res);
+  },
+  getTickets: async () => {
+    const res = await apiRequest('/crm/tickets');
+    return unwrapResponse(res);
+  },
+  getCampaigns: async () => {
+    const res = await apiRequest('/crm/campaigns');
+    return unwrapResponse(res);
+  },
+  getAuditLogs: async () => {
+    const res = await apiRequest('/crm/audit-logs');
+    return unwrapResponse(res);
+  },
+};
+
+/**
  * API Configuration
  */
 export const apiConfig = {
@@ -409,6 +451,8 @@ export default {
   reports: reportsAPI,
   users: usersAPI,
   schedules: schedulesAPI,
+  crm: crmAPI,
   config: apiConfig,
   downloadFile,
 };
+

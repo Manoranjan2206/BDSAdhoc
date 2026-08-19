@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
+import { crmAPI } from '../services/apiService';
 
 // Tenant metadata and default stats configurations
 const TENANT_DATA = {
@@ -49,6 +50,7 @@ const TENANT_DATA = {
     keyAccounts: ['Pacific Freightways', 'Atlas Global Shipping', 'Beacon Hubs Ltd'],
   },
 };
+
 
 // Generate dynamic data tailored specifically for the user's role, tenant, and region
 const getRoleHomeData = (role, tenantName, region, userName) => {
@@ -388,6 +390,9 @@ export default function Home() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [tasksState, setTasksState] = useState(null);
+  const [pgSummary, setPgSummary] = useState(null);
+  const [loadingDb, setLoadingDb] = useState(false);
+  const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
     const loadUser = () => {
@@ -405,23 +410,122 @@ export default function Home() {
   const tenantName = user?.tenantName || (user?.email?.includes('alpha') ? 'AlphaCorp' : user?.email?.includes('beta') ? 'BetaSolutions' : user?.email?.includes('gamma') ? 'GammaIndustries' : user?.email?.includes('delta') ? 'DeltaEnterprises' : 'AlphaCorp');
   const userRegion = user?.region || 'North America';
 
-  // Compute dynamic role/tenant home content
-  const homeData = useMemo(() => {
-    return getRoleHomeData(userRole, tenantName, userRegion, userName);
-  }, [userRole, tenantName, userRegion, userName]);
+  // Fetch real PostgreSQL CRM data
+  const fetchPgData = async () => {
+    if (!user) return;
+    setLoadingDb(true);
+    setDbError(null);
+    try {
+      const summary = await crmAPI.getHomeSummary({
+        tenantName,
+        email: user?.email,
+        role: userRole,
+        region: userRegion
+      });
+      if (summary) {
+        setPgSummary(summary);
+        if (summary.tasks && summary.tasks.length > 0) {
+          setTasksState(summary.tasks.map(t => ({
+            id: t.id,
+            title: t.title,
+            time: t.time || '10:00 AM',
+            role: t.role || userRole,
+            roleClass: 'bg-primary/10 text-primary border-primary/20',
+            completed: t.completed
+          })));
+        }
+      }
+    } catch (err) {
+      console.warn('[PostgreSQL CRM] Using fallback stats while database responds:', err);
+      setDbError(err?.message || 'Database connecting');
+    } finally {
+      setLoadingDb(false);
+    }
+  };
 
-  // Sync tasks state when user/role changes
   useEffect(() => {
-    if (homeData?.tasks) {
+    fetchPgData();
+  }, [userRole, tenantName, userRegion]);
+
+  // Compute dynamic role/tenant home content with live PostgreSQL overlays
+  const homeData = useMemo(() => {
+    const base = getRoleHomeData(userRole, tenantName, userRegion, userName);
+    if (!pgSummary) return base;
+
+    // Overlay live PostgreSQL metrics
+    const updatedKpis = base.kpis.map((kpi, idx) => {
+      if (userRole === 'Sales') {
+        if (idx === 0 && pgSummary.totalActivePipeline > 0) {
+          return { ...kpi, value: `$${(pgSummary.totalActivePipeline / 1000000).toFixed(2)}M`, sub: `${pgSummary.wonDealsCount} Won Deals in ${userRegion}` };
+        }
+        if (idx === 2 && pgSummary.totalContactsCount > 0) {
+          return { ...kpi, value: `${pgSummary.totalContactsCount}`, sub: `Active Accounts in ${userRegion}` };
+        }
+        if (idx === 3 && pgSummary.totalDealsCount > 0) {
+          return { ...kpi, value: `${pgSummary.totalDealsCount} Deals`, sub: `${pgSummary.wonDealsCount} Closed Won` };
+        }
+      } else if (userRole === 'Finance') {
+        if (idx === 0 && pgSummary.totalRevenue > 0) {
+          return { ...kpi, value: `$${(pgSummary.totalRevenue / 1000000).toFixed(2)}M` };
+        }
+        if (idx === 1 && pgSummary.totalActivePipeline > 0) {
+          return { ...kpi, value: `$${(pgSummary.totalActivePipeline * 0.12 / 1000).toFixed(1)}k` };
+        }
+      } else if (userRole === 'Support') {
+        if (idx === 0 && pgSummary.openTicketsCount >= 0) {
+          return { ...kpi, value: `${pgSummary.openTicketsCount} Open`, sub: `${pgSummary.totalTicketsCount} Total Scoped Tickets` };
+        }
+        if (idx === 2 && pgSummary.csatScore > 0) {
+          return { ...kpi, value: `${pgSummary.csatScore} / 5.0` };
+        }
+      } else if (userRole === 'Operations') {
+        if (idx === 0 && pgSummary.activeCampaignsCount >= 0) {
+          return { ...kpi, value: `${pgSummary.activeCampaignsCount} Active` };
+        }
+      } else { // Admin
+        if (idx === 0 && pgSummary.totalActivePipeline > 0) {
+          return { ...kpi, value: `$${(pgSummary.totalActivePipeline / 1000000).toFixed(2)}M`, sub: `${pgSummary.wonDealsCount} Won Deals • YoY Growth` };
+        }
+        if (idx === 1 && pgSummary.totalContactsCount > 0) {
+          return { ...kpi, value: `${pgSummary.totalContactsCount}` };
+        }
+        if (idx === 2 && pgSummary.totalTicketsCount > 0) {
+          return { ...kpi, value: `${pgSummary.totalTicketsCount}`, sub: `${pgSummary.openTicketsCount} Open • ${pgSummary.csatScore} CSAT` };
+        }
+      }
+      return kpi;
+    });
+
+    const updatedPinned = (pgSummary.pinnedAccounts && pgSummary.pinnedAccounts.length > 0)
+      ? pgSummary.pinnedAccounts.map(p => ({
+          title: p.title,
+          subtitle: p.subtitle,
+          icon: p.icon || 'corporate_fare',
+          iconClass: 'bg-primary/10 text-primary border-primary/20',
+          link: p.link || '/contacts'
+        }))
+      : base.pinnedItems;
+
+    return {
+      ...base,
+      kpis: updatedKpis,
+      pinnedItems: updatedPinned
+    };
+  }, [userRole, tenantName, userRegion, userName, pgSummary]);
+
+  // Sync tasks state when user/role changes if not already populated from DB
+  useEffect(() => {
+    if (!pgSummary?.tasks && homeData?.tasks) {
       setTasksState(homeData.tasks);
     }
-  }, [homeData]);
+  }, [homeData, pgSummary]);
 
   const toggleTask = (id) => {
     setTasksState(prev => prev ? prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t) : []);
   };
 
   const tasksToDisplay = tasksState || homeData.tasks;
+
 
   return (
     <div className="p-container-padding max-w-[1600px] mx-auto space-y-gutter">
@@ -439,6 +543,19 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               RLS Active
             </span>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              PostgreSQL (crm_{tenantName.toLowerCase()})
+            </span>
+            <button
+              onClick={fetchPgData}
+              disabled={loadingDb}
+              title="Refresh live PostgreSQL CRM data"
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container flex items-center gap-1 transition-colors border border-glass-border cursor-pointer">
+              <span className={`material-symbols-outlined text-[13px] ${loadingDb ? 'animate-spin' : ''}`}>sync</span>
+              {loadingDb ? 'Syncing...' : 'Live Sync'}
+            </button>
+
           </div>
           <h1 className="font-headline-lg text-3xl md:text-4xl font-bold text-on-surface mb-2">
             Welcome Back, {userName}!

@@ -57,6 +57,9 @@ builder.Services.AddHttpClient<IBoldBIDashboardService, BoldBIDashboardService>(
 // Register token helper
 builder.Services.AddScoped<ITokenHelper, TokenHelper>();
 
+// Register CRM Data Service for multi-tenant PostgreSQL queries
+builder.Services.AddScoped<ICrmDataService, CrmDataService>();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
