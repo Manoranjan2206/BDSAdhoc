@@ -1,30 +1,93 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { authService } from '../services/authService';
+import { crmAPI } from '../services/apiService';
 
 const SAMPLE_TICKETS = [
-  { id: 1, number: 'TKT-2025-0042', subject: 'SSO Integration Failure with Azure AD', company: 'Acme Corp', priority: 'High', status: 'Open', category: 'Technical', assignedTo: 'Mike Brown', region: 'North America', csat: null, created: '2026-08-14' },
-  { id: 2, number: 'TKT-2025-0041', subject: 'API Rate Limit Exceeded during bulk sync', company: 'Quantum Corp', priority: 'Critical', status: 'In Progress', category: 'Technical', assignedTo: 'Mike Brown', region: 'Oceania', csat: null, created: '2026-08-12' },
-  { id: 3, number: 'TKT-2025-0040', subject: 'Invoice line item total calculation mismatch', company: 'Zenith Industries', priority: 'Medium', status: 'Resolved', category: 'Billing', assignedTo: 'Linda Lee', region: 'North America', csat: 5, created: '2026-08-10' },
-  { id: 4, number: 'TKT-2025-0039', subject: 'Dashboard PDF export timeout on large datasets', company: 'Horizon Tech', priority: 'High', status: 'Resolved', category: 'Technical', assignedTo: 'Diana Miller', region: 'Europe', csat: 5, created: '2026-08-08' },
-  { id: 5, number: 'TKT-2025-0038', subject: 'Role permission upgrade request for analytics team', company: 'Nexus Dynamics', priority: 'Low', status: 'Closed', category: 'General', assignedTo: 'Sophia White', region: 'Europe', csat: 4, created: '2026-08-01' },
-  { id: 6, number: 'TKT-2025-0037', subject: 'Data synchronization delay on Asia region replica', company: 'Sterling Global', priority: 'Critical', status: 'Escalated', category: 'Bug', assignedTo: 'Liam Cooper', region: 'Asia', csat: null, created: '2026-07-28' },
+  // AlphaCorp (Tenant 1)
+  { id: 101, tenantName: 'AlphaCorp', number: 'TKT-ALPHA-01', subject: 'AlphaCorp SSO Integration Failure with Azure AD', company: 'Acme Corp', priority: 'High', status: 'Open', category: 'Technical', assignedTo: 'Mike Brown', region: 'North America', csat: null, created: '2026-08-14' },
+  { id: 102, tenantName: 'AlphaCorp', number: 'TKT-ALPHA-02', subject: 'AlphaCorp Dashboard PDF export timeout', company: 'Horizon Tech', priority: 'High', status: 'Resolved', category: 'Technical', assignedTo: 'Diana Miller', region: 'Europe', csat: 5, created: '2026-08-08' },
+  { id: 103, tenantName: 'AlphaCorp', number: 'TKT-ALPHA-03', subject: 'AlphaCorp Asia region data sync latency', company: 'Quantum Soft', priority: 'Critical', status: 'Escalated', category: 'Bug', assignedTo: 'Linda Lee', region: 'Asia', csat: null, created: '2026-07-28' },
+
+  // BetaSolutions (Tenant 2)
+  { id: 201, tenantName: 'BetaSolutions', number: 'TKT-BETA-01', subject: 'BetaSolutions Payment Gateway Webhook Timeout', company: 'Sterling Financial', priority: 'Critical', status: 'Open', category: 'Billing', assignedTo: 'Julia King', region: 'Europe', csat: null, created: '2026-08-15' },
+  { id: 202, tenantName: 'BetaSolutions', number: 'TKT-BETA-02', subject: 'BetaSolutions API Rate Limit Exceeded during bulk sync', company: 'Crestview Labs', priority: 'High', status: 'In Progress', category: 'Technical', assignedTo: 'Betty Jones', region: 'North America', csat: null, created: '2026-08-11' },
+
+  // GammaIndustries (Tenant 3)
+  { id: 301, tenantName: 'GammaIndustries', number: 'TKT-GAMMA-01', subject: 'GammaIndustries Industrial IoT Telemetry Dropouts', company: 'Vanguard Heavy', priority: 'Critical', status: 'In Progress', category: 'Hardware', assignedTo: 'George William', region: 'North America', csat: null, created: '2026-08-12' },
+  { id: 302, tenantName: 'GammaIndustries', number: 'TKT-GAMMA-02', subject: 'GammaIndustries Custom Report Engine Memory Limit', company: 'Euro Logistics', priority: 'Medium', status: 'Open', category: 'Technical', assignedTo: 'Jack Black', region: 'Europe', csat: null, created: '2026-08-09' },
+
+  // DeltaEnterprises (Tenant 4)
+  { id: 401, tenantName: 'DeltaEnterprises', number: 'TKT-DELTA-01', subject: 'DeltaEnterprises POS Transaction Sync Lag', company: 'Apex Retail', priority: 'Critical', status: 'Open', category: 'Infrastructure', assignedTo: 'Megan Young', region: 'North America', csat: null, created: '2026-08-16' },
+  { id: 402, tenantName: 'DeltaEnterprises', number: 'TKT-DELTA-02', subject: 'DeltaEnterprises Multi-Currency Invoice Calculation Error', company: 'Nordic Market', priority: 'High', status: 'In Progress', category: 'Billing', assignedTo: 'Zoe Turner', region: 'Europe', csat: null, created: '2026-08-13' },
 ];
 
 export default function Tickets() {
-  const [tickets, setTickets] = useState(SAMPLE_TICKETS);
+  const currentUser = authService.getUser() || {};
+  const userRole = currentUser.role || 'Admin';
+  const userRegion = currentUser.region || 'North America';
+  const tenantName = currentUser.tenantName || 'AlphaCorp';
+
+  const filterFallbackTickets = () => {
+    return SAMPLE_TICKETS.filter(t => 
+      (t.tenantName === tenantName || !t.tenantName) &&
+      (userRole === 'Admin' || t.region === userRegion)
+    );
+  };
+
+  const [tickets, setTickets] = useState(filterFallbackTickets);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [regionFilter, setRegionFilter] = useState('ALL');
+  const [regionFilter, setRegionFilter] = useState(userRole === 'Admin' ? 'ALL' : userRegion);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newTicket, setNewTicket] = useState({ subject: '', company: '', priority: 'Medium', category: 'Technical', region: 'North America' });
+  const [newTicket, setNewTicket] = useState({ subject: '', company: '', priority: 'Medium', category: 'Technical', region: userRegion });
 
-  const currentUser = authService.getUser() || {};
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTickets = async () => {
+      setLoading(true);
+      try {
+        const data = await crmAPI.getTickets();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(t => ({
+            id: t.ticketId || t.id,
+            number: t.ticketNumber || `TKT-${t.ticketId}`,
+            subject: t.subject,
+            company: t.companyName || t.company,
+            priority: t.priority,
+            status: t.status,
+            category: t.category || 'Technical',
+            assignedTo: t.assignedTo || 'Support Agent',
+            region: t.region || userRegion,
+            created: t.createdAt ? t.createdAt.split('T')[0] : '2026-08-15',
+          }));
+          setTickets(mapped);
+        } else if (isMounted) {
+          setTickets(filterFallbackTickets());
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.warn('Backend tickets API offline, applying tenant RLS filter', err.message);
+          setTickets(filterFallbackTickets());
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchTickets();
+    return () => { isMounted = false; };
+  }, [tenantName, userRegion, userRole]);
+
+  useEffect(() => {
+    setRegionFilter(userRole === 'Admin' ? 'ALL' : userRegion);
+  }, [userRole, userRegion]);
 
   const filteredTickets = tickets.filter(t => {
-    const text = `${t.number} ${t.subject} ${t.company}`.toLowerCase();
+    const text = `${t.number || ''} ${t.subject || ''} ${t.company || ''}`.toLowerCase();
     const matchesSearch = text.includes(searchTerm.toLowerCase());
-    const matchesRegion = regionFilter === 'ALL' || t.region === regionFilter;
+    const matchesRegion = regionFilter === 'ALL' ? (userRole === 'Admin' || t.region === userRegion) : t.region === regionFilter;
     const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
     const matchesPriority = priorityFilter === 'ALL' || t.priority === priorityFilter;
     return matchesSearch && matchesRegion && matchesStatus && matchesPriority;
@@ -236,7 +299,7 @@ export default function Tickets() {
       </div>
 
       {/* Add Ticket Modal */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <div className="fixed inset-0 z-[3000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-glass-border space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-glass-border">
@@ -260,7 +323,7 @@ export default function Tickets() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Account / Company</label>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Company Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Acme Corp"
@@ -294,7 +357,6 @@ export default function Tickets() {
                   >
                     <option value="Technical">Technical</option>
                     <option value="Billing">Billing</option>
-                    <option value="Feature Request">Feature Request</option>
                     <option value="Bug">Bug</option>
                     <option value="General">General</option>
                   </select>
@@ -332,7 +394,8 @@ export default function Tickets() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

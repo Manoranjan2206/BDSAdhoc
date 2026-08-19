@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   PlusIcon,
   PencilIcon,
@@ -295,7 +296,7 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-[#181c2c] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
@@ -413,7 +414,8 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
           <button onClick={onSubmit} className="px-5 py-2 bg-[#FF4800] hover:bg-[#e03f00] text-white rounded-xl font-semibold text-xs transition shadow-sm">{isEdit ? 'Save Changes' : 'Create Schedule'}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

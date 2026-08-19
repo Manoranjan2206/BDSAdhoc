@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { authService } from '../services/authService';
+import { crmAPI } from '../services/apiService';
 
 const STAGES = [
   { id: 'Prospecting', label: 'Prospecting', prob: '10%', color: 'border-blue-400 text-blue-600 bg-blue-50 dark:bg-blue-950/30' },
@@ -11,30 +13,90 @@ const STAGES = [
 ];
 
 const INITIAL_DEALS = [
-  { id: 1, name: 'Acme Corp - Enterprise License', company: 'Acme Corp', amount: 142000, stage: 'Negotiation', prob: 80, owner: 'John Doe', region: 'Europe', closeDate: '2026-08-30' },
-  { id: 2, name: 'Nexus Dynamics - Cloud Suite', company: 'Nexus Dynamics', amount: 88000, stage: 'Proposal', prob: 60, owner: 'Anna Smith', region: 'North America', closeDate: '2026-09-15' },
-  { id: 3, name: 'Quantum Soft - BI Engine Pro', company: 'Quantum Soft', amount: 54000, stage: 'Qualification', prob: 30, owner: 'Linda Lee', region: 'Asia', closeDate: '2026-09-28' },
-  { id: 4, name: 'Horizon Tech - Multi-Tenant Expansion', company: 'Horizon Tech', amount: 215000, stage: 'Closed Won', prob: 100, owner: 'John Doe', region: 'Europe', closeDate: '2026-07-22' },
-  { id: 5, name: 'Apex Global - 24/7 Dedicated Support', company: 'Apex Global', amount: 36000, stage: 'Prospecting', prob: 10, owner: 'Mike Brown', region: 'Oceania', closeDate: '2026-10-10' },
-  { id: 6, name: 'Sterling Financial - Security Shield', company: 'Sterling Financial', amount: 110000, stage: 'Proposal', prob: 60, owner: 'Anna Smith', region: 'North America', closeDate: '2026-08-25' },
-  { id: 7, name: 'Crestview Labs - API Integration Package', company: 'Crestview Labs', amount: 48500, stage: 'Closed Won', prob: 100, owner: 'Anna Smith', region: 'North America', closeDate: '2026-06-18' },
-  { id: 8, name: 'Orion Logistics - Warehouse Connector', company: 'Orion Logistics', amount: 32000, stage: 'Closed Lost', prob: 0, owner: 'Linda Lee', region: 'Asia', closeDate: '2026-05-14' },
+  // AlphaCorp (Tenant 1)
+  { id: 101, tenantName: 'AlphaCorp', name: 'AlphaCorp - Enterprise Cloud Suite', company: 'Acme Corp', amount: 185000, stage: 'Negotiation', prob: 80, owner: 'John Doe', region: 'Europe', closeDate: '2026-08-30' },
+  { id: 102, tenantName: 'AlphaCorp', name: 'AlphaCorp - BI Engine Expansion', company: 'Nexus Dynamics', amount: 94000, stage: 'Proposal', prob: 60, owner: 'Anna Smith', region: 'North America', closeDate: '2026-09-15' },
+  { id: 103, tenantName: 'AlphaCorp', name: 'AlphaCorp - APAC Analytics Node', company: 'Quantum Soft', amount: 62000, stage: 'Qualification', prob: 30, owner: 'Linda Lee', region: 'Asia', closeDate: '2026-09-28' },
+  { id: 104, tenantName: 'AlphaCorp', name: 'AlphaCorp - Multi-Tenant Security Upgrade', company: 'Horizon Tech', amount: 240000, stage: 'Closed Won', prob: 100, owner: 'John Doe', region: 'Europe', closeDate: '2026-07-22' },
+  { id: 105, tenantName: 'AlphaCorp', name: 'AlphaCorp - Oceania Support SLA', company: 'Apex Global', amount: 42000, stage: 'Prospecting', prob: 10, owner: 'Mike Brown', region: 'Oceania', closeDate: '2026-10-10' },
+
+  // BetaSolutions (Tenant 2)
+  { id: 201, tenantName: 'BetaSolutions', name: 'BetaSolutions - FinTech Infrastructure', company: 'Sterling Financial', amount: 310000, stage: 'Negotiation', prob: 80, owner: 'Julia King', region: 'Europe', closeDate: '2026-09-05' },
+  { id: 202, tenantName: 'BetaSolutions', name: 'BetaSolutions - North America Scaling', company: 'Crestview Labs', amount: 155000, stage: 'Proposal', prob: 60, owner: 'Betty Jones', region: 'North America', closeDate: '2026-09-20' },
+  { id: 203, tenantName: 'BetaSolutions', name: 'BetaSolutions - Asia Logistics Hub', company: 'Orion Logistics', amount: 88000, stage: 'Closed Won', prob: 100, owner: 'Brian Adams', region: 'Asia', closeDate: '2026-08-10' },
+  { id: 204, tenantName: 'BetaSolutions', name: 'BetaSolutions - Oceania Telemetry Engine', company: 'Pacific Wave', amount: 76000, stage: 'Qualification', prob: 30, owner: 'Diana Miller', region: 'Oceania', closeDate: '2026-10-01' },
+
+  // GammaIndustries (Tenant 3)
+  { id: 301, tenantName: 'GammaIndustries', name: 'GammaIndustries - Industrial Automation Suite', company: 'Vanguard Heavy', amount: 420000, stage: 'Closed Won', prob: 100, owner: 'George William', region: 'North America', closeDate: '2026-07-15' },
+  { id: 302, tenantName: 'GammaIndustries', name: 'GammaIndustries - EU Supply Chain AI', company: 'Euro Logistics', amount: 280000, stage: 'Negotiation', prob: 80, owner: 'Jack Black', region: 'Europe', closeDate: '2026-09-12' },
+  { id: 303, tenantName: 'GammaIndustries', name: 'GammaIndustries - Asia Power Grid Sync', company: 'Tokyo Energy', amount: 195000, stage: 'Proposal', prob: 60, owner: 'Olivia Martin', region: 'Asia', closeDate: '2026-10-05' },
+  { id: 304, tenantName: 'GammaIndustries', name: 'GammaIndustries - Oceania Mining Sensor Grid', company: 'Aussie Metals', amount: 110000, stage: 'Prospecting', prob: 10, owner: 'Sophia White', region: 'Oceania', closeDate: '2026-11-01' },
+
+  // DeltaEnterprises (Tenant 4)
+  { id: 401, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises - Global Retail POS Integration', company: 'Apex Retail', amount: 550000, stage: 'Closed Won', prob: 100, owner: 'Megan Young', region: 'North America', closeDate: '2026-08-01' },
+  { id: 402, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises - Euro Commerce Gateway', company: 'Nordic Market', amount: 340000, stage: 'Negotiation', prob: 80, owner: 'Zoe Turner', region: 'Europe', closeDate: '2026-09-25' },
+  { id: 403, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises - Asia Fulfillment Engine', company: 'Silk Road Freight', amount: 225000, stage: 'Proposal', prob: 60, owner: 'Ryan Evans', region: 'Asia', closeDate: '2026-10-15' },
+  { id: 404, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises - Oceania Cloud Pipeline', company: 'Sydney Logistics', amount: 140000, stage: 'Qualification', prob: 30, owner: 'Liam Cooper', region: 'Oceania', closeDate: '2026-11-10' },
 ];
 
 export default function Deals() {
-  const [deals, setDeals] = useState(INITIAL_DEALS);
+  const currentUser = authService.getUser() || {};
+  const userRole = currentUser.role || 'Admin';
+  const userRegion = currentUser.region || 'North America';
+  const tenantName = currentUser.tenantName || 'AlphaCorp';
+
+  const filterFallbackDeals = () => {
+    return INITIAL_DEALS.filter(d => 
+      (d.tenantName === tenantName || !d.tenantName) &&
+      (userRole === 'Admin' || d.region === userRegion)
+    );
+  };
+
+  const [deals, setDeals] = useState(filterFallbackDeals);
   const [searchTerm, setSearchTerm] = useState('');
-  const [regionFilter, setRegionFilter] = useState('ALL');
+  const [regionFilter, setRegionFilter] = useState(userRole === 'Admin' ? 'ALL' : userRegion);
   const [viewMode, setViewMode] = useState('kanban'); // kanban | list
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newDeal, setNewDeal] = useState({ name: '', company: '', amount: '', stage: 'Prospecting', closeDate: '', region: 'North America' });
+  const [newDeal, setNewDeal] = useState({ name: '', company: '', amount: '', stage: 'Prospecting', closeDate: '', region: userRegion });
 
-  const currentUser = authService.getUser() || {};
-  const userRegion = currentUser.region || 'North America';
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDeals = async () => {
+      try {
+        const data = await crmAPI.getDeals();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setDeals(data.map(d => ({
+            id: d.dealId || d.id,
+            name: d.title || d.name,
+            company: d.companyName || d.company || 'Enterprise Client',
+            amount: Number(d.amount || 0),
+            stage: d.stage || 'Prospecting',
+            prob: d.probability || 50,
+            owner: d.ownerEmail || currentUser.name || 'Sales Rep',
+            region: d.region || userRegion,
+            closeDate: d.expectedCloseDate ? d.expectedCloseDate.split('T')[0] : '2026-09-30'
+          })));
+        } else if (isMounted) {
+          setDeals(filterFallbackDeals());
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.warn('Backend deals API offline, applying tenant RLS filter', err.message);
+          setDeals(filterFallbackDeals());
+        }
+      }
+    };
+    fetchDeals();
+    return () => { isMounted = false; };
+  }, [tenantName, userRegion, userRole]);
+
+  useEffect(() => {
+    setRegionFilter(userRole === 'Admin' ? 'ALL' : userRegion);
+  }, [userRole, userRegion]);
 
   const filteredDeals = deals.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRegion = regionFilter === 'ALL' || d.region === regionFilter;
+    const matchesSearch = (d.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (d.company || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRegion = regionFilter === 'ALL' ? (userRole === 'Admin' || d.region === userRegion) : d.region === regionFilter;
     return matchesSearch && matchesRegion;
   });
 
@@ -257,7 +319,7 @@ export default function Deals() {
       )}
 
       {/* Add Deal Modal */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <div className="fixed inset-0 z-[3000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-glass-border space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-glass-border">
@@ -359,7 +421,8 @@ export default function Deals() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

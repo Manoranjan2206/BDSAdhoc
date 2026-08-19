@@ -90,57 +90,57 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-canvas flex flex-col justify-center items-center py-4 sm:py-6 px-4 sm:px-6 lg:px-8 relative overflow-y-auto">
       {/* Decorative Blobs */}
       <div className="absolute top-10 left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="max-w-5xl mx-auto w-full px-4 relative z-10">
+      <div className="max-w-5xl mx-auto w-full relative z-10">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center font-bold text-2xl mx-auto mb-3 shadow-lg">
+        <div className="text-center mb-4">
+          <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-xl mx-auto mb-2 shadow-md">
             B
           </div>
-          <h1 className="text-3xl font-extrabold text-on-surface">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-on-surface">
             BDS CRM Suite
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            Enterprise Multi-Tenant Row-Level Security (RLS) & Role-Based Access Demo
+          <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">
+            Enterprise Multi-Tenant CRM & Analytics Portal
           </p>
         </div>
 
         {/* 2-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-stretch">
           {/* Left Info Panel (5 cols) */}
-          <div className="md:col-span-5 glass-card rounded-2xl p-6 flex flex-col justify-between space-y-6">
+          <div className="md:col-span-5 glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
             <div>
-              <h3 className="font-bold text-base text-on-surface mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">security</span>
+              <h3 className="font-bold text-sm text-on-surface mb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[18px]">security</span>
                 RLS & RBAC Security Model
               </h3>
-              <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
+              <p className="text-xs text-on-surface-variant leading-relaxed mb-3">
                 Sign in with any user account below. Reports, dashboards, pipeline data, and support cases automatically adapt based on your <strong>Tenant Database</strong> and <strong>Assigned Region</strong>.
               </p>
 
-              <div className="space-y-2.5">
-                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-role-finance text-[20px] mt-0.5">verified_user</span>
+              <div className="space-y-2">
+                <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-role-finance text-[18px] mt-0.5">verified_user</span>
                   <div className="text-xs">
                     <strong className="text-on-surface">Row-Level Security (RLS)</strong>
                     <p className="text-on-surface-variant text-[11px]">Filtered via PostgreSQL session variable by user region.</p>
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-primary text-[20px] mt-0.5">database</span>
+                <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">database</span>
                   <div className="text-xs">
                     <strong className="text-on-surface">Dedicated Tenant DBs</strong>
                     <p className="text-on-surface-variant text-[11px]">AlphaCorp, BetaSolutions, Gamma, Delta in Docker Postgres.</p>
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-role-sales text-[20px] mt-0.5">pie_chart</span>
+                <div className="p-2 rounded-lg bg-surface-container border border-outline-variant/30 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-role-sales text-[18px] mt-0.5">pie_chart</span>
                   <div className="text-xs">
                     <strong className="text-on-surface">Embedded Analytics</strong>
                     <p className="text-on-surface-variant text-[11px]">Interactive Bold BI & Bold Reports embedded directly.</p>
@@ -149,28 +149,28 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="text-[11px] text-on-surface-variant border-t border-glass-border pt-3">
+            <div className="text-[11px] text-on-surface-variant border-t border-glass-border pt-2">
               💡 <strong>Tip:</strong> Admin accounts see ALL regions, while Sales/Finance/Support/Ops see only their assigned region.
             </div>
           </div>
 
           {/* Right Login Card (7 cols) */}
-          <div className="md:col-span-7 glass-card rounded-2xl p-8 shadow-xl">
+          <div className="md:col-span-7 glass-card rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-center">
             {/* Tabs */}
-            <div className="flex border-b border-glass-border mb-6">
+            <div className="flex border-b border-glass-border mb-4">
               <button
                 onClick={() => setActiveTab('user')}
-                className={`pb-3 text-xs font-bold border-b-2 mr-6 transition-colors ${
+                className={`pb-2.5 text-xs font-bold border-b-2 mr-6 transition-colors ${
                   activeTab === 'user'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                Select Demo User
+                Select User Account
               </button>
               <button
                 onClick={() => setActiveTab('jwt')}
-                className={`pb-3 text-xs font-bold border-b-2 transition-colors ${
+                className={`pb-2.5 text-xs font-bold border-b-2 transition-colors ${
                   activeTab === 'jwt'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-on-surface-variant hover:text-on-surface'
@@ -181,12 +181,12 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 text-xs mb-4 border border-red-200">
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 text-xs mb-3 border border-red-200">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-3">
               {activeTab === 'user' ? (
                 <>
                   <div>
@@ -196,7 +196,7 @@ export default function Login() {
                     <select
                       value={selectedUserEmail}
                       onChange={(e) => setSelectedUserEmail(e.target.value)}
-                      className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 text-xs text-on-surface focus:ring-primary"
+                      className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-primary"
                     >
                       {['AlphaCorp', 'BetaSolutions', 'GammaIndustries', 'DeltaEnterprises'].map(tenant => (
                         <optgroup key={tenant} label={tenant}>
@@ -211,16 +211,16 @@ export default function Login() {
                   </div>
 
                   {/* Selected User Preview Card */}
-                  <div className="p-3.5 rounded-xl bg-surface-container-high border border-glass-border flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-surface-container-high border border-glass-border flex items-center gap-2.5">
                     <img
                       src={selectedUser.avatar}
                       alt={selectedUser.name}
-                      className="w-11 h-11 rounded-full object-cover border-2 border-primary shadow-sm"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-primary shadow-sm flex-shrink-0"
                     />
                     <div className="flex-1 overflow-hidden">
                       <div className="flex items-center gap-2">
                         <h4 className="text-xs font-bold text-on-surface truncate">{selectedUser.name}</h4>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getRoleBadge(selectedUser.role)}`}>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${getRoleBadge(selectedUser.role)}`}>
                           {selectedUser.role}
                         </span>
                       </div>
@@ -235,7 +235,7 @@ export default function Login() {
                       type="password"
                       readOnly
                       value="••••••••••••"
-                      className="w-full bg-surface-container/60 border border-outline-variant/40 rounded-xl px-3 py-2.5 text-xs text-on-surface cursor-not-allowed"
+                      className="w-full bg-surface-container/60 border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface cursor-not-allowed"
                     />
                   </div>
                 </>
@@ -243,11 +243,11 @@ export default function Login() {
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1">JWT Token Payload</label>
                   <textarea
-                    rows={4}
+                    rows={3}
                     placeholder="Paste encoded JWT token here..."
                     value={jwtToken}
                     onChange={(e) => setJwtToken(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl p-3 text-xs font-mono text-on-surface focus:ring-primary"
+                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl p-2.5 text-xs font-mono text-on-surface focus:ring-primary"
                   />
                 </div>
               )}
@@ -255,7 +255,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full btn-primary text-xs py-3 font-bold rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full btn-primary text-xs py-2.5 font-bold rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-1"
               >
                 {isLoading ? (
                   <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>

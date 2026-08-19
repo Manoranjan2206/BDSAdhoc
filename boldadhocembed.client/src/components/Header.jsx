@@ -11,6 +11,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useData } from '../context/DataContext';
@@ -756,7 +757,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
       </div>
 
       {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
+      {showLogoutConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
@@ -765,7 +766,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
           ></div>
 
           {/* Modal Content */}
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full p-6 text-center transform transition-all scale-100">
+          <div className="relative z-10 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full p-6 text-center transform transition-all scale-100">
             <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -798,13 +799,14 @@ export default function Header({ darkMode, onToggleDarkMode }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Profile Settings Modal */}
-      {showProfileModal && (
+      {showProfileModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden transform transition-all scale-100 p-6">
+          <div className="relative z-10 bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden transform transition-all scale-100 p-6">
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -895,7 +897,8 @@ export default function Header({ darkMode, onToggleDarkMode }) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

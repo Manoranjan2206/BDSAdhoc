@@ -1,28 +1,117 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { crmAPI } from '../services/apiService';
 
 const SAMPLE_CAMPAIGNS = [
-  { id: 1, name: 'Q3 Enterprise Tech Summit', type: 'Trade Show', status: 'Completed', budget: 35000, cost: 34200, leads: 114, region: 'North America', roi: '320%' },
-  { id: 2, name: 'Winter Cloud Migration Webinar', type: 'Webinar', status: 'Active', budget: 12000, cost: 10500, leads: 88, region: 'Europe', roi: '240%' },
-  { id: 3, name: 'Spring AI Capabilities Launch', type: 'Email', status: 'Active', budget: 8500, cost: 7200, leads: 62, region: 'Asia', roi: '185%' },
-  { id: 4, name: 'Summer Security Whitepaper Lead Gen', type: 'Content', status: 'Completed', budget: 15000, cost: 14800, leads: 95, region: 'Oceania', roi: '290%' },
-  { id: 5, name: 'Q4 Executive Roundtable Series', type: 'Event', status: 'Planned', budget: 25000, cost: 0, leads: 0, region: 'North America', roi: '—' },
+  // AlphaCorp (Tenant 1)
+  { id: 101, tenantName: 'AlphaCorp', name: 'AlphaCorp Q3 Enterprise Summit', type: 'Trade Show', status: 'Completed', budget: 35000, cost: 34200, leads: 114, region: 'North America', roi: '320%' },
+  { id: 102, tenantName: 'AlphaCorp', name: 'AlphaCorp Cloud Migration Webinar', type: 'Webinar', status: 'Active', budget: 12000, cost: 10500, leads: 88, region: 'Europe', roi: '240%' },
+  { id: 103, tenantName: 'AlphaCorp', name: 'AlphaCorp APAC AI Capabilities', type: 'Email', status: 'Active', budget: 8500, cost: 7200, leads: 62, region: 'Asia', roi: '185%' },
+
+  // BetaSolutions (Tenant 2)
+  { id: 201, tenantName: 'BetaSolutions', name: 'BetaSolutions FinTech Security Forum', type: 'Event', status: 'Active', budget: 45000, cost: 41000, leads: 140, region: 'Europe', roi: '350%' },
+  { id: 202, tenantName: 'BetaSolutions', name: 'BetaSolutions NA Scaling Workshop', type: 'Webinar', status: 'Completed', budget: 18000, cost: 17500, leads: 92, region: 'North America', roi: '275%' },
+
+  // GammaIndustries (Tenant 3)
+  { id: 301, tenantName: 'GammaIndustries', name: 'GammaIndustries Industrial IoT Expo', type: 'Expo', status: 'Active', budget: 60000, cost: 58000, leads: 210, region: 'North America', roi: '410%' },
+  { id: 302, tenantName: 'GammaIndustries', name: 'GammaIndustries EU Supply Chain Summit', type: 'Conference', status: 'Completed', budget: 30000, cost: 29000, leads: 125, region: 'Europe', roi: '310%' },
+
+  // DeltaEnterprises (Tenant 4)
+  { id: 401, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises Global Commerce Keynote', type: 'Keynote', status: 'Active', budget: 75000, cost: 71000, leads: 310, region: 'North America', roi: '480%' },
+  { id: 402, tenantName: 'DeltaEnterprises', name: 'DeltaEnterprises Retail AI Roadshow', type: 'Roadshow', status: 'Completed', budget: 40000, cost: 38500, leads: 165, region: 'Europe', roi: '380%' },
 ];
 
 const SAMPLE_AUDIT = [
-  { id: 1, table: 'deals', record: 104, action: 'UPDATE', user: 'alpha2@alphacorp.com', details: 'Changed stage from Proposal to Negotiation ($142k)', time: '10 mins ago', region: 'Europe' },
-  { id: 2, table: 'contacts', record: 260, action: 'INSERT', user: 'alpha1@alphacorp.com', details: 'Added new contact: William Lopez (Nexus Group)', time: '45 mins ago', region: 'Oceania' },
-  { id: 3, table: 'support_tickets', record: 42, action: 'UPDATE', user: 'alpha4@alphacorp.com', details: 'Status changed to In Progress (Assigned: Mike Brown)', time: '2 hours ago', region: 'North America' },
-  { id: 4, table: 'invoices', record: 37, action: 'INSERT', user: 'alpha3@alphacorp.com', details: 'Generated invoice INV-2026-0037 for $48,500', time: 'Yesterday', region: 'North America' },
-  { id: 5, table: 'campaigns', record: 28, action: 'UPDATE', user: 'alpha5@alphacorp.com', details: 'Campaign Winter Webinar leads count updated (+15)', time: '2 days ago', region: 'Europe' },
+  // AlphaCorp (Tenant 1)
+  { id: 101, tenantName: 'AlphaCorp', table: 'deals', record: 104, action: 'UPDATE', user: 'alpha2@alphacorp.com', details: 'Changed stage from Proposal to Negotiation ($185k)', time: '10 mins ago', region: 'Europe' },
+  { id: 102, tenantName: 'AlphaCorp', table: 'contacts', record: 101, action: 'INSERT', user: 'alpha1@alphacorp.com', details: 'Added new contact: William Lopez (Nexus Group)', time: '45 mins ago', region: 'Oceania' },
+
+  // BetaSolutions (Tenant 2)
+  { id: 201, tenantName: 'BetaSolutions', table: 'deals', record: 201, action: 'UPDATE', user: 'beta2@betasolutions.com', details: 'Approved deal terms for Sterling Financial ($310k)', time: '15 mins ago', region: 'Europe' },
+  { id: 202, tenantName: 'BetaSolutions', table: 'contacts', record: 201, action: 'INSERT', user: 'beta1@betasolutions.com', details: 'Created account contact Alexander Wright', time: '1 hour ago', region: 'Europe' },
+
+  // GammaIndustries (Tenant 3)
+  { id: 301, tenantName: 'GammaIndustries', table: 'deals', record: 301, action: 'UPDATE', user: 'gamma1@gammaindustries.com', details: 'Marked deal Vanguard Heavy as Closed Won ($420k)', time: '20 mins ago', region: 'North America' },
+
+  // DeltaEnterprises (Tenant 4)
+  { id: 401, tenantName: 'DeltaEnterprises', table: 'deals', record: 401, action: 'UPDATE', user: 'delta1@deltaenterprises.com', details: 'Marked deal Apex Retail as Closed Won ($550k)', time: '5 mins ago', region: 'North America' },
 ];
 
 export default function Operations() {
+  const currentUser = authService.getUser() || {};
+  const userRole = currentUser.role || 'Admin';
+  const userRegion = currentUser.region || 'North America';
+  const tenantName = currentUser.tenantName || 'AlphaCorp';
+
+  const filterFallbackCampaigns = () => {
+    return SAMPLE_CAMPAIGNS.filter(c => 
+      (c.tenantName === tenantName || !c.tenantName) &&
+      (userRole === 'Admin' || c.region === userRegion)
+    );
+  };
+
+  const filterFallbackAudit = () => {
+    return SAMPLE_AUDIT.filter(a => 
+      (a.tenantName === tenantName || !a.tenantName) &&
+      (userRole === 'Admin' || a.region === userRegion)
+    );
+  };
+
+  const [campaigns, setCampaigns] = useState(filterFallbackCampaigns);
+  const [auditLogs, setAuditLogs] = useState(filterFallbackAudit);
   const [activeTab, setActiveTab] = useState('campaigns'); // campaigns | audit
   const [searchTerm, setSearchTerm] = useState('');
 
-  const currentUser = authService.getUser() || {};
-  const userRole = currentUser.role || 'Admin';
+  useEffect(() => {
+    let isMounted = true;
+    const fetchData = async () => {
+      try {
+        const [cData, aData] = await Promise.allSettled([
+          crmAPI.getCampaigns(),
+          crmAPI.getAuditLogs()
+        ]);
+
+        if (isMounted && cData.status === 'fulfilled' && Array.isArray(cData.value) && cData.value.length > 0) {
+          setCampaigns(cData.value.map(c => ({
+            id: c.campaignId || c.id,
+            name: c.name,
+            type: c.type || 'Campaign',
+            status: c.status || 'Active',
+            budget: c.budget || 10000,
+            cost: c.actualCost || c.cost || 8000,
+            leads: c.leadsGenerated || c.leads || 45,
+            region: c.region || userRegion,
+            roi: c.roi || '210%'
+          })));
+        } else if (isMounted) {
+          setCampaigns(filterFallbackCampaigns());
+        }
+
+        if (isMounted && aData.status === 'fulfilled' && Array.isArray(aData.value) && aData.value.length > 0) {
+          setAuditLogs(aData.value.map(a => ({
+            id: a.logId || a.id,
+            table: a.tableName || a.table || 'crm_records',
+            record: a.recordId || a.record || 1,
+            action: a.action || 'UPDATE',
+            user: a.performedByEmail || a.user || 'system',
+            details: a.changeDetails || a.details || 'Record updated',
+            time: a.timestamp ? a.timestamp.split('T')[0] : 'Today',
+            region: a.region || userRegion
+          })));
+        } else if (isMounted) {
+          setAuditLogs(filterFallbackAudit());
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.warn('Backend operations API offline, applying tenant RLS filter', err.message);
+          setCampaigns(filterFallbackCampaigns());
+          setAuditLogs(filterFallbackAudit());
+        }
+      }
+    };
+    fetchData();
+    return () => { isMounted = false; };
+  }, [tenantName, userRegion, userRole]);
 
   return (
     <div className="p-container-padding max-w-[1600px] mx-auto space-y-gutter">
@@ -111,7 +200,7 @@ export default function Operations() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-glass-border">
-                  {SAMPLE_CAMPAIGNS.map(c => (
+                  {campaigns.map(c => (
                     <tr key={c.id} className="hover:bg-surface-container-high transition-colors">
                       <td className="p-3.5 font-bold text-on-surface">{c.name}</td>
                       <td className="p-3.5 text-on-surface-variant">{c.type}</td>
@@ -158,7 +247,7 @@ export default function Operations() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-glass-border">
-                {SAMPLE_AUDIT.map(a => (
+                {auditLogs.map(a => (
                   <tr key={a.id} className="hover:bg-surface-container-high transition-colors">
                     <td className="p-3.5">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
