@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
@@ -33,13 +32,13 @@ const TENANT_USERS = [
   { email: 'delta5@deltaenterprises.com', name: 'Emma Hall', role: 'Operations', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/45.jpg', pwd: 'Password123!' },
 ];
 
-// Sample SSO login data shown when the user clicks the info icon next to
-// the "Sign In with Keycloak SSO" button.
-const SAMPLE_SSO_LOGINS = [
-  { user: 'alpha1', password: 'alpha1', tenant: 'Alpha',     access: 'All',                  filters: 'North America' },
-  { user: 'alpha2', password: 'alpha2', tenant: 'Alpha',     access: 'Create, View',         filters: 'Europe' },
-  { user: 'beta3',  password: 'beta3',  tenant: 'Beta',      access: 'Create, View',         filters: 'Asia' },
-  { user: 'beta4',  password: 'beta4',  tenant: 'Beta',      access: 'Create, View, Edit',   filters: 'Oceania' },
+// Sample login data shown at the bottom of the right column when the
+// "Show sample logins" checkbox is enabled.
+const SAMPLE_LOGINS_TABLE = [
+  { username: 'alpha1', password: 'alpha1', tenant: 'Alpha', access: 'All',                 filters: 'North America' },
+  { username: 'alpha2', password: 'alpha2', tenant: 'Alpha', access: 'Create, View',        filters: 'Europe' },
+  { username: 'beta3',  password: 'beta3',  tenant: 'Beta',  access: 'Create, View',        filters: 'Asia' },
+  { username: 'beta4',  password: 'beta4',  tenant: 'Beta',  access: 'Create, View, Edit',  filters: 'Oceania' },
 ];
 
 export default function Login() {
@@ -49,11 +48,7 @@ export default function Login() {
   const [jwtToken, setJwtToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showSsoTooltip, setShowSsoTooltip] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
-
-  const tooltipRef = useRef(null);
-  const ssoInfoBtnRef = useRef(null);
+  const [showSampleLogins, setShowSampleLogins] = useState(false);
 
   const selectedUser = TENANT_USERS.find(u => u.email === selectedUserEmail) || TENANT_USERS[0];
 
@@ -62,40 +57,6 @@ export default function Login() {
       navigate('/', { replace: true });
     }
   }, [navigate]);
-
-  // Dismiss SSO tooltip when clicking outside the info button or tooltip
-  useEffect(() => {
-    if (!showSsoTooltip) return;
-    // Position the tooltip above the info button using viewport coords
-    const positionTooltip = () => {
-      if (!ssoInfoBtnRef.current) return;
-      const r = ssoInfoBtnRef.current.getBoundingClientRect();
-      const ttWidth = tooltipRef.current?.offsetWidth || 360;
-      // Place centered above the info button (with viewport-edge clamp)
-      const centerX = r.left + r.width / 2;
-      const left = Math.max(8, Math.min(centerX - ttWidth / 2, window.innerWidth - ttWidth - 8));
-      const top = r.top - 14; // 14px gap, tooltip sits above
-      setTooltipPos({ top, left });
-    };
-    positionTooltip();
-    window.addEventListener('resize', positionTooltip);
-    window.addEventListener('scroll', positionTooltip, true);
-
-    const onDocClick = (ev) => {
-      const inTooltip = tooltipRef.current && tooltipRef.current.contains(ev.target);
-      const inButton  = ssoInfoBtnRef.current && ssoInfoBtnRef.current.contains(ev.target);
-      if (!inTooltip && !inButton) setShowSsoTooltip(false);
-    };
-    const onEsc = (ev) => { if (ev.key === 'Escape') setShowSsoTooltip(false); };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onEsc);
-    return () => {
-      window.removeEventListener('resize', positionTooltip);
-      window.removeEventListener('scroll', positionTooltip, true);
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onEsc);
-    };
-  }, [showSsoTooltip]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -325,86 +286,60 @@ export default function Login() {
                 <div className="flex-grow border-t border-outline-variant/30"></div>
               </div>
 
-              {/* SSO button + info button (anchors the floating tooltip) */}
+              {/* SSO button */}
               <div className="relative mt-2">
                 <div className="flex items-center gap-2 w-full">
                   <button
                     type="button"
                     onClick={handleSsoLogin}
-                    className="flex-grow bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                    className="w-full bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
                   >
                     <span className="material-symbols-outlined text-primary text-[18px]">key</span>
                     Sign In with Keycloak SSO
                   </button>
-                  <button
-                    ref={ssoInfoBtnRef}
-                    type="button"
-                    onClick={() => setShowSsoTooltip((v) => !v)}
-                    onMouseEnter={() => setShowSsoTooltip(true)}
-                    onFocus={() => setShowSsoTooltip(true)}
-                    onBlur={() => setShowSsoTooltip(false)}
-                    aria-haspopup="dialog"
-                    aria-expanded={showSsoTooltip}
-                    aria-label="SSO sample logins"
-                    title="SSO sample logins"
-                    className="bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 px-3 py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.99]"
-                  >
-                    <span className="material-symbols-outlined text-primary text-[18px]">info</span>
-                  </button>
                 </div>
               </div>
 
-              {/* Floating SSO info tooltip - portaled to body so it escapes any overflow/stacking quirks */}
-              {showSsoTooltip && createPortal(
-                <div
-                  ref={tooltipRef}
-                  role="dialog"
-                  aria-label="SSO sample logins"
-                  className="login-sso-tooltip"
-                  style={{
-                    position: 'fixed',
-                    top: `${tooltipPos.top}px`,
-                    left: `${tooltipPos.left}px`,
-                    transform: 'translateY(-100%)',
-                  }}
-                >
-                  <div className="login-sso-tooltip__arrow" aria-hidden="true"></div>
-                  <div className="login-sso-tooltip__header">
-                    <span className="material-symbols-outlined text-[16px]">vpn_key</span>
-                    SSO Sample Logins
-                  </div>
-                  <div className="login-sso-tooltip__body">
-                    <div className="login-sso-tooltip__scroll">
-                      <table className="login-sso-tooltip__table">
-                        <thead>
-                          <tr>
-                            <th>User</th>
-                            <th>Pass</th>
-                            <th>Tenant</th>
-                            <th>Access</th>
-                            <th>Filters</th>
+              {/* Sample logins enable + table */}
+              <div className="mt-3 pt-3 border-t border-glass-border">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-on-surface-variant hover:text-on-surface">
+                  <input
+                    type="checkbox"
+                    checked={showSampleLogins}
+                    onChange={(e) => setShowSampleLogins(e.target.checked)}
+                    className="w-4 h-4 accent-primary cursor-pointer rounded"
+                    aria-label="Show sample logins"
+                  />
+                  <span>Show sample logins</span>
+                </label>
+
+                {showSampleLogins && (
+                  <div className="mt-2 overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container">
+                    <table className="w-full text-[11px] text-on-surface">
+                      <thead className="bg-surface-container-high text-on-surface-variant">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left font-semibold">Username</th>
+                          <th className="px-2 py-1.5 text-left font-semibold">Password</th>
+                          <th className="px-2 py-1.5 text-left font-semibold">Tenant</th>
+                          <th className="px-2 py-1.5 text-left font-semibold">Access</th>
+                          <th className="px-2 py-1.5 text-left font-semibold">Filters</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {SAMPLE_LOGINS_TABLE.map((row) => (
+                          <tr key={row.username} className="border-t border-outline-variant/20 even:bg-surface-container-high/40">
+                            <td className="px-2 py-1.5 font-mono">{row.username}</td>
+                            <td className="px-2 py-1.5 font-mono">{row.password}</td>
+                            <td className="px-2 py-1.5">{row.tenant}</td>
+                            <td className="px-2 py-1.5">{row.access}</td>
+                            <td className="px-2 py-1.5">{row.filters}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {SAMPLE_SSO_LOGINS.map((s) => (
-                            <tr key={s.user}>
-                              <td>{s.user}</td>
-                              <td>{s.password}</td>
-                              <td>{s.tenant}</td>
-                              <td>{s.access}</td>
-                              <td>{s.filters}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="login-sso-tooltip__hint">
-                      Use any of these accounts on the Keycloak SSO page.
-                    </p>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>,
-                document.body
-              )}
+                )}
+              </div>
             </form>
           </div>
         </div>
