@@ -142,48 +142,104 @@ namespace BoldAdhocEmbed.Server.Services
                 var candidates = new List<string>
                 {
                     $"{baseUrl}/api/site/{_settings.SiteIdentifier}/token",
-                    // some deployments may expose token endpoint directly under server root
                     $"{baseUrl}/api/site/{_settings.SiteIdentifier}/v1.0/token",
-                    // try without '/bi' segment if present
                     baseUrl.Contains("/bi") ? baseUrl.Replace("/bi", string.Empty) + $"/api/site/{_settings.SiteIdentifier}/token" : null
-                }.Where(u => !string.IsNullOrEmpty(u)).ToList();
+                }.Where(u => !string.IsNullOrEmpty(u)).Distinct().ToList();
 
-                var payloadObj = new
+                var usersToTry = new List<string>();
+                if (!string.IsNullOrWhiteSpace(email)) usersToTry.Add(email);
+                if (!string.IsNullOrWhiteSpace(_settings.UserEmail) && !usersToTry.Contains(_settings.UserEmail)) usersToTry.Add(_settings.UserEmail);
+                if (!string.IsNullOrWhiteSpace(_settings.AdminUser) && !usersToTry.Contains(_settings.AdminUser)) usersToTry.Add(_settings.AdminUser);
+
+                // 1. Try embed_secret grant for each user candidate
+                foreach (var userEmail in usersToTry)
                 {
-                    username = email,
-                    embed_secret = _settings.EmbedSecret,
-                    grant_type = "embed_secret"
-                };
+                    if (string.IsNullOrWhiteSpace(_settings.EmbedSecret)) break;
 
-                var content = new StringContent(JsonConvert.SerializeObject(payloadObj), Encoding.UTF8, "application/json");
-
-                foreach (var tokenUrl in candidates)
-                {
-                    try
+                    foreach (var tokenUrl in candidates)
                     {
-                        _logger.LogInformation("Attempting Bold BI token request to {Url}", tokenUrl);
-                        var response = await _httpClient.PostAsync(tokenUrl, content);
-                        var responseContent = await response.Content.ReadAsStringAsync();
-
-                        if (response.IsSuccessStatusCode)
+                        try
                         {
-                            var tokenResponse = JsonConvert.DeserializeObject<BoldBITokenResponse>(responseContent);
-                            if (tokenResponse?.access_token != null)
+                            // Bold BI expects FormUrlEncodedContent (grant_type=embed_secret&username=...&embed_secret=...)
+                            var formContent = new FormUrlEncodedContent(new[]
                             {
-                                _logger.LogInformation("Bold BI token generated successfully for user {Email} using {Url}", email, tokenUrl);
-                                return tokenResponse.access_token;
+                                new KeyValuePair<string, string>("grant_type", "embed_secret"),
+                                new KeyValuePair<string, string>("username", userEmail),
+                                new KeyValuePair<string, string>("embed_secret", _settings.EmbedSecret)
+                            });
+
+                            _logger.LogInformation("Attempting Bold BI token request (embed_secret form, user={User}) to {Url}", userEmail, tokenUrl);
+                            var formResponse = await _httpClient.PostAsync(tokenUrl, formContent);
+                            if (formResponse.IsSuccessStatusCode)
+                            {
+                                var responseContent = await formResponse.Content.ReadAsStringAsync();
+                                var tokenResponse = JsonConvert.DeserializeObject<BoldBITokenResponse>(responseContent);
+                                if (!string.IsNullOrEmpty(tokenResponse?.access_token))
+                                {
+                                    _logger.LogInformation("Bold BI token generated via embed_secret for user {Email}", userEmail);
+                                    return tokenResponse.access_token;
+                                }
+                            }
+
+                            // Fallback to JSON payload if form-urlencoded isn't accepted
+                            var payloadObj = new
+                            {
+                                username = userEmail,
+                                embed_secret = _settings.EmbedSecret,
+                                grant_type = "embed_secret"
+                            };
+                            var jsonContent = new StringContent(JsonConvert.SerializeObject(payloadObj), Encoding.UTF8, "application/json");
+
+                            var response = await _httpClient.PostAsync(tokenUrl, jsonContent);
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var responseContent = await response.Content.ReadAsStringAsync();
+                                var tokenResponse = JsonConvert.DeserializeObject<BoldBITokenResponse>(responseContent);
+                                if (!string.IsNullOrEmpty(tokenResponse?.access_token))
+                                {
+                                    _logger.LogInformation("Bold BI token generated via embed_secret JSON for user {Email}", userEmail);
+                                    return tokenResponse.access_token;
+                                }
                             }
                         }
-
-                        // Never log the response body — it contains the
-                        // access_token and embed_secret responses for the BI
-                        // site, and previous code echoed them straight into
-                        // application logs.
-                        _logger.LogWarning("Token generation attempt to {Url} failed with status {StatusCode}; body redacted", tokenUrl, response.StatusCode);
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Token generation attempt to {Url} threw exception", tokenUrl);
+                        }
                     }
-                    catch (Exception ex)
+                }
+
+                // 2. Try password grant fallback for AdminUser if configured
+                if (!string.IsNullOrWhiteSpace(_settings.AdminUser) && !string.IsNullOrWhiteSpace(_settings.AdminPassword))
+                {
+                    var passFormContent = new FormUrlEncodedContent(new[]
                     {
-                        _logger.LogWarning(ex, "Token generation attempt to {Url} threw exception", tokenUrl);
+                        new KeyValuePair<string, string>("grant_type", "password"),
+                        new KeyValuePair<string, string>("username", _settings.AdminUser),
+                        new KeyValuePair<string, string>("password", _settings.AdminPassword)
+                    });
+
+                    foreach (var tokenUrl in candidates)
+                    {
+                        try
+                        {
+                            _logger.LogInformation("Attempting Bold BI token request (password grant, user={User}) to {Url}", _settings.AdminUser, tokenUrl);
+                            var response = await _httpClient.PostAsync(tokenUrl, passFormContent);
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var responseContent = await response.Content.ReadAsStringAsync();
+                                var tokenResponse = JsonConvert.DeserializeObject<BoldBITokenResponse>(responseContent);
+                                if (!string.IsNullOrEmpty(tokenResponse?.access_token))
+                                {
+                                    _logger.LogInformation("Bold BI token generated via password grant for user {Email}", _settings.AdminUser);
+                                    return tokenResponse.access_token;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Password token attempt to {Url} threw exception", tokenUrl);
+                        }
                     }
                 }
 
