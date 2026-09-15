@@ -8,8 +8,6 @@ namespace BoldAdhocEmbed.Server.Controllers
     /// Base controller with common functionality shared across all API controllers
     /// Provides utility methods for token extraction, logging, and response formatting
     /// </summary>
-    [ApiController]
-    [Route("api/[controller]")]
     public abstract class BaseController : ControllerBase
     {
         /// <summary>
@@ -122,151 +120,152 @@ namespace BoldAdhocEmbed.Server.Controllers
         }
 
         /// <summary>
-        /// Extract user email from either a session token or JWT token
+        /// Resolve the caller email from validated JWT claims ONLY. The
+        /// previous implementation accepted X-User-* headers and ?email=
+        /// query strings, which let any caller impersonate any identity.
+        /// Use <see cref="IAuthenticatedUser"/> directly for full context.
         /// </summary>
-        protected string GetEmailFromToken(string token)
+        protected string? GetEmailFromToken(string token)
         {
-            if (string.IsNullOrEmpty(token))
+            var auth = HttpContext.RequestServices
+                .GetService(typeof(IAuthenticatedUser)) as IAuthenticatedUser;
+            var email = auth?.GetAuthContext()?.Email;
+            if (!string.IsNullOrWhiteSpace(email)) return email;
+
+            // The dependency-free session token (Email:Ticks) is the only
+            // legacy format still honored, and only because it is signed
+            // server-side. Strip and return if present.
+            if (!string.IsNullOrEmpty(token))
             {
-                var headerEmailVal = Request.Headers["X-User-Email"].ToString();
-                if (!string.IsNullOrEmpty(headerEmailVal))
+                try
                 {
-                    return headerEmailVal;
-                }
-
-                var headerUserIdVal = Request.Headers["X-User-Id"].ToString();
-                if (!string.IsNullOrEmpty(headerUserIdVal))
-                {
-                    return headerUserIdVal;
-                }
-
-                if (Request.Query.TryGetValue("email", out var queryEmail) && !string.IsNullOrEmpty(queryEmail))
-                {
-                    return queryEmail;
-                }
-
-                if (Request.Query.TryGetValue("userId", out var queryUserId) && !string.IsNullOrEmpty(queryUserId))
-                {
-                    return queryUserId;
-                }
-
-                return null;
-            }
-
-            // 1. Try decoding as local session token (Email:Ticks)
-            try
-            {
-                var decodedBytes = Convert.FromBase64String(token);
-                var decodedString = System.Text.Encoding.UTF8.GetString(decodedBytes);
-                var parts = decodedString.Split(':');
-                if (parts.Length == 2 && parts[0].Contains("@") && long.TryParse(parts[1], out _))
-                {
-                    return parts[0];
-                }
-            }
-            catch
-            {
-                // Not a session token
-            }
-
-            // 2. Try decoding as JWT token
-            try
-            {
-                var parts = token.Split('.');
-                if (parts.Length == 3)
-                {
-                    var payload = parts[1];
-                    while (payload.Length % 4 != 0)
-                        payload += "=";
-                    
-                    var decodedBytes = Convert.FromBase64String(payload);
+                    var decodedBytes = Convert.FromBase64String(token);
                     var decodedString = System.Text.Encoding.UTF8.GetString(decodedBytes);
-                    
-                    // Look for email or unique_name in JSON
-                    var emailIndex = decodedString.IndexOf("\"email\":\"", StringComparison.OrdinalIgnoreCase);
-                    if (emailIndex >= 0)
+                    var parts = decodedString.Split(':');
+                    if (parts.Length == 2 && parts[0].Contains("@") && long.TryParse(parts[1], out _))
                     {
-                        var emailStart = emailIndex + 9;
-                        var emailEnd = decodedString.IndexOf("\"", emailStart);
-                        return decodedString.Substring(emailStart, emailEnd - emailStart);
-                    }
-
-                    var nameIndex = decodedString.IndexOf("\"unique_name\":\"", StringComparison.OrdinalIgnoreCase);
-                    if (nameIndex >= 0)
-                    {
-                        var nameStart = nameIndex + 15;
-                        var nameEnd = decodedString.IndexOf("\"", nameStart);
-                        return decodedString.Substring(nameStart, nameEnd - nameStart);
+                        return parts[0];
                     }
                 }
+                catch { /* not a session token */ }
             }
-            catch
-            {
-                // Not a valid JWT token
-            }
-
-            // 3. Fallback: check headers and query params
-            var headerEmail = Request.Headers["X-User-Email"].ToString();
-            if (!string.IsNullOrEmpty(headerEmail))
-            {
-                return headerEmail;
-            }
-
-            var headerUserId = Request.Headers["X-User-Id"].ToString();
-            if (!string.IsNullOrEmpty(headerUserId))
-            {
-                return headerUserId;
-            }
-
-            if (Request.Query.TryGetValue("email", out var qEmail) && !string.IsNullOrEmpty(qEmail))
-            {
-                return qEmail;
-            }
-
-            if (Request.Query.TryGetValue("userId", out var qUserId) && !string.IsNullOrEmpty(qUserId))
-            {
-                return qUserId;
-            }
-
             return null;
         }
 
         /// <summary>
-        /// Exchange a local session token (or JWT) for a real Bold Reports token on-the-fly
+        /// Exchange a local session token (or JWT) for a real Bold Reports
+        /// access token (password grant — same JWT shape the curl example
+        /// shows). This access token is sent by the server itself as
+        /// <c>Authorization: Bearer &lt;jwt&gt;</c> against the Reports site
+        /// REST APIs (/items, /users, /reports, /schedules, …).
+        ///
+        /// Cached per-user for an hour. Cached value is the <b>raw jwt</b>;
+        /// callers add the <c>Bearer </c> prefix via NormalizeAuthHeader
+        /// when forwarding it to HttpClient.
         /// </summary>
         protected async Task<string> GetBoldReportsTokenAsync(IBoldReportsService boldReportsService)
         {
-            var token = GetTokenFromRequest();
-            var email = GetEmailFromToken(token);
-            if (!string.IsNullOrEmpty(email))
-            {
-                // Check cache first to avoid requesting new token every time
-                var cacheKey = $"bold-reports-exchanged-token-{email}";
-                var cacheService = HttpContext.RequestServices.GetService<ICacheService>();
-                if (cacheService != null)
-                {
-                    var cachedToken = await cacheService.GetAsync<string>(cacheKey);
-                    if (!string.IsNullOrEmpty(cachedToken))
-                    {
-                        return cachedToken;
-                    }
-                }
+            var reportsSettings = HttpContext.RequestServices.GetService<BoldReportsSettings>();
+            var cacheService = HttpContext.RequestServices.GetService<ICacheService>();
 
-                // Exchange for real Bold Reports token
-                var realToken = await boldReportsService.GetTokenFromSecretAsync(email);
-                if (!string.IsNullOrEmpty(realToken))
+            // 1. Resolve the caller identity from validated claims. Admin fallback
+            // is dropped here; in Production an unauthenticated caller
+            // requires a service-account configured via configuration.
+            var callerToken = GetTokenFromRequest();
+            var callerEmail = GetEmailFromToken(callerToken);
+            var targetEmail = !string.IsNullOrEmpty(callerEmail)
+                ? callerEmail
+                : (reportsSettings?.AdminUser ?? throw new UnauthorizedAccessException(
+                    "No authenticated caller and no service-account fallback configured."));
+
+            var cacheKey = $"bold-reports-exchanged-token-{targetEmail}";
+            if (cacheService != null)
+            {
+                var cachedToken = await cacheService.GetAsync<string>(cacheKey);
+                if (!string.IsNullOrEmpty(cachedToken))
                 {
-                    Logger.LogInformation("Exchanged token for user {Email}", email);
-                    if (cacheService != null)
-                    {
-                        // Cache the token for 1 hour
-                        await cacheService.SetAsync(cacheKey, realToken, TimeSpan.FromHours(1));
-                    }
-                    return realToken;
+                    Logger.LogInformation("Using cached Bold Reports token for {Email}", targetEmail);
+                    return cachedToken;
                 }
             }
 
-            return token;
+            // 2. Password grant — produces a JWT that the Reports REST API
+            // accepts in the Authorization header. The embed_token flow is
+            // reserved for the widget embed; side-channel API calls always
+            // want this Bearer-style token.
+            var realToken = await boldReportsService.GetTokenAsync(
+                targetEmail, reportsSettings?.AdminPassword ?? "Admin@123");
+            if (!string.IsNullOrEmpty(realToken))
+            {
+                Logger.LogInformation("Generated Bold Reports token via password grant for {Email}", targetEmail);
+                if (cacheService != null)
+                {
+                    await cacheService.SetAsync(cacheKey, realToken, TimeSpan.FromHours(1));
+                }
+                return realToken;
+            }
+
+            // 4. No viable token. Returning null so the Reports endpoints can
+            // surface a clean error instead of leaking the inbound session
+            // token (which the Reports widget rejects with 401 anyway).
+            Logger.LogWarning(
+                "Could not mint Bold Reports token for {Email}; caller is not provisioned on the Reports site. "
+                + "Use an account that exists on Bold Reports site {Site} or set BoldReports:AdminUser to one that does.",
+                targetEmail, reportsSettings?.ReportsSiteIdentifier);
+            return null;
+        }
+
+        /// <summary>
+        /// Mint a Bold Reports embed_token for the Reports widget (the one returned
+        /// to the browser via /api/reports/viewer-settings). Uses the
+        /// <c>embed_token</c> JSON grant flow against the Reports site's
+        /// <c>/api/site/{site}/token</c> endpoint with no HMAC signing required.
+        /// The returned value is the raw JWT — the Reports widget consumes it
+        /// as-is via <c>boldReportViewer({ embedToken: ... })</c>.
+        ///
+        /// This token is separate from the side-channel API access token returned
+        /// by <see cref="GetBoldReportsTokenAsync"/>, which is used by the
+        /// server to call the Reports REST API on behalf of the caller.
+        /// </summary>
+        protected async Task<string> GetReportsEmbedTokenAsync(
+            IBoldReportsService boldReportsService, string email)
+        {
+            var reportsSettings = HttpContext.RequestServices.GetService<BoldReportsSettings>();
+            var cacheService = HttpContext.RequestServices.GetService<ICacheService>();
+
+            if (reportsSettings == null || string.IsNullOrWhiteSpace(reportsSettings.EmbedSecret))
+            {
+                Logger.LogWarning(
+                    "Embed_token mint skipped: BoldReports:EmbedSecret is empty in config");
+                return null;
+            }
+
+            var cacheKey = $"bold-reports-embed-token-{email}";
+            if (cacheService != null)
+            {
+                var cached = await cacheService.GetAsync<string>(cacheKey);
+                if (!string.IsNullOrEmpty(cached))
+                {
+                    Logger.LogInformation(
+                        "Using cached Bold Reports embed_token for {Email}", email);
+                    return cached;
+                }
+            }
+
+            var embedToken = await boldReportsService.GetTokenFromSecretAsync(email);
+            if (string.IsNullOrEmpty(embedToken))
+            {
+                Logger.LogWarning(
+                    "Embed_token mint failed for {Email}; check BoldReports:EmbedSecret matches the site", email);
+                return null;
+            }
+
+            // Cache for 30 min — embed_tokens are short-lived on the Reports side.
+            if (cacheService != null)
+            {
+                await cacheService.SetAsync(cacheKey, embedToken, TimeSpan.FromMinutes(30));
+            }
+            return embedToken;
         }
     }
 }

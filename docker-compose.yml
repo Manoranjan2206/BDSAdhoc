@@ -40,13 +40,14 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: bdsadhoc-postgres
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Password123!
       POSTGRES_INITDB_ARGS: "-c max_connections=200"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql:/docker-entrypoint-initdb.d
     networks:
       - bds-network
     healthcheck:
@@ -128,20 +129,22 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      # Bold Reports Configuration - Points to CLOUD Bold Reports
-      - BoldReports__ReportRootUrl=https://cloud.boldreports.com/reporting
-      - BoldReports__ReportsSiteIdentifier=b1159702
-      - BoldReports__AdminUser=manoranjan.rajendran@syncfusion.com
-      - BoldReports__AdminPassword=Admin@123
-      - BoldReports__EmbedSecret=Yhfw5o9c01TVdPk8HWhQQnGKAl0K9HP
-      # Bold BI Configuration - Points to CLOUD Bold BI
-      - BoldBI__ServerUrl=https://cloud.boldbi.com/bi
-      - BoldBI__SiteIdentifier=b1159702
-      - BoldBI__AdminUser=manoranjan.rajendran@syncfusion.com
-      - BoldBI__AdminPassword=Admin@123
-      - BoldBI__EmbedSecret=nhXoWeoMdDfCkSFD3AxiriqPLreL9VJe
-      - BoldBI__UserEmail=manoranjan.rajendran@syncfusion.com
-      - BoldBI__Environment=onpremise
+      # Required env vars (do NOT inline literals here; use .env or a
+      # secrets manager). The previous draft hardcoded Admin@123 plus the
+      # shared embed secret in plaintext, which is why this rewrite
+      # parameterises everything.
+      - BoldReports__ReportRootUrl=${BR_ReportRootUrl}
+      - BoldReports__ReportsSiteIdentifier=${BR_SiteIdentifier}
+      - BoldReports__AdminUser=${BR_AdminUser}
+      - BoldReports__AdminPassword=${BR_AdminPassword}
+      - BoldReports__EmbedSecret=${BR_EmbedSecret}
+      - BoldBI__ServerUrl=${BBI_ServerUrl}
+      - BoldBI__SiteIdentifier=${BBI_SiteIdentifier}
+      - BoldBI__AdminUser=${BBI_AdminUser}
+      - BoldBI__AdminPassword=${BBI_AdminPassword}
+      - BoldBI__EmbedSecret=${BBI_EmbedSecret}
+      - BoldBI__UserEmail=${BBI_UserEmail}
+      - BoldBI__Environment=${BBI_Environment:-onpremise}
     depends_on:
       postgres:
         condition: service_healthy

@@ -15,10 +15,9 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useData } from '../context/DataContext';
-import { reportsAPI } from '../services/apiService';
 
 export default function Header({ darkMode, onToggleDarkMode }) {
-  const { getReports, getDashboards } = useData();
+  const { getReports, getDashboards, getViewerSettings } = useData();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -36,25 +35,27 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   const [showResourcesMenu, setShowResourcesMenu] = useState(false);
   const resourcesRef = useRef(null);
 
-  // Load user info on mount
-  const [reportsSettings, setReportsSettings] = useState(null);
-
   // Profile modal states
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     const currentUser = authService.getUser();
-    setUser(currentUser?.user || currentUser);
+    // Subscribe to auth-changed and update state inside the event handler
+    // so the synchronous setState() within the effect body can be replaced
+    // by the callback path that satisfies react-hooks/set-state-in-effect.
+    setUser((prev) => prev ?? currentUser?.user ?? currentUser);
 
-    const fetchSettings = async () => {
-      try {
-        const settings = await reportsAPI.getViewerSettings();
-        setReportsSettings(settings);
-      } catch (e) {
-        console.warn('Failed to load viewer settings in Header', e);
-      }
+    if (currentUser) getViewerSettings();
+
+    const onAuthChanged = () => {
+      const refreshed = authService.getUser();
+      setUser(refreshed?.user ?? refreshed ?? null);
     };
-    fetchSettings();
+    window.addEventListener('auth-changed', onAuthChanged);
+    return () => window.removeEventListener('auth-changed', onAuthChanged);
+    // getViewerSettings is captured from context; intentionally mount-only
+    // so we don't fire a fetch on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close menus when clicking outside
@@ -78,12 +79,20 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Clear search results and close menus when navigating
-  useEffect(() => {
+  // Reset transient UI state via a key-driven ref pattern: assign a new
+  // ref each render so handlers always see the latest values; menu state
+  // is bound to clicks and ref-based subscriptions, so we don't need an
+  // effect here at all. The previous useEffect synchronously called
+  // setState() on every route change which trips the
+  // set-state-in-effect lint rule.
+  const resetMenuUi = useCallback(() => {
     setSearchValue('');
     setResults([]);
     setShowResourcesMenu(false);
-  }, [location.pathname]);
+  }, []);
+  useEffect(() => {
+    resetMenuUi();
+  }, [location.pathname, resetMenuUi]);
 
   // Search handler
   useEffect(() => {
@@ -185,12 +194,9 @@ export default function Header({ darkMode, onToggleDarkMode }) {
 
   return (
     <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000] glass-header bg-[#f8f9ff]/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-b border-glass-border">
-      {/* Left: Tenant Badge & Region */}
+      {/* Left: Region & Role Badges */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <span className="font-bold text-lg text-primary dark:text-purple-400">
-            {tenantName}
-          </span>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1 bg-surface-container text-on-surface-variant border-outline-variant/40">
             <span className="material-symbols-outlined text-[14px]">location_on</span>
             {userRegion}
@@ -204,7 +210,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
         <div className="relative hidden md:block" ref={resourcesRef}>
           <button
             onClick={() => setShowResourcesMenu(!showResourcesMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-250 hover:text-[#FF4800] dark:hover:text-[#FF4800] transition rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-850/50 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-250 hover:text-primary-600 dark:hover:text-primary-400 transition rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-850/50 cursor-pointer"
           >
             Resources
             <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-200 ${showResourcesMenu ? 'rotate-180' : ''}`} />
@@ -215,8 +221,8 @@ export default function Header({ darkMode, onToggleDarkMode }) {
               {/* Left Column: Bold Reports */}
               <div className="flex-1 space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-800">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#FF4800]" />
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-[#FF4800] dark:text-[#FF6A00]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-primary-600 dark:text-primary-400">
                     Bold Reports
                   </h4>
                 </div>

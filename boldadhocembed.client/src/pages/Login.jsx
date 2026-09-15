@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
@@ -32,6 +33,15 @@ const TENANT_USERS = [
   { email: 'delta5@deltaenterprises.com', name: 'Emma Hall', role: 'Operations', tenantId: 4, tenantName: 'DeltaEnterprises', region: 'Oceania', avatar: 'https://randomuser.me/api/portraits/women/45.jpg', pwd: 'Password123!' },
 ];
 
+// Sample SSO login data shown when the user clicks the info icon next to
+// the "Sign In with Keycloak SSO" button.
+const SAMPLE_SSO_LOGINS = [
+  { user: 'alpha1', password: 'alpha1', tenant: 'Alpha',     access: 'All',                  filters: 'North America' },
+  { user: 'alpha2', password: 'alpha2', tenant: 'Alpha',     access: 'Create, View',         filters: 'Europe' },
+  { user: 'beta3',  password: 'beta3',  tenant: 'Beta',      access: 'Create, View',         filters: 'Asia' },
+  { user: 'beta4',  password: 'beta4',  tenant: 'Beta',      access: 'Create, View, Edit',   filters: 'Oceania' },
+];
+
 export default function Login() {
   const navigate = useNavigate();
   const [selectedUserEmail, setSelectedUserEmail] = useState('alpha1@alphacorp.com');
@@ -39,6 +49,11 @@ export default function Login() {
   const [jwtToken, setJwtToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSsoTooltip, setShowSsoTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+
+  const tooltipRef = useRef(null);
+  const ssoInfoBtnRef = useRef(null);
 
   const selectedUser = TENANT_USERS.find(u => u.email === selectedUserEmail) || TENANT_USERS[0];
 
@@ -47,6 +62,40 @@ export default function Login() {
       navigate('/', { replace: true });
     }
   }, [navigate]);
+
+  // Dismiss SSO tooltip when clicking outside the info button or tooltip
+  useEffect(() => {
+    if (!showSsoTooltip) return;
+    // Position the tooltip above the info button using viewport coords
+    const positionTooltip = () => {
+      if (!ssoInfoBtnRef.current) return;
+      const r = ssoInfoBtnRef.current.getBoundingClientRect();
+      const ttWidth = tooltipRef.current?.offsetWidth || 360;
+      // Place centered above the info button (with viewport-edge clamp)
+      const centerX = r.left + r.width / 2;
+      const left = Math.max(8, Math.min(centerX - ttWidth / 2, window.innerWidth - ttWidth - 8));
+      const top = r.top - 14; // 14px gap, tooltip sits above
+      setTooltipPos({ top, left });
+    };
+    positionTooltip();
+    window.addEventListener('resize', positionTooltip);
+    window.addEventListener('scroll', positionTooltip, true);
+
+    const onDocClick = (ev) => {
+      const inTooltip = tooltipRef.current && tooltipRef.current.contains(ev.target);
+      const inButton  = ssoInfoBtnRef.current && ssoInfoBtnRef.current.contains(ev.target);
+      if (!inTooltip && !inButton) setShowSsoTooltip(false);
+    };
+    const onEsc = (ev) => { if (ev.key === 'Escape') setShowSsoTooltip(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      window.removeEventListener('resize', positionTooltip);
+      window.removeEventListener('scroll', positionTooltip, true);
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [showSsoTooltip]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -58,18 +107,11 @@ export default function Login() {
         if (!jwtToken.trim()) throw new Error('Please paste a valid JWT token');
         await authService.loginWithToken(jwtToken);
       } else {
-        // Log in as the selected multi-tenant user
-        const userData = {
-          email: selectedUser.email,
-          name: selectedUser.name,
-          role: selectedUser.role,
-          tenantId: selectedUser.tenantId,
-          tenantName: selectedUser.tenantName,
-          region: selectedUser.region,
-          avatarUrl: selectedUser.avatar,
-        };
-        localStorage.setItem('boldreports_user', JSON.stringify(userData));
-        localStorage.setItem('boldreports_token', 'demo-session-token-' + selectedUser.email);
+        // Authenticate against the server. The server returns a signed JWT
+        // containing the selected user's email, tenant, role, and region.
+        // That same identity is then used by /reports/viewer-settings to
+        // mint the Bold Reports embed token for this user.
+        await authService.login(selectedUser.email, selectedUser.pwd);
       }
 
       window.dispatchEvent(new Event('auth-changed'));
@@ -78,6 +120,15 @@ export default function Login() {
       setError(err.message || 'Login failed');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSsoLogin = () => {
+    try {
+      authService.startSsoLogin();
+    } catch (err) {
+      console.error('SSO login failed to start:', err);
+      setError('SSO login could not be started. Please try again.');
     }
   };
 
@@ -99,10 +150,10 @@ export default function Login() {
         {/* Brand Header */}
         <div className="text-center mb-4">
           <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-xl mx-auto mb-2 shadow-md">
-            B
+            A
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-on-surface">
-            BDS CRM Suite
+            ACME CRM Suite
           </h1>
           <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">
             Enterprise Multi-Tenant CRM & Analytics Portal
@@ -266,6 +317,94 @@ export default function Login() {
                   </>
                 )}
               </button>
+
+              {/* SSO Divider */}
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-outline-variant/30"></div>
+                <span className="flex-shrink mx-3 text-[11px] text-on-surface-variant uppercase font-semibold">Or continue with</span>
+                <div className="flex-grow border-t border-outline-variant/30"></div>
+              </div>
+
+              {/* SSO button + info button (anchors the floating tooltip) */}
+              <div className="relative mt-2">
+                <div className="flex items-center gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={handleSsoLogin}
+                    className="flex-grow bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                  >
+                    <span className="material-symbols-outlined text-primary text-[18px]">key</span>
+                    Sign In with Keycloak SSO
+                  </button>
+                  <button
+                    ref={ssoInfoBtnRef}
+                    type="button"
+                    onClick={() => setShowSsoTooltip((v) => !v)}
+                    onMouseEnter={() => setShowSsoTooltip(true)}
+                    onFocus={() => setShowSsoTooltip(true)}
+                    onBlur={() => setShowSsoTooltip(false)}
+                    aria-haspopup="dialog"
+                    aria-expanded={showSsoTooltip}
+                    aria-label="SSO sample logins"
+                    title="SSO sample logins"
+                    className="bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 px-3 py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.99]"
+                  >
+                    <span className="material-symbols-outlined text-primary text-[18px]">info</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Floating SSO info tooltip - portaled to body so it escapes any overflow/stacking quirks */}
+              {showSsoTooltip && createPortal(
+                <div
+                  ref={tooltipRef}
+                  role="dialog"
+                  aria-label="SSO sample logins"
+                  className="login-sso-tooltip"
+                  style={{
+                    position: 'fixed',
+                    top: `${tooltipPos.top}px`,
+                    left: `${tooltipPos.left}px`,
+                    transform: 'translateY(-100%)',
+                  }}
+                >
+                  <div className="login-sso-tooltip__arrow" aria-hidden="true"></div>
+                  <div className="login-sso-tooltip__header">
+                    <span className="material-symbols-outlined text-[16px]">vpn_key</span>
+                    SSO Sample Logins
+                  </div>
+                  <div className="login-sso-tooltip__body">
+                    <div className="login-sso-tooltip__scroll">
+                      <table className="login-sso-tooltip__table">
+                        <thead>
+                          <tr>
+                            <th>User</th>
+                            <th>Pass</th>
+                            <th>Tenant</th>
+                            <th>Access</th>
+                            <th>Filters</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {SAMPLE_SSO_LOGINS.map((s) => (
+                            <tr key={s.user}>
+                              <td>{s.user}</td>
+                              <td>{s.password}</td>
+                              <td>{s.tenant}</td>
+                              <td>{s.access}</td>
+                              <td>{s.filters}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="login-sso-tooltip__hint">
+                      Use any of these accounts on the Keycloak SSO page.
+                    </p>
+                  </div>
+                </div>,
+                document.body
+              )}
             </form>
           </div>
         </div>

@@ -3,70 +3,71 @@
 @tailwind utilities;
 
 @layer components {
+  /* === Button System: aligned to unified design tokens === */
   .btn-primary {
-    @apply bg-primary-400 text-neutral-white px-4 py-2 rounded-lg font-medium hover:bg-primary-600 transition-colors;
-  }
-  
-  .btn-brand {
-    @apply bg-brand-orange text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
-  }
-  
-  .btn-secondary-red {
-    @apply bg-secondary-red text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
-  }
-  
-  .btn-secondary-green {
-    @apply bg-secondary-green text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors;
   }
 
-  .btn-secondary-blue {
-    @apply bg-secondary-blue text-neutral-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity;
+  .btn-secondary {
+    @apply bg-neutral-100 text-neutral-700 px-4 py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600;
   }
-  
+
   .btn-outline {
     @apply border border-neutral-200 text-neutral-700 px-4 py-2 rounded-lg font-medium hover:bg-neutral-50 transition-colors dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700;
   }
-  
-  .btn-secondary {
-    @apply bg-neutral-200 text-neutral-700 px-4 py-2 rounded-lg font-medium hover:bg-neutral-300 transition-colors dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600;
+
+  .btn-danger {
+    @apply bg-danger text-white px-4 py-2 rounded-lg font-medium hover:bg-danger-700 transition-colors;
   }
 
-  /* Badge components */
+  .btn-success {
+    @apply bg-success text-white px-4 py-2 rounded-lg font-medium hover:bg-success-700 transition-colors;
+  }
+
+  /* === Badge System === */
   .badge-primary {
-    @apply inline-block bg-primary-400 text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
-  }
-
-  .badge-brand {
-    @apply inline-block bg-brand-orange text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
-  }
-
-  .badge-success {
-    @apply inline-block bg-secondary-green text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
-  }
-
-  .badge-danger {
-    @apply inline-block bg-secondary-red text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
-  }
-
-  .badge-warning {
-    @apply inline-block bg-secondary-yellow text-neutral-700 px-3 py-1 rounded-full text-sm font-medium;
+    @apply inline-block bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-medium;
   }
 
   .badge-info {
-    @apply inline-block bg-secondary-blue text-neutral-white px-3 py-1 rounded-full text-sm font-medium;
+    @apply inline-block bg-info-100 text-info-700 px-3 py-1 rounded-full text-sm font-medium;
   }
 
-  /* Card component */
+  .badge-success {
+    @apply inline-block bg-success-100 text-success-700 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-danger {
+    @apply inline-block bg-danger-100 text-danger-700 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-warning {
+    @apply inline-block bg-warning-100 text-warning-700 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  /* === Card System === */
   .card {
-    @apply bg-neutral-white rounded-lg shadow-md p-6 dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600;
+    @apply bg-white rounded-lg shadow-md p-6 dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700;
   }
 
   .card-primary {
-    @apply card border-l-4 border-l-primary-400;
+    @apply card border-l-4 border-l-primary-500;
   }
 
-  .card-brand {
-    @apply card border-l-4 border-l-brand-orange;
+  .card-info {
+    @apply card border-l-4 border-l-info-500;
+  }
+
+  .card-success {
+    @apply card border-l-4 border-l-success-500;
+  }
+
+  .card-danger {
+    @apply card border-l-4 border-l-danger-500;
+  }
+
+  .card-warning {
+    @apply card border-l-4 border-l-warning-500;
   }
 }
 
@@ -77,7 +78,7 @@
 }
 
 body {
-  @apply bg-neutral-50 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-100 transition-colors;
+  @apply bg-surface dark:bg-neutral-800 text-neutral-700 dark:text-neutral-100 transition-colors;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -95,7 +96,7 @@ input[type="date"],
 input[type="search"],
 textarea,
 select {
-  @apply border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-white;
+  @apply border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-neutral-700 dark:border-neutral-600 dark:text-white;
 }
 
 /* ??????????????????????????????????????????????????????????? */

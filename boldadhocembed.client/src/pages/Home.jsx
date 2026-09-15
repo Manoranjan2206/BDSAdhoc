@@ -369,9 +369,9 @@ const getRoleHomeData = (role, tenantName, region, userName) => {
             sub: `${tenant.growth} YoY Growth`,
             isPositive: true,
             progress: 88,
-            accent: 'linear-gradient(90deg, #ff4800, #ff8800)',
+            accent: 'linear-gradient(90deg, #5b4ce6, #7c5eff)',
             icon: 'handshake',
-            colorClass: 'bg-orange-100 dark:bg-orange-950/50 text-brand-orange',
+            colorClass: 'bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400',
             link: '/deals',
           },
           {
@@ -391,7 +391,7 @@ const getRoleHomeData = (role, tenantName, region, userName) => {
             sub: '4.88 / 5.0 Global CSAT Score',
             isPositive: true,
             progress: 92,
-            accent: 'linear-gradient(90deg, #eab308, #fde047)',
+            accent: 'linear-gradient(90deg, #d97706, #f59e0b)',
             icon: 'confirmation_number',
             colorClass: 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400',
             link: '/tickets',
@@ -402,14 +402,14 @@ const getRoleHomeData = (role, tenantName, region, userName) => {
             sub: 'Automated PDF/Excel delivery',
             isPositive: true,
             progress: 100,
-            accent: 'linear-gradient(90deg, #10b981, #34d399)',
+            accent: 'linear-gradient(90deg, #059669, #10b981)',
             icon: 'calendar_month',
             colorClass: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400',
             link: '/schedules',
           },
         ],
         quickActions: [
-          { label: 'Sales Deals', icon: 'handshake', route: '/deals', shortcut: '⌘D', colorClass: 'text-brand-orange' },
+          { label: 'Sales Deals', icon: 'handshake', route: '/deals', shortcut: '⌘D', colorClass: 'text-blue-500' },
           { label: 'Contacts', icon: 'contacts', route: '/contacts', shortcut: '⌘C', colorClass: 'text-blue-500' },
           { label: 'BI Dashboards', icon: 'pie_chart', route: '/dashboards', shortcut: '⌘B', colorClass: 'text-purple-500' },
           { label: 'Support Queue', icon: 'headset_mic', route: '/tickets', shortcut: '⌘T', colorClass: 'text-amber-500' },
@@ -426,7 +426,7 @@ const getRoleHomeData = (role, tenantName, region, userName) => {
           { title: 'Executive BI Overview', subtitle: 'Bold BI Enterprise Dashboard • Real-Time', icon: 'pie_chart', badge: 'Real-Time', badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300', link: '/dashboards' },
         ],
         announcements: [
-          { category: 'System', time: '2 hours ago', title: 'Enterprise Multitenant Security Active', description: `All CRM tables and live operational data operate with isolated row-level security policies for ${tenantName}.`, colorClass: 'bg-brand-orange' },
+          { category: 'System', time: '2 hours ago', title: 'Enterprise Multitenant Security Active', description: `All CRM tables and live operational data operate with isolated row-level security policies for ${tenantName}.`, colorClass: 'bg-purple-500' },
           { category: 'Sales', time: 'Yesterday', title: `${tenantName} Q3 Expansion Goals Met`, description: `Enterprise deals closed across ${region} exceeded baseline quarterly expectations by 14.8%.`, colorClass: 'bg-blue-500' },
           { category: 'Scheduler', time: 'Oct 12', title: 'Automated Report Delivery Configured', description: 'Enterprise reports scheduled for automatic Monday morning executive inbox distribution.', colorClass: 'bg-emerald-500' },
         ],
@@ -604,78 +604,78 @@ export default function Home() {
   });
 
   return (
-    <div className="p-container-padding max-w-[1600px] mx-auto space-y-6 home-dashboard">
+    <div className="p-4 md:p-5 max-w-[1600px] mx-auto space-y-4 home-dashboard">
       
-      {/* Executive Hero Mesh Banner */}
-      <div className="hero-gradient-card rounded-2xl p-6 md:p-8 relative overflow-hidden">
-        {/* Background Ambient Orbs */}
-        <div className="hero-orb-1 absolute -right-16 -top-16 w-80 h-80 bg-brand-orange/15 dark:bg-brand-orange/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="hero-orb-2 absolute right-48 bottom-0 w-64 h-64 bg-indigo-500/15 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="relative z-10 space-y-4">
+      {/* Compact Hero Header */}
+      <div className="hero-gradient-card p-0 relative">
+        <div className="relative z-10 space-y-3">
           
-          {/* Top Bar Pills & Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-700/60 pb-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-orange/10 text-brand-orange border border-brand-orange/20 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-brand-orange animate-ping"></span>
-                {tenantName}
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                📍 {userRegion}
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+          {/* Row 1: Tenant Context + Sync */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300 border border-primary-200 dark:border-primary-800 flex items-center gap-1.5 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary-600 dark:bg-primary-400"></span>
+                  {tenantName}
+                  <span className="material-symbols-outlined text-[12px]">expand_more</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                  <span className="material-symbols-outlined text-[14px]">location_on</span>
+                  {userRegion}
+                  <span className="material-symbols-outlined text-[12px]">expand_more</span>
+                </span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                 {effectiveRole} Workspace
               </span>
             </div>
 
-            {/* Live Sync Button & Timestamp */}
             <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <span className="hidden sm:inline">Last Synced: <strong>{lastSyncedTime}</strong></span>
+              <span className="hidden sm:inline">Last updated: <strong>{lastSyncedTime}</strong></span>
               <button
                 onClick={fetchPgData}
                 disabled={loadingDb}
                 title="Refresh live PostgreSQL CRM metrics"
-                className="px-3 py-1.5 rounded-lg font-medium bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-brand-orange border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
+                className="px-3 py-1.5 rounded-lg font-medium bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-primary-600 dark:hover:text-primary-400 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
               >
-                <span className={`material-symbols-outlined text-[16px] ${loadingDb ? 'animate-spin text-brand-orange' : ''}`}>sync</span>
-                {loadingDb ? 'Syncing...' : 'Live Sync'}
+                <span className={`material-symbols-outlined text-[16px] ${loadingDb ? 'animate-spin text-primary-600' : ''}`}>sync</span>
+                {loadingDb ? 'Syncing...' : 'Refresh'}
               </button>
             </div>
           </div>
 
-          {/* Main Hero Header */}
-          <div className="pt-1">
+          {/* Row 2: Greeting (compact) */}
+          <div>
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+              <span className="material-symbols-outlined text-[15px]">calendar_today</span>
               {todayFormatted}
             </div>
-            <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Welcome back, <span className="bg-gradient-to-r from-brand-orange via-amber-500 to-indigo-600 bg-clip-text text-transparent">{userName}</span>!
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Welcome back, <span className="text-primary-600 dark:text-primary-400">{userName}</span>
             </h1>
-            <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 max-w-3xl mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-300 max-w-3xl mt-1">
               {homeData.roleDescription}
             </p>
           </div>
 
-          {/* AI Executive Insight Ticker */}
-          <div className="ai-ticker-badge rounded-xl p-3 border border-brand-orange/20 dark:border-brand-orange/30 flex items-center gap-3 text-xs md:text-sm text-slate-800 dark:text-slate-200">
-            <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-brand-orange text-white flex items-center justify-center font-bold">
+          {/* Row 3: AI Insight Ticker (compact, solid surface) */}
+          <div className="ai-ticker-badge rounded-xl px-3 py-2 flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-200">
+            <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold text-[10px]">
               ✨
             </span>
             <div className="flex-1 min-w-0">
-              <strong className="text-brand-orange dark:text-amber-400">AI Executive Ticker:</strong> Performance velocity in <strong>{userRegion}</strong> is tracking <strong>+18.4% YoY</strong>. Quota attainment goal achieved for {tenantName} quarterly targets.
+              <strong className="text-primary-600 dark:text-primary-400">AI Insights:</strong> Performance velocity in <strong>{userRegion}</strong> is tracking <strong>+18.4% YoY</strong>. Quota attainment goal achieved for {tenantName}.
             </div>
-            <Link to="/dashboards" className="text-xs font-bold text-brand-orange hover:underline flex items-center gap-0.5 whitespace-nowrap">
-              Open Analytics <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            <Link to="/dashboards" className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-0.5 whitespace-nowrap">
+              Analytics <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
             </Link>
           </div>
 
         </div>
       </div>
 
-      {/* CRM Dynamic KPI Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {homeData.kpis.map((kpi, idx) => (
           <Link
             key={idx}
@@ -684,19 +684,19 @@ export default function Home() {
             style={{ '--card-accent': kpi.accent }}
           >
             <div className="flex items-start justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[170px]">
+              <span className="text-label uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate max-w-[170px]">
                 {kpi.title}
               </span>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${kpi.colorClass} group-hover:scale-110 transition-transform`}>
-                <span className="material-symbols-outlined text-[24px]">{kpi.icon}</span>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${kpi.colorClass} group-hover:scale-110 transition-transform`}>
+                <span className="material-symbols-outlined text-[22px]">{kpi.icon}</span>
               </div>
             </div>
 
             <div className="mb-3">
-              <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white group-hover:text-brand-orange transition-colors">
+              <h3 className="text-kpi text-slate-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                 {kpi.value}
               </h3>
-              <div className={`text-xs font-semibold flex items-center gap-1 mt-1 ${kpi.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`}>
+              <div className={`text-xs font-semibold flex items-center gap-1 mt-1 ${kpi.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                 <span className="material-symbols-outlined text-[14px]">
                   {kpi.isPositive ? 'trending_up' : 'trending_down'}
                 </span>
@@ -704,9 +704,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Sparkline Progress Bar */}
+            {/* Progress Bar */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+              <div className="flex justify-between text-label text-slate-400 dark:text-slate-500">
                 <span>Target Progress</span>
                 <span>{kpi.progress}%</span>
               </div>
@@ -721,24 +721,24 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Interactive Deal Pipeline Visualizer Widget */}
-      <div className="glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 shadow-sm space-y-4">
+      {/* Pipeline Section */}
+      <div className="glass-card rounded-panel p-5 md:p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 shadow-card space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-brand-orange">bar_chart</span>
-              {effectiveRole} Pipeline & Opportunity Stages
+            <h2 className="text-section-title font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary-600 dark:text-primary-400">bar_chart</span>
+              {effectiveRole} Pipeline &amp; Opportunity Stages
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Distribution of enterprise sales opportunities by stage in {userRegion} for {tenantName}
+              Distribution of opportunities by stage in {userRegion} for {tenantName}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Total Scoped:</span>
-            <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-brand-orange/10 text-brand-orange border border-brand-orange/20">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Total Scoped:</span>
+            <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
               $5.12M
             </span>
-            <Link to="/deals" className="text-xs font-bold text-slate-500 hover:text-brand-orange transition-colors flex items-center gap-0.5">
+            <Link to="/deals" className="text-xs font-semibold text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center gap-0.5">
               View Kanban <span className="material-symbols-outlined text-[14px]">chevron_right</span>
             </Link>
           </div>
@@ -761,8 +761,8 @@ export default function Home() {
                 {stage.amount}
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between text-[10px] font-semibold text-slate-400">
-                  <span>Pipeline Allocation</span>
+                <div className="flex justify-between text-label text-slate-400">
+                  <span>Pipeline share</span>
                   <span>{stage.pct}%</span>
                 </div>
                 <div className={`w-full h-2 rounded-full ${stage.barBg} overflow-hidden`}>
@@ -774,70 +774,60 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+      {/* Bento Grid: Quick Actions (3) | Action Plan (5) | Pinned (4) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 
-        {/* Quick Actions (4 cols) */}
-        <div className="md:col-span-4 glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col justify-between shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-brand-orange">bolt</span>
+        {/* Quick Actions - 3 cols, more compact */}
+        <div className="md:col-span-3 glass-card rounded-panel p-5 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col shadow-card">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-section-title font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary-600 dark:text-primary-400">bolt</span>
               Quick Actions
             </h2>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Shortcuts</span>
+            <span className="text-label text-slate-400 uppercase tracking-wider">Shortcuts</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 flex-1">
+          <div className="grid grid-cols-2 gap-2.5 flex-1">
             {homeData.quickActions.map((action, idx) => (
               <button
                 key={idx}
                 onClick={() => navigate(action.route)}
-                className="quick-action-tile rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 cursor-pointer group relative overflow-hidden"
+                className="quick-action-tile rounded-xl p-3 flex flex-col items-center justify-center text-center gap-1.5 cursor-pointer group"
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className={`material-symbols-outlined ${action.colorClass} text-[26px]`}>
+                <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className={`material-symbols-outlined ${action.colorClass} text-[22px]`}>
                     {action.icon}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-orange transition-colors">
+                  <span className="block text-compact font-semibold text-slate-800 dark:text-slate-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                     {action.label}
                   </span>
-                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
+                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-label font-extrabold bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400">
                     {action.shortcut}
                   </span>
                 </div>
               </button>
             ))}
           </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 text-center">
-            <button
-              onClick={() => navigate('/deals')}
-              className="w-full py-2 rounded-xl text-xs font-bold text-brand-orange hover:bg-brand-orange/10 border border-brand-orange/20 transition-all flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              Create Custom Action
-            </button>
-          </div>
         </div>
 
-        {/* Dynamic Tasks Manager (5 cols) */}
-        <div className="md:col-span-5 glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col shadow-sm">
+        {/* Action Plan - 5 cols */}
+        <div className="md:col-span-5 glass-card rounded-panel p-5 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col shadow-card">
           
           <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-brand-orange">checklist</span>
-              {effectiveRole} Action Plan
+            <h2 className="text-section-title font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary-600 dark:text-primary-400">checklist</span>
+              Action Plan
             </h2>
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+            <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
               {['All', 'Pending', 'Completed'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setTaskFilter(tab)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                     taskFilter === tab
-                      ? 'bg-white dark:bg-slate-700 text-brand-orange shadow-sm'
+                      ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-sm'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
@@ -848,21 +838,21 @@ export default function Home() {
           </div>
 
           {/* Task Completion Progress */}
-          <div className="mb-4 space-y-1">
+          <div className="mb-3 space-y-1">
             <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
               <span>Today's Progress</span>
               <span>{completedTasksCount} of {totalTasksCount} tasks ({taskCompletionPct}%)</span>
             </div>
             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-brand-orange to-amber-500 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-primary to-purple-400 rounded-full transition-all duration-500"
                 style={{ width: `${taskCompletionPct}%` }}
               ></div>
             </div>
           </div>
 
-          {/* Task Items List */}
-          <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 custom-scrollbar max-h-[260px]">
+          {/* Task Items List - 3 visible, rest via scroll */}
+          <div className="space-y-2 flex-1 overflow-y-auto pr-1 custom-scrollbar max-h-[220px]">
             {tasksToDisplay.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
                 No {taskFilter.toLowerCase()} tasks for {effectiveRole} right now.
@@ -872,35 +862,35 @@ export default function Home() {
                 <div
                   key={task.id}
                   onClick={() => toggleTask(task.id)}
-                  className={`rounded-xl p-3 border transition-all cursor-pointer flex items-start gap-3 ${
+                  className={`rounded-xl p-2.5 border transition-all cursor-pointer flex items-start gap-2.5 ${
                     task.completed
                       ? 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-800 opacity-75'
-                      : 'bg-white/90 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80 hover:border-brand-orange/40 hover:shadow-sm'
+                      : 'bg-white/90 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80 hover:border-primary-200 dark:hover:border-primary-800 hover:shadow-sm'
                   }`}
                 >
                   <div className="mt-0.5">
-                    <span className={`material-symbols-outlined text-[20px] transition-colors ${task.completed ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600'}`}>
+                    <span className={`material-symbols-outlined text-[18px] transition-colors ${task.completed ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600'}`}>
                       {task.completed ? 'check_circle' : 'radio_button_unchecked'}
                     </span>
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h4 className={`text-xs font-bold truncate ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <h4 className={`text-xs font-semibold truncate ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
                         {task.title}
                       </h4>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${
+                      <span className={`px-1.5 py-0.5 rounded text-label font-extrabold uppercase tracking-wider ${
                         task.priority === 'HIGH' ? 'tag-high' : task.priority === 'MED' ? 'tag-med' : 'tag-normal'
                       }`}>
                         {task.priority || 'NORMAL'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                      <span className="flex items-center gap-1 font-medium">
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-[13px]">schedule</span> {task.time}
                       </span>
-                      <span className="font-semibold text-brand-orange">
+                      <span className="font-semibold text-primary-600 dark:text-primary-400">
                         {task.role}
                       </span>
                     </div>
@@ -911,34 +901,34 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Pinned & Key Accounts (3 cols) */}
-        <div className="md:col-span-3 glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-brand-orange">push_pin</span>
+        {/* Pinned Accounts - 4 cols */}
+        <div className="md:col-span-4 glass-card rounded-panel p-5 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex flex-col shadow-card">
+          <h2 className="text-section-title font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-600 dark:text-primary-400">push_pin</span>
             Pinned Accounts
           </h2>
 
-          <div className="space-y-3 flex-1">
+          <div className="space-y-2.5 flex-1">
             {homeData.pinnedItems.map((item, idx) => (
               <Link
                 key={idx}
                 to={item.link}
-                className="block p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 hover:border-brand-orange/40 transition-all group"
+                className="block p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 hover:border-primary-200 dark:hover:border-primary-800 transition-all group"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center flex-shrink-0 font-bold group-hover:scale-110 transition-transform">
+                  <div className="w-9 h-9 rounded-xl bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
                   </div>
                   <div className="overflow-hidden min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-orange transition-colors truncate">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
                         {item.title}
                       </p>
-                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${item.badgeColor}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-label font-bold ${item.badgeColor}`}>
                         {item.badge}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {item.subtitle}
                     </p>
                   </div>
@@ -951,15 +941,15 @@ export default function Home() {
       </div>
 
       {/* Dynamic Filterable Announcements Feed */}
-      <div className="glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 shadow-sm space-y-4">
+      <div className="glass-card rounded-panel p-5 md:p-6 border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 shadow-card space-y-4">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-orange/10 text-brand-orange flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center">
               <span className="material-symbols-outlined text-[20px]">campaign</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="text-section-title font-bold text-slate-900 dark:text-white">
                 {tenantName} Enterprise Broadcast Feed
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -974,9 +964,9 @@ export default function Home() {
               <button
                 key={filterCat}
                 onClick={() => setAnnouncementFilter(filterCat)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   announcementFilter === filterCat
-                    ? 'bg-brand-orange text-white shadow-sm'
+                    ? 'bg-primary-600 text-white shadow-sm'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
@@ -996,21 +986,21 @@ export default function Home() {
             filteredAnnouncements.map((ann, idx) => (
               <div
                 key={idx}
-                className="bg-slate-50/80 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-200/70 dark:border-slate-700/70 hover:border-brand-orange/40 hover:shadow-md transition-all relative overflow-hidden group"
+                className="bg-slate-50/80 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-200/70 dark:border-slate-700/70 hover:border-primary-200 dark:hover:border-primary-800 hover:shadow-md transition-all relative overflow-hidden group"
               >
                 <div className={`absolute top-0 left-0 w-1.5 h-full ${ann.colorClass}`}></div>
                 
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-brand-orange/10 text-brand-orange border border-brand-orange/20">
+                  <span className="px-2 py-0.5 rounded text-label font-extrabold uppercase tracking-wider bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800">
                     {ann.category}
                   </span>
-                  <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
                     <span className="material-symbols-outlined text-[13px]">schedule</span>
                     {ann.time}
                   </span>
                 </div>
 
-                <h4 className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-brand-orange transition-colors line-clamp-1">
+                <h4 className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-1">
                   {ann.title}
                 </h4>
                 
@@ -1027,4 +1017,4 @@ export default function Home() {
     </div>
   );
 }
-
+

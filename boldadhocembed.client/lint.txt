@@ -1,0 +1,164 @@
+﻿
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\App.jsx
+  204:65  error  'handleDarkMode' is defined but never used  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\components\Header.jsx
+   13:39  error  'useCallback' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+   43:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  41 |   useEffect(() => {
+  42 |     const currentUser = authService.getUser();
+> 43 |     setUser(currentUser?.user || currentUser);
+     |     ^^^^^^^ Avoid calling setState() directly within an effect
+  44 |
+  45 |     // Viewer settings are now loaded via DataContext's getViewerSettings()
+  46 |     // (single shared fetch across Header + Designer + any future consumer)  react-hooks/set-state-in-effect
+   73:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  71 |   // Clear search results and close menus when navigating
+  72 |   useEffect(() => {
+> 73 |     setSearchValue('');
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  74 |     setResults([]);
+  75 |     setShowResourcesMenu(false);
+  76 |   }, [location.pathname]);                                                                               react-hooks/set-state-in-effect
+  110:16  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+  172:9   error  'tenantName' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\components\Layout.jsx
+  5:7   error  'sidebarWidth' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+  8:40  error  Error: Cannot reassign variable after render completes
+
+Reassigning `sidebarWidth` after render has completed can cause inconsistent behavior on subsequent renders. Consider using state instead.
+
+   6 |   return (
+   7 |     <div className="h-screen flex bg-gray-50 dark:bg-gray-950 overflow-hidden">
+>  8 |       <Sidebar onWidthChange={(w) => { sidebarWidth = w; document.documentElement.style.setProperty('--sidebar-width', `${w}px`); }} />
+     |                                        ^^^^^^^^^^^^ Cannot reassign `sidebarWidth` after render completes
+   9 |       <div className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 bg-inherit" style={{ marginLeft: 'var(--sidebar-width, 56px)' }}>
+  10 |         <Header darkMode={darkMode} onToggleDarkMode={onToggleDarkMode} />
+  11 |         <main className="flex-1 min-h-0 bg-inherit overflow-y-auto relative flex flex-col custom-scrollbar">  react-hooks/immutability
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\context\DataContext.jsx
+  174:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Contacts.jsx
+  82:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  80 |
+  81 |   useEffect(() => {
+> 82 |     setRegionFilter(userRole === 'Admin' ? 'ALL' : userRegion);
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  83 |   }, [userRole, userRegion]);
+  84 |
+  85 |   const filteredContacts = contacts.filter(c => {  react-hooks/set-state-in-effect
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\DashboardDesigner.jsx
+  10:10  error  'config' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+  11:10  error  'dashboardInstance' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Dashboards.jsx
+    5:10  error  'authService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+    7:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+   89:9   error  'navigate' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  156:18  error  'e' is defined but never used                                                             no-unused-vars
+  156:21  error  Empty block statement                                                                     no-empty
+  691:52  error  'handleEditDashboard' is not defined                                                      no-undef
+  698:52  error  'handleDeleteDashboard' is not defined                                                    no-undef
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Deals.jsx
+  94:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  92 |
+  93 |   useEffect(() => {
+> 94 |     setRegionFilter(userRole === 'Admin' ? 'ALL' : userRegion);
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  95 |   }, [userRole, userRegion]);
+  96 |
+  97 |   const filteredDeals = deals.filter(d => {  react-hooks/set-state-in-effect
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Home.jsx
+   64:52  error  'userName' is defined but never used                                                                   no-unused-vars
+  440:30  error  'setActiveRoleOverride' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Operations.jsx
+  63:10  error  'searchTerm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  63:22  error  'setSearchTerm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Reports.jsx
+   21:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  385:14  error  'e' is defined but never used                                                  no-unused-vars
+  517:18  error  'e' is defined but never used                                                  no-unused-vars
+  517:21  error  Empty block statement                                                          no-empty
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\SSOCallback.jsx
+  83:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  81 |
+  82 |         window.dispatchEvent(new Event('auth-changed'));
+> 83 |         setStatus('SSO Login successful! Redirecting...');
+     |         ^^^^^^^^^ Avoid calling setState() directly within an effect
+  84 |         setTimeout(() => {
+  85 |           navigate('/', { replace: true });
+  86 |         }, 500);  react-hooks/set-state-in-effect
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Schedules.jsx
+   21:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  160:19  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  158 |     if (formData.reportId) {
+  159 |       const report = reportsByCategory[formData.category]?.find(r => r.Id === formData.reportId);
+> 160 |       if (report) setFormData(prev => ({ ...prev, reportName: report.Name }));
+      |                   ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  161 |     }
+  162 |   }, [formData.reportId, formData.category, reportsByCategory]);
+  163 |  react-hooks/set-state-in-effect
+  405:24  error  'setSidebarWidth' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\pages\Tickets.jsx
+  39:10  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\services\apiService.js
+  83:16  error  'apiCached' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\GitHub\BDSAdhoc\boldadhocembed.client\src\services\authService.js
+  71:18  error  'err' is defined but never used  no-unused-vars
+
+Γ£û 35 problems (35 errors, 0 warnings)
+

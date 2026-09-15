@@ -78,9 +78,12 @@ export default function Contacts() {
     return () => { isMounted = false; };
   }, [tenantName, userRegion, userRole]);
 
-  useEffect(() => {
-    setRegionFilter(userRole === 'Admin' ? 'ALL' : userRegion);
-  }, [userRole, userRegion]);
+  const regionInit = userRole === 'Admin' ? 'ALL' : userRegion;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const [regionFilter, setRegionFilter] = useState(regionInit);
+  if (regionFilter !== regionInit && (regionFilter === 'ALL' || regionFilter === userRegion)) {
+    setRegionFilter(regionInit);
+  }
 
   const filteredContacts = contacts.filter(c => {
     const name = `${c.firstName || ''} ${c.lastName || ''} ${c.company || ''} ${c.email || ''}`.toLowerCase();

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Authentication Service for Bold Reports
  * Handles login, logout, and token management
  */
@@ -68,7 +68,7 @@ export const authService = {
       if (raw && raw.length > 0) {
         try {
           data = JSON.parse(raw);
-        } catch (err) {
+        } catch {
           console.warn('[Auth] Response is not valid JSON:', raw.slice(0, 100));
         }
       }
@@ -87,7 +87,7 @@ export const authService = {
         // Normalize token: remove any leading "Bearer " or "bearer " prefixes
         token = token.replace(/^Bearer\s+/i, '').trim();
         localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(loginData));
+        localStorage.setItem(USER_KEY, JSON.stringify(loginData.user || loginData));
         console.log('[Auth] Login successful, token stored');
         return loginData;
       } else {
@@ -98,6 +98,162 @@ export const authService = {
       console.error('[Auth] Login error:', error.message);
       throw error;
     }
+  },
+
+  /**
+   * Login using a JWT token. Backend exposes POST /auth/login with a JwtToken
+   * field; we wrap it here so React callers can pretend SSO returns a JWT.
+   * @param {string} jwtToken - Encoded JWT bearer token
+   * @returns {Promise<object>} Login response with token and user info
+   */
+  loginWithToken: async (jwtToken) => {
+    try {
+      if (!jwtToken || typeof jwtToken !== 'string' || !jwtToken.trim()) {
+        throw new Error('A non-empty JWT token is required');
+      }
+
+      const response = await fetch(buildApiUrl('/auth/login'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: '',
+          password: '',
+          jwtToken: jwtToken.trim(),
+        }),
+      });
+
+      const raw = await response.text();
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          console.warn('[Auth] JWT login response is not valid JSON:', raw.slice(0, 100));
+        }
+      }
+
+      if (!response.ok || !(data && data.success)) {
+        throw new Error(data?.message || data?.error || raw || 'JWT login failed');
+      }
+
+      const loginData = unwrapResponse(data);
+      let token = loginData?.token || loginData?.sessionToken || jwtToken.trim();
+      token = token.replace(/^Bearer\s+/i, '').trim();
+
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(loginData.user || loginData));
+      return loginData;
+    } catch (error) {
+      console.error('[Auth] JWT login error:', error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Build the Keycloak authorize URL and redirect the browser there.
+   * Mirrors BoldAdhocEmbed.Server.Controllers.HomeController.SSOLogin so the
+   * SPA flow works even when the ASP.NET endpoint is unreachable (e.g. Vite
+   * dev server without a proxy).
+   *
+   * The callback path defaults to the SPA-native `/sso-callback` route
+   * declared in App.jsx, which avoids needing `/Home/SSOCallback` to be
+   * registered in the Keycloak client's allowed redirect URIs. Callers can
+   * still pass `pathPrefix: '/Home'` to mimic the server-side flow.
+   *
+   * @param {object} [options]
+   * @param {string} [options.keycloakBase] - Override the Keycloak base URL
+   * @param {string} [options.realm] - Realm (default 'master')
+   * @param {string} [options.clientId] - Client (default 'DemoRealm')
+   * @param {string} [options.pathPrefix] - Server-side route prefix to mimic
+   *   (default ''). With the default, the redirect_uri is /sso-callback.
+   * @returns {string} The full authorize URL
+   */
+  buildSsoUrl: (options = {}) => {
+    const {
+      keycloakBase = 'https://keycloak.boldbidemo.com',
+      realm = 'master',
+      clientId = 'DemoRealm',
+      pathPrefix = '',
+      callbackPath,
+    } = options;
+
+    // `/sso-callback` is registered in App.jsx and works in both
+    // dev (Vite SPA) and prod (served by the .NET host). `/Home/SSOCallback`
+    // mirrors the original server-side flow for callers that have it on
+    // their Keycloak client's allowed redirect list.
+    let finalCallback;
+    if (callbackPath) {
+      finalCallback = callbackPath;
+    } else if (pathPrefix) {
+      finalCallback = `${pathPrefix}/SSOCallback`;
+    } else {
+      finalCallback = '/sso-callback';
+    }
+
+    const redirectUri =
+      `${window.location.protocol}//${window.location.host}${finalCallback}`;
+    const url =
+      `${keycloakBase}/realms/${realm}/protocol/openid-connect/auth` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&response_type=token` +
+      `&scope=openid` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    return url;
+  },
+
+  /**
+   * Try the server-side /Home/SSOLogin route first (production), then fall
+   * back to a client-side Keycloak redirect if the SPA can't reach it.
+   *
+   * In Vite dev mode, `/Home/SSOLogin` falls back to index.html (a 200 HTML
+   * response). Following that URL inside an SPA would just re-render the
+   * login page and create a redirect loop, so we explicitly detect HTML
+   * responses and skip to the Keycloak-authorize endpoint instead.
+   * @returns {void}
+   */
+  startSsoLogin: () => {
+    const url = authService.buildSsoUrl();
+
+    const goToKeycloak = () => {
+      console.log('[Auth] Redirecting to Keycloak authorize URL:', url);
+      window.location.href = url;
+    };
+
+    fetch('/Home/SSOLogin', { redirect: 'manual', credentials: 'include' })
+      .then((res) => {
+        if (!res) return goToKeycloak();
+
+        // `opaqueredirect` is what browsers report when redirect:'manual'
+        // was applied to a real 3xx Location: header â€” that's the happy
+        // path. We can't read the Location, but the browser followed it
+        // already for cookies; re-navigating to the URL would still
+        // work, so just go straight to Keycloak to be safe.
+        if (res.type === 'opaqueredirect') return goToKeycloak();
+
+        // Status 0 + no URL = CORS / opaque response â€” server is
+        // unreachable, fall back to client-side.
+        if (res.status === 0 && !res.url) return goToKeycloak();
+
+        // Anything that returned HTML (SPA fallback), redirected to a
+        // non-SSO page, or 4xx/5xx â€” skip the server hop.
+        const contentType = res.headers?.get?.('content-type') || '';
+        const isHtml = contentType.includes('text/html');
+        const looksLikeSso = /keycloak|sso|oauth|login/i.test(res.url || '');
+
+        if (res.ok && !isHtml && looksLikeSso) {
+          // Server sent a non-HTML redirect-like response we can trust.
+          window.location.href = res.url;
+          return null;
+        }
+
+        return goToKeycloak();
+      })
+      .catch((err) => {
+        console.warn('[Auth] /Home/SSOLogin probe failed, going to Keycloak directly:', err);
+        goToKeycloak();
+      });
   },
 
   /**
@@ -246,3 +402,4 @@ export const authService = {
 };
 
 export default authService;
+

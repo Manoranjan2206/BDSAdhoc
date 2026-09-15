@@ -5,92 +5,35 @@
  */
 
 import { authService } from './authService';
+import {
+  API_BASE_URL,
+  buildApiUrl as _buildApiUrl,
+  unwrapResponse,
+  logDev,
+  logDevWarn,
+} from '../utils/http';
 
-// Resolve API base: prefer VITE_API_BASE_URL when set. During local frontend dev
-// (Vite) the client often runs on ports like 5173/5274 while the backend runs
-// on a different port (configured in the server SpaProxyServerUrl). If the
-// env var is not set, detect common dev ports and point requests to the
-// backend host so calls don't hit the Vite dev server and return 404/405.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-
-function buildApiUrl(path) {
-  const base = (API_BASE_URL || '').replace(/\/+$/, '');
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-  if (!base || base === '/') {
-    return `/api${normalizedPath}`;
-  }
-
-  if (base.endsWith('/api')) {
-    return `${base}${normalizedPath}`;
-  }
-
-  if (/^https?:\/\//i.test(base)) {
-    return `${base}/api${normalizedPath}`;
-  }
-
-  return `${base}${normalizedPath}`;
-}
-
-// Simple in-memory cache to avoid duplicate API calls within a short window
-const CACHE_TTL_MS = 60000; // 60 seconds
-const cacheStore = new Map(); // key -> { data, ts }
-
-// Normalize ApiResponse wrappers coming from server { success, message, data }
-function unwrapResponse(payload) {
-  if (!payload || typeof payload !== 'object') return payload;
-  if (Object.prototype.hasOwnProperty.call(payload, 'data')) {
-    return payload.data;
-  }
-  return payload;
-}
-
-function getCacheKey(endpoint, options) {
-  const method = (options?.method || 'GET').toUpperCase();
-  return `${method}:${endpoint}`;
-}
+const buildApiUrl = _buildApiUrl;
 
 /**
- * Add authentication header to request options
+ * Add authentication header to request options. The legacy X-User-*\/\/X-Tenant-Name
+ * helper attributes were dropped as part of the server-side auth hardening:
+ * the API now resolves identity exclusively from the Bearer JWT, and silently
+ * ignoring client headers means any caller reporting email/role/region via
+ * those headers had ZERO effect on either auth or RLS scoping.
+ *
+ * Cross-cutting request memoization lives in components/context (DataProvider)
+ * rather than a module-level TTL cache: the previous layer grew unbounded,
+ * invalidated nothing, and produced stale lists after mutations like report
+ * delete. DataProvider.{getReports,getDashboards,...} is now the only cache.
  * @param {object} options - Current options
  * @returns {object} Options with Authorization header added
  */
 function addAuthHeader(options = {}) {
   const token = authService.getToken();
-  const user = authService.getUser() || {};
-  const userObj = user.user || user;
-
-  const headers = {
-    ...options.headers,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  if (userObj.email) headers['X-User-Email'] = userObj.email;
-  if (userObj.tenantName) headers['X-Tenant-Name'] = userObj.tenantName;
-  if (userObj.role) headers['X-User-Role'] = userObj.role;
-  if (userObj.region) headers['X-User-Region'] = userObj.region;
-
-  return {
-    ...options,
-    headers,
-  };
-}
-
-
-async function apiCached(endpoint, options = {}, ttl = CACHE_TTL_MS) {
-  const key = getCacheKey(endpoint, options);
-  const cached = cacheStore.get(key);
-  const now = Date.now();
-  if (cached && now - cached.ts < ttl) {
-    return cached.data;
-  }
-  const data = await apiRequest(endpoint, options);
-  const unwrapped = unwrapResponse(data);
-  cacheStore.set(key, { data: unwrapped, ts: now });
-  return unwrapped;
+  const headers = { ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return { ...options, headers };
 }
 
 /**
@@ -114,69 +57,32 @@ async function apiRequest(endpoint, options = {}) {
   const authOptions = addAuthHeader(defaultOptions);
 
   try {
-    // Debugging: log base and final URL so missing /api issues are visible in DevTools
-    console.log(`[API] base=${API_BASE_URL} method=${authOptions.method} url=${url}`);
-    
+    // Debug-only logging so production bundles stay quiet.
+    logDev(`[API] method=${authOptions.method} url=${url}`);
+
     const response = await fetch(url, authOptions);
-    
-    // Handle 401 Unauthorized - token may have expired
+
+    // 401 - token may have expired; force logout.
     if (response.status === 401) {
-      console.error('[API] Unauthorized - Token may have expired');
-      // Clear authentication
       await authService.logout();
       throw new Error('Unauthorized - Please login again');
     }
 
-    // Handle response
     if (!response.ok) {
-      // If we hit a 404 on the dev server (no proxy), retry against common backend origins
-      if (response.status === 404 && url.startsWith('/api')) {
-        const candidates = [
-          'https://localhost:64940',
-          'https://localhost:64941',
-          'https://localhost:7029',
-          'https://localhost:44300',
-          'http://localhost:62807'
-        ];
-
-        for (const origin of candidates) {
-          try {
-            const tryUrl = `${origin}${url}`.replace(/([^:])\/\/+/, '$1/');
-            console.log(`[API] retrying ${tryUrl}`);
-            const retryResp = await fetch(tryUrl, authOptions);
-            if (retryResp.ok) {
-              const contentType = retryResp.headers.get('content-type');
-              if (!contentType || !contentType.includes('application/json')) return null;
-              const data = await retryResp.json();
-              console.log(`[API] Retry success from ${tryUrl}`);
-              return data;
-            }
-            // otherwise keep trying
-            const txt = await retryResp.text();
-            console.warn(`[API] Retry ${tryUrl} failed with ${retryResp.status}: ${txt}`);
-          } catch (ex) {
-            console.warn('[API] Retry exception for', origin, ex.message);
-          }
-        }
-      }
-
       const errorText = await response.text();
-      console.error(`[API Error] ${response.status}: ${errorText}`);
+      logDevWarn(`[API Error] ${response.status}: ${errorText}`);
       throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
-    // Check if response has content
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
-      console.warn('[API] Response is not JSON');
+      logDevWarn('[API] Response is not JSON');
       return null;
     }
 
-    const data = await response.json();
-    console.log(`[API] Success:`, data);
-    return data;
+    return await response.json();
   } catch (error) {
-    console.error(`[API] Request failed:`, error.message);
+    console.error('[API] Request failed:', error.message);
     throw error;
   }
 }
@@ -193,6 +99,13 @@ export const reportsAPI = {
    * @returns {Promise<object>} Viewer settings with token and URLs
    */
   getViewerSettings: async () => unwrapResponse(await apiRequest('/reports/viewer-settings')),
+
+  /**
+   * Get Bold Reports embed token with CustomAttributes
+   * Includes database name, organization, and tenant information for RLS
+   * @returns {Promise<object>} Embed token with serviceUrl and serverUrl
+   */
+  getEmbedToken: async () => unwrapResponse(await apiRequest('/reports/embed-token')),
 
   /**
    * Get report tree grouped by categories

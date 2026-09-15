@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
+using BoldAdhocEmbed.Server.Models;
 
 namespace BoldAdhocEmbed.Server.Services
 {
@@ -13,6 +14,7 @@ namespace BoldAdhocEmbed.Server.Services
     {
         Task<string> GetTokenAsync(string username, string password);
         Task<string> GetTokenFromSecretAsync(string email);
+        Task<string> GetEmbedTokenAsync(AppUser user);
         Task<List<BoldUser>> GetUsersAsync(string token);
         Task<List<BoldUser>> GetUsersV5Async(string token);
         Task<BoldUser> GetUserAsync(string token, string email);
@@ -23,6 +25,13 @@ namespace BoldAdhocEmbed.Server.Services
         Task<BoldGroup> GetGroupAsync(string token, string groupId);
         Task<bool> CreateGroupAsync(string token, CreateBoldGroupRequest request);
         Task<List<BoldReport>> GetReportsAsync(string token);
+        /// <summary>
+        /// Returns the upstream HTTP status code alongside the list, or null when
+        /// the call didn't reach the network (deserialization / exception). Lets
+        /// callers distinguish "user has no reports" from "Bold Reports service is
+        /// broken" instead of silently returning 200 with data: [].
+        /// </summary>
+        Task<(List<BoldReport> Reports, int? SourceStatusCode, string? SourceErrorBody)> GetReportsWithStatusAsync(string token);
         Task<bool> DeleteReportAsync(string token, string reportName, string categoryName = null);
         Task<List<BoldSchedule>> GetSchedulesAsync(string token);
         Task<BoldScheduleDetail> GetScheduleDetailAsync(string token, string scheduleIdOrName);
@@ -82,7 +91,11 @@ namespace BoldAdhocEmbed.Server.Services
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     var tokenResponse = JsonConvert.DeserializeObject<TokenResponse>(responseContent);
-                    return $"{tokenResponse.token_type} {tokenResponse.access_token}";
+                    // Return the raw access_token only — the boldReportViewer / Reports
+                    // widget prepends "Bearer " itself. Prepending here previously
+                    // produced "Bearer Bearer eyJ…" sent on the Authorization
+                    // header and caused 401s.
+                    return tokenResponse?.access_token;
                 }
                 _logger.LogWarning("Token generation failed with status {StatusCode}", response.StatusCode);
                 return null;
@@ -95,7 +108,18 @@ namespace BoldAdhocEmbed.Server.Services
         }
 
         /// <summary>
-        /// Get token using embed secret key (when password is empty)
+        /// Get token using embed secret key (the cloud flow documented in
+        /// Bold Reports — no HMAC signing required, the secret travels in the
+        /// body so it must reach the site only over HTTPS).
+        ///
+        /// Body schema (matches the bold bi/reports REST API):
+        ///   {
+        ///     "grant_type":     "embed_token",
+        ///     "ReportServerUser": "<email>",
+        ///     "Embed_Secret":   "<secret>",
+        ///     "ReportParameters": [ ... ],   // optional
+        ///     "CustomAttributes":   [ ... ]  // optional
+        ///   }
         /// </summary>
         public async Task<string> GetTokenFromSecretAsync(string email)
         {
@@ -108,25 +132,25 @@ namespace BoldAdhocEmbed.Server.Services
                     return await GetTokenAsync(email, _settings.AdminPassword);
                 }
 
-                string secretCode = _settings.EmbedSecret;
-                string nonce = Guid.NewGuid().ToString();
-                string timeStamp = DateTimeToUnixTimeStamp(DateTime.UtcNow).ToString();
-                string tokenUrl = $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/token";
+                var tokenUrl = $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/token";
 
-                // Create the embed message
-                string embedMessage = $"embed_nonce={nonce}&user_email={email}&timestamp={timeStamp}";
-                string signature = SignUrl(embedMessage.ToLower(), secretCode);
+                _logger.LogInformation(
+                    "Attempting token generation for {Email} using embed_token grant. URL: {TokenUrl}",
+                    email, tokenUrl);
 
-                var content = new FormUrlEncodedContent(new[]
+                // Use the canonical Cloud JSON payload. The secret travels in the
+                // body — the site returns 401 if it doesn't match.
+                var payload = new
                 {
-                    new KeyValuePair<string, string>("grant_type", "embed_secret"),
-                    new KeyValuePair<string, string>("username", email),
-                    new KeyValuePair<string, string>("embed_nonce", nonce),
-                    new KeyValuePair<string, string>("embed_signature", signature),
-                    new KeyValuePair<string, string>("timestamp", timeStamp)
-                });
+                    grant_type = "embed_token",
+                    ReportServerUser = email,
+                    Embed_Secret = _settings.EmbedSecret
+                };
+                var json = JsonConvert.SerializeObject(payload);
+                using var jsonContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync(tokenUrl, content);
+                var response = await _httpClient.PostAsync(tokenUrl, jsonContent);
+                _logger.LogInformation("Token response status: {StatusCode}", response.StatusCode);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
@@ -134,20 +158,107 @@ namespace BoldAdhocEmbed.Server.Services
                     var tokenResponse = JsonConvert.DeserializeObject<TokenResponse>(responseContent);
                     if (tokenResponse != null)
                     {
-                        return $"{tokenResponse.token_type} {tokenResponse.access_token}";
+                        // Return raw access_token — the client widget adds Bearer itself.
+                        return tokenResponse.access_token;
                     }
                 }
-                else
-                {
-                    var errorResponse = JsonConvert.DeserializeObject<TokenErrorResponse>(responseContent);
-                    _logger.LogWarning("Token generation failed: {ErrorDescription}", errorResponse?.error_description);
-                }
 
+                _logger.LogError(
+                    "Token generation failed with status {StatusCode}. Response: {ResponseContent}",
+                    response.StatusCode, responseContent);
                 return null;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Token generation from secret failed");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get embed token from Bold Reports API with CustomAttributes
+        /// </summary>
+        public async Task<string> GetEmbedTokenAsync(AppUser user)
+        {
+            try
+            {
+                var tokenUrl = $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/token";
+
+                // Map tenant to database name
+                var databaseName = user?.TenantName switch
+                {
+                    "alpha" => "crm_alphacorp",
+                    "AlphaCorp" => "crm_alphacorp",
+                    "beta" => "crm_betasolutions",
+                    "BetaSolutions" => "crm_betasolutions",
+                    "delta" => "crm_deltaenterprises",
+                    "DeltaEnterprises" => "crm_deltaenterprises",
+                    "gamma" => "crm_gammaindustries",
+                    "GammaIndustries" => "crm_gammaindustries",
+                    _ => "crm_default"
+                };
+
+// Per the Bold Reports product contract the Viewer and
+                // Designer widgets MUST receive an embed_token (the
+                // embed_token JSON grant), NOT a password-grant access
+                // token, so that:
+                //   * the widget can render reports without exposing the
+                //     user's site password to the browser, and
+                //   * CustomAttributes travel with the JWT so the Reports
+                //     site can scope data via RLS for this specific user.
+                var username = !string.IsNullOrEmpty(user?.Email) ? user.Email : _settings.AdminUser;
+
+                if (string.IsNullOrEmpty(_settings.EmbedSecret))
+                {
+                    _logger.LogError(
+                        "BoldReports:EmbedSecret is empty. Set BOLD_REPORTS_SECRET or run 'dotnet user-secrets set BoldReports:EmbedSecret <value>'.");
+                    return null;
+                }
+
+                _logger.LogInformation(
+                    "Issuing embed_token via embed_token grant for {Email} (site {Site})",
+                    username, _settings.ReportsSiteIdentifier);
+
+                var payload = new
+                {
+                    grant_type = "embed_token",
+                    ReportServerUser = username,
+                    Embed_Secret = _settings.EmbedSecret,
+                    CustomAttributes = new[]
+                    {
+                        new { Key = "databaseName", Value = databaseName },
+                        new { Key = "tenantId", Value = user?.TenantId.ToString() ?? "0" },
+                        new { Key = "tenantName", Value = user?.TenantName ?? "default" },
+                        new { Key = "userRole", Value = user?.Role ?? "User" },
+                        new { Key = "region", Value = user?.Region ?? "default" }
+                    }
+                };
+
+                var jsonPayload = JsonConvert.SerializeObject(payload);
+                using var jsonContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(tokenUrl, jsonContent);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "Embed_token grant returned {StatusCode}: {Body}",
+                        response.StatusCode,
+                        string.IsNullOrEmpty(responseContent) ? "(empty response)" : responseContent);
+                    return null;
+                }
+
+                var tokenResponse = JsonConvert.DeserializeObject<EmbedTokenResponse>(responseContent);
+                _logger.LogInformation(
+                    "Embed token issued for {Email} (token length={Len})",
+                    username,
+                    tokenResponse?.access_token?.Length ?? 0);
+                return tokenResponse?.access_token;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate embed token for user: {Email}", user?.Email);
                 return null;
             }
         }
@@ -406,23 +517,41 @@ namespace BoldAdhocEmbed.Server.Services
 
         public async Task<List<BoldReport>> GetReportsAsync(string token)
         {
+            var (reports, _, _) = await GetReportsWithStatusAsync(token);
+            return reports;
+        }
+
+        public async Task<(List<BoldReport> Reports, int? SourceStatusCode, string? SourceErrorBody)> GetReportsWithStatusAsync(string token)
+        {
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, GetApiUrl("/items?itemtype=Report"));
+                using var request = new HttpRequestMessage(HttpMethod.Get, GetApiUrl("/items?itemType=Report"));
                 request.Headers.Add("Authorization", NormalizeAuthHeader(token));
 
                 var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    return JsonConvert.DeserializeObject<List<BoldReport>>(content) ?? new List<BoldReport>();
+                    _logger.LogInformation("Reports retrieved successfully: {ResponseLength} bytes", content.Length);
+                    var parsed = JsonConvert.DeserializeObject<List<BoldReport>>(content) ?? new List<BoldReport>();
+                    return (parsed, (int)response.StatusCode, null);
                 }
-                return new List<BoldReport>();
+
+                // Surface upstream failure details in the log so an empty list
+                // is never silently interpreted as "no reports" by callers.
+                _logger.LogWarning(
+                    "Get reports failed. URL={Url} Status={Status} TokenPresent={HasToken} Body={Body}",
+                    GetApiUrl("/items?itemType=Report"),
+                    (int)response.StatusCode,
+                    !string.IsNullOrEmpty(token),
+                    string.IsNullOrEmpty(content) ? "(empty body)" : content
+                );
+                return (new List<BoldReport>(), (int)response.StatusCode, content);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Get reports failed");
-                return new List<BoldReport>();
+                return (new List<BoldReport>(), null, ex.Message);
             }
         }
 
@@ -683,6 +812,18 @@ namespace BoldAdhocEmbed.Server.Services
     {
         public string error { get; set; }
         public string error_description { get; set; }
+    }
+
+    public class EmbedTokenResponse
+    {
+        [JsonProperty("access_token")]
+        public string access_token { get; set; }
+
+        [JsonProperty("token_type")]
+        public string token_type { get; set; }
+
+        [JsonProperty("expires_in")]
+        public int expires_in { get; set; }
     }
 
     // v5.0 users wrapper and model

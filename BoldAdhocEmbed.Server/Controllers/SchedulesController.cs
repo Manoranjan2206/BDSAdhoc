@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BoldAdhocEmbed.Server.Services;
 using Newtonsoft.Json;
@@ -6,6 +7,7 @@ using BoldAdhocEmbed.Server.Models;
 namespace BoldAdhocEmbed.Server.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class SchedulesController : BaseController
     {
@@ -13,18 +15,21 @@ namespace BoldAdhocEmbed.Server.Controllers
         private readonly IBoldBIDashboardService _boldBIDashboardService;
         private readonly ILogger<SchedulesController> _logger;
         private readonly ICacheService _cacheService;
+        private readonly IAuthenticatedUser _auth;
 
         public SchedulesController(
             IBoldReportsService boldReportsService,
             IBoldBIDashboardService boldBIDashboardService,
             ILogger<SchedulesController> logger,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IAuthenticatedUser auth)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
             _boldBIDashboardService = boldBIDashboardService ?? throw new ArgumentNullException(nameof(boldBIDashboardService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+            _auth = auth ?? throw new ArgumentNullException(nameof(auth));
         }
 
         [HttpGet]
@@ -43,8 +48,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 // Check cache first
-                var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
                 var cacheKey = $"schedules-list-{userEmail}";
                 var cachedSchedules = await _cacheService.GetAsync<dynamic>(cacheKey);
                 if (cachedSchedules != null)
@@ -254,7 +258,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
 
                 // Log the incoming payload as JSON so we can inspect fields
                 try
@@ -351,7 +355,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
 
                 // Log payload for debugging similar to Create
                 try
@@ -437,7 +441,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
 
                 var ok = false;
                 var token = await GetBoldReportsTokenAsync(_boldReportsService);
@@ -533,3 +537,4 @@ namespace BoldAdhocEmbed.Server.Controllers
         public string Status { get; set; }
     }
 }
+

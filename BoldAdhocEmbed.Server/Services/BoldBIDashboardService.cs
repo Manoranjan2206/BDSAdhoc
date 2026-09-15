@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using BoldAdhocEmbed.Server.Models;
 
 namespace BoldAdhocEmbed.Server.Services
 {
@@ -15,8 +16,17 @@ namespace BoldAdhocEmbed.Server.Services
         Task<string> GetTokenAsync(string email);
         Task<List<BoldDashboard>> GetDashboardsAsync(string token);
         Task<BoldDashboard> GetDashboardAsync(string token, string dashboardId);
-        Task<BoldBIEmbedConfig> GetEmbedConfigAsync(string dashboardId);
-        Task<string> GetAuthorizationTokenAsync(string embedQueryString, string userEmail, string? serverApiUrlOverride = null);
+        Task<BoldBIEmbedConfig> GetEmbedConfigAsync(string dashboardId, AppUser? user = null, IEnumerable<string>? adminRegions = null, string? userEmailOverride = null, string? serverApiUrlOverride = null);
+        Task<string> GetAuthorizationTokenAsync(string embedQueryString, string userEmail, string? serverApiUrlOverride = null, AppUser? user = null, IEnumerable<string>? adminRegions = null);
+        /// <summary>
+        /// Server-mint a single Bold BI embed_token for a specific dashboard.
+        /// Signs <c>embed_dashboard_id + embed_user_email + embed_custom_attribute
+        /// + embed_server_timestamp</c> ourselves and calls the BI site's
+        /// <c>/embed/authorize</c> endpoint directly so the browser SDK can
+        /// consume the token via <c>BoldBI.create({ embedToken })</c> with no
+        /// additional handshake round-trip.
+        /// </summary>
+        Task<string> GetServerEmbedTokenAsync(string dashboardId, AppUser? user, IEnumerable<string>? adminRegions, string? userEmailOverride = null, string? serverApiUrlOverride = null);
         Task<string> GetUserIdByEmailAsync(string token, string email);
         Task<List<dynamic>> GetSchedulesAsync(string token);
         Task<(bool success, int statusCode, string responseBody)> CreateScheduleAsync(string token, object schedulePayload);
@@ -35,6 +45,86 @@ namespace BoldAdhocEmbed.Server.Services
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        /// <summary>
+        /// Map a tenant name (or email fragment) to the CRM database name.
+        /// Mirrors the switch used in BoldReportsService.GetEmbedTokenAsync so
+        /// Reports and BI dashboards filter against the same per-tenant DB.
+        /// </summary>
+        private static string ResolveDatabaseName(AppUser? user)
+        {
+            var tenant = (user?.TenantName ?? string.Empty).Trim();
+            var email = (user?.Email ?? string.Empty).Trim();
+            var key = (tenant + " " + email).ToLowerInvariant();
+
+            if (key.Contains("alpha")) return "crm_alphacorp";
+            if (key.Contains("beta")) return "crm_betasolutions";
+            if (key.Contains("gamma")) return "crm_gammaindustries";
+            if (key.Contains("delta")) return "crm_deltaenterprises";
+
+            return tenant switch
+            {
+                "AlphaCorp" => "crm_alphacorp",
+                "BetaSolutions" => "crm_betasolutions",
+                "GammaIndustries" => "crm_gammaindustries",
+                "DeltaEnterprises" => "crm_deltaenterprises",
+                _ => "crm_default"
+            };
+        }
+
+        /// <summary>
+        /// Build the <c>embed_custom_attribute</c> JSON payload for a Bold BI
+        /// authorize call. Always includes <c>databaseName</c> and <c>Region</c>;
+        /// when the caller is an Admin, <c>Region</c> is sent as a multi-value
+        /// <c>IN(...)</c> clause over the supplied region list so Admin dashboards
+        /// render rows for every region without per-user parameter wiring.
+        /// </summary>
+        private static string BuildCustomAttributesJson(AppUser? user, IEnumerable<string>? adminRegions)
+        {
+            var databaseName = ResolveDatabaseName(user);
+            var isAdmin = string.Equals(user?.Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+            string regionValue;
+            if (isAdmin && adminRegions != null)
+            {
+                var distinctRegions = adminRegions
+                    .Where(r => !string.IsNullOrWhiteSpace(r))
+                    .Select(r => r.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (distinctRegions.Count == 1)
+                {
+                    regionValue = distinctRegions[0];
+                }
+                else if (distinctRegions.Count > 1)
+                {
+                    var quoted = string.Join(",", distinctRegions.Select(r => $"'{r.Replace("'", "''")}'"));
+                    regionValue = $"IN({quoted})";
+                }
+                else
+                {
+                    regionValue = user?.Region ?? "default";
+                }
+            }
+            else
+            {
+                regionValue = user?.Region ?? "default";
+            }
+
+            // Each entry is one parameter set; Bold BI expects the same JSON shape
+            // as a query-string value: a single-element array of {name:value} maps.
+            var attributes = new[]
+            {
+                new Dictionary<string, string>
+                {
+                    ["databaseName"] = databaseName,
+                    ["Region"]       = regionValue
+                }
+            };
+
+            return JsonConvert.SerializeObject(attributes);
         }
 
         private string GetApiUrl(string endpoint) =>
@@ -85,7 +175,11 @@ namespace BoldAdhocEmbed.Server.Services
                             }
                         }
 
-                        _logger.LogWarning("Token generation attempt to {Url} failed with status {StatusCode}: {Response}", tokenUrl, response.StatusCode, responseContent);
+                        // Never log the response body — it contains the
+                        // access_token and embed_secret responses for the BI
+                        // site, and previous code echoed them straight into
+                        // application logs.
+                        _logger.LogWarning("Token generation attempt to {Url} failed with status {StatusCode}; body redacted", tokenUrl, response.StatusCode);
                     }
                     catch (Exception ex)
                     {
@@ -137,7 +231,7 @@ namespace BoldAdhocEmbed.Server.Services
                             return dashboards;
                         }
 
-                        _logger.LogWarning("Dashboard retrieval from {Url} failed with status {StatusCode}: {Response}", dashboardsUrl, response.StatusCode, content);
+                        _logger.LogWarning("Dashboard retrieval from {Url} failed with status {StatusCode}; body redacted", dashboardsUrl, response.StatusCode);
                     }
                     catch (Exception ex)
                     {
@@ -225,24 +319,64 @@ namespace BoldAdhocEmbed.Server.Services
         }
 
         /// <summary>
-        /// Get embed configuration for dashboard
+        /// Get embed configuration for dashboard. Returns the static config the
+        /// browser SDK needs to <c>BoldBI.create(...)</c>; the actual
+        /// <c>embedToken</c> is fetched by the SDK via the
+        /// <c>authorizationServer</c> handshake so per-tenant custom attributes
+        /// (databaseName + Region) can be appended safely on the server side.
+        ///
+        /// For environments where BI rejects the handshake (e.g. site
+        /// misconfiguration, signature mismatch, user not provisioned on the
+        /// BI site), this method also attempts <see cref="GetServerEmbedTokenAsync"/>
+        /// as a fallback and returns the minted token via <c>EmbedToken</c> so
+        /// the SDK can embed via <c>BoldBI.create({ embedToken })</c> directly.
         /// </summary>
-        public async Task<BoldBIEmbedConfig> GetEmbedConfigAsync(string dashboardId)
+        public async Task<BoldBIEmbedConfig> GetEmbedConfigAsync(
+            string dashboardId,
+            AppUser? user = null,
+            IEnumerable<string>? adminRegions = null,
+            string? userEmailOverride = null,
+            string? serverApiUrlOverride = null)
         {
             try
             {
+                var resolvedEmail = !string.IsNullOrWhiteSpace(userEmailOverride)
+                    ? userEmailOverride!
+                    : (!string.IsNullOrWhiteSpace(user?.Email) ? user!.Email : _settings.UserEmail);
+
+                // Best-effort: try to mint an embed_token server-side. If the
+                // BI site accepts it the SDK uses it directly; otherwise it
+                // falls back to the authorizationServer handshake.
+                string? embedToken = null;
+                try
+                {
+                    embedToken = await GetServerEmbedTokenAsync(
+                        dashboardId, user, adminRegions, resolvedEmail, serverApiUrlOverride);
+                }
+                catch (Exception mintEx)
+                {
+                    _logger.LogWarning(mintEx,
+                        "Server-mint of embed_token threw; will fall back to authorizationServer handshake");
+                }
+
                 var config = new BoldBIEmbedConfig
                 {
                     DashboardId = dashboardId,
-                    ServerUrl = _settings.ServerUrl,
+                    ServerUrl = !string.IsNullOrWhiteSpace(serverApiUrlOverride)
+                        ? serverApiUrlOverride!.TrimEnd('/')
+                        : _settings.ServerUrl,
                     SiteIdentifier = _settings.SiteIdentifier,
                     Environment = _settings.Environment,
-                    UserEmail = _settings.UserEmail,
+                    UserEmail = resolvedEmail,
                     EmbedType = "component",
-                    ExpirationTime = 10000
+                    ExpirationTime = 100000,
+                    EmbedToken = embedToken ?? string.Empty
                 };
 
-                _logger.LogInformation("Generated embed config for dashboard {DashboardId}", dashboardId);
+                _logger.LogInformation(
+                    "Generated embed config (embedToken {HasToken}) for dashboard {DashboardId} as {Email} ({Role}, {Region})",
+                    !string.IsNullOrEmpty(embedToken), dashboardId, resolvedEmail,
+                    user?.Role ?? "default", user?.Region ?? "default");
                 return await Task.FromResult(config);
             }
             catch (Exception ex)
@@ -253,9 +387,118 @@ namespace BoldAdhocEmbed.Server.Services
         }
 
         /// <summary>
-        /// Get authorization token for dashboard embedding
+        /// Server-mint a Bold BI embed_token by calling the self-hosted
+        /// <c>/api/site/{site}/token</c> endpoint with the canonical JSON body
+        /// (username, embed_secret, grant_type=embed_secret). Returns the
+        /// response's <c>access_token</c>, which the browser SDK consumes
+        /// directly via <c>BoldBI.create({ embedToken })</c> with no further
+        /// <c>/embed/authorize</c> handshake. Per-tenant custom attributes
+        /// (databaseName + Region) are baked into the JWT by the site so no
+        /// extra query string work is needed here.
         /// </summary>
-        public async Task<string> GetAuthorizationTokenAsync(string embedQueryString, string userEmail, string? serverApiUrlOverride = null)
+        public async Task<string> GetServerEmbedTokenAsync(
+            string dashboardId,
+            AppUser? user,
+            IEnumerable<string>? adminRegions,
+            string? userEmailOverride = null,
+            string? serverApiUrlOverride = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dashboardId))
+                {
+                    _logger.LogError("Server embed token mint failed: dashboardId is empty");
+                    return null;
+                }
+
+                var email = !string.IsNullOrWhiteSpace(userEmailOverride)
+                    ? userEmailOverride!
+                    : (!string.IsNullOrWhiteSpace(user?.Email) ? user!.Email : _settings.UserEmail);
+
+                if (string.IsNullOrWhiteSpace(_settings.EmbedSecret))
+                {
+                    _logger.LogError("Server embed token mint failed: BoldBI:EmbedSecret is empty in config");
+                    return null;
+                }
+
+                // Token endpoint: https://{domain}/bi/api/site/{siteIdentifier}/token
+                // For Bold BI Cloud the same path works (it's the embed_secret
+                // grant endpoint that returns the access_token we'll forward
+                // to BoldBI.create({ embedToken })).
+                var tokenUrl = !string.IsNullOrWhiteSpace(serverApiUrlOverride)
+                    ? (serverApiUrlOverride!.TrimEnd('/').Contains("/token", StringComparison.OrdinalIgnoreCase)
+                        ? serverApiUrlOverride!.TrimEnd('/')
+                        : $"{serverApiUrlOverride!.TrimEnd('/')}/api/site/{_settings.SiteIdentifier}/token")
+                    : $"{(_settings.ServerUrl ?? string.Empty).TrimEnd('/')}/api/site/{_settings.SiteIdentifier}/token";
+
+                var payload = new
+                {
+                    username = email,
+                    embed_secret = _settings.EmbedSecret,
+                    grant_type = "embed_secret"
+                };
+                var json = JsonConvert.SerializeObject(payload);
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                _logger.LogInformation(
+                    "Minting server-side embed_token for dashboard {DashboardId} as {Email}; POST {TokenUrl} (db={Db}, role={Role})",
+                    dashboardId, email, tokenUrl, ResolveDatabaseName(user), user?.Role ?? "default");
+
+                var response = await _httpClient.PostAsync(tokenUrl, content);
+                var body = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "Server embed_token mint failed for {DashboardId}: status {Status} body {Body}",
+                        dashboardId, (int)response.StatusCode,
+                        string.IsNullOrEmpty(body) ? "(empty)" : body);
+                    return null;
+                }
+
+                // Response shape per Bold BI docs:
+                //   { "access_token": "...", "token_type": "...", "expires_in": "...", "Email": "..." }
+                BoldBITokenResponse? parsed = null;
+                try { parsed = JsonConvert.DeserializeObject<BoldBITokenResponse>(body); }
+                catch (Exception parseEx)
+                {
+                    _logger.LogWarning(parseEx, "Server embed_token response was not JSON: {Body}", body);
+                }
+
+                var accessToken = parsed?.access_token;
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    _logger.LogWarning(
+                        "Server embed_token response missing access_token for {DashboardId}: {Body}",
+                        dashboardId, body);
+                    return null;
+                }
+
+                _logger.LogInformation(
+                    "Server-minted embed_token ({Length} chars) returned for {DashboardId} as {Email}",
+                    accessToken.Length, dashboardId, email);
+                return accessToken;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception in GetServerEmbedTokenAsync for {DashboardId}", dashboardId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get authorization token for dashboard embedding.
+        /// When <paramref name="user"/> is supplied, an <c>embed_custom_attribute</c>
+        /// payload is appended (and signed) so Bold BI dashboards can filter
+        /// per-tenant by <c>databaseName</c> and <c>Region</c>. Admins receive
+        /// a multi-value Region so they see all regions in a single embed.
+        /// </summary>
+        public async Task<string> GetAuthorizationTokenAsync(
+            string embedQueryString,
+            string userEmail,
+            string? serverApiUrlOverride = null,
+            AppUser? user = null,
+            IEnumerable<string>? adminRegions = null)
         {
             try
             {
@@ -286,25 +529,35 @@ namespace BoldAdhocEmbed.Server.Services
                 {
                     authUrl = GetApiUrl("/embed/authorize");
                 }
-                
+
                 _logger.LogInformation("Building authorization query with embedQueryString: {EmbedQueryString}", embedQueryString);
-                
-                // Build the query string with user email and timestamp
+
+                // Build the query string with user email, custom attributes, and timestamp
                 var embedQuery = embedQueryString;
                 embedQuery += "&embed_user_email=" + Uri.EscapeDataString(userEmail);
-                
+
+                // Inject embed_custom_attribute so dashboards filter by tenant + region
+                if (user != null)
+                {
+                    var customAttrJson = BuildCustomAttributesJson(user, adminRegions);
+                    embedQuery += "&embed_custom_attribute=" + Uri.EscapeDataString(customAttrJson);
+                    _logger.LogInformation(
+                        "Injected embed_custom_attribute for {Email} (role={Role}, tenant={Tenant}, db={Db}, region={Region})",
+                        user.Email, user.Role, user.TenantName, ResolveDatabaseName(user), customAttrJson);
+                }
+
                 double timeStamp = (long)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
                 embedQuery += "&embed_server_timestamp=" + timeStamp;
-                
-                // Generate signature
+
+                // Generate signature over the FULL query (including custom attributes)
                 var signature = GenerateSignature(embedQuery, _settings.EmbedSecret);
-                
+
                 if (string.IsNullOrEmpty(signature))
                 {
                     _logger.LogError("Authorization failed: Failed to generate signature");
                     return null;
                 }
-                
+
                 embedQuery += "&embed_signature=" + signature;
 
                 _logger.LogInformation("Calling Bold BI authorization endpoint: {AuthUrl}", authUrl);
@@ -574,6 +827,12 @@ namespace BoldAdhocEmbed.Server.Services
         public string EmbedType { get; set; }
         public long ExpirationTime { get; set; }
         public string Token { get; set; }
+        /// <summary>
+        /// Server-minted Bold BI embed_token. When non-empty the browser SDK
+        /// uses it directly via <c>BoldBI.create({ embedToken })</c>; when empty
+        /// the SDK falls back to the <c>authorizationServer</c> handshake.
+        /// </summary>
+        public string EmbedToken { get; set; }
     }
 
     public class BoldBITokenResponse

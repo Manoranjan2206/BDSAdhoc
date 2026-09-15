@@ -99,35 +99,12 @@ const getCategoryPalette = (categoryName) => {
   return COLOR_PALETTES[index];
 };
 
-const DEFAULT_REPORT_TREE = [
-  {
-    Name: 'Sales & Pipeline',
-    Reports: [
-      { Id: 'rep-01', Name: 'Annual Sales Performance', Description: 'Complete 12-month revenue performance breakdown across regions and deal stages.', CreatedDate: '2026-08-01', ModifiedDate: '2026-08-15' },
-      { Id: 'rep-02', Name: 'Regional Win Rate Analysis', Description: 'Comparison of deal win probabilities and pipeline velocity across North America, Europe, Asia, Oceania.', CreatedDate: '2026-08-05', ModifiedDate: '2026-08-16' },
-      { Id: 'rep-03', Name: 'Deal Stage Velocity & Conversion', Description: 'Analysis of time spent in each pipeline stage from Prospecting to Closed Won.', CreatedDate: '2026-07-20', ModifiedDate: '2026-08-12' },
-    ]
-  },
-  {
-    Name: 'Operations & Support',
-    Reports: [
-      { Id: 'rep-04', Name: 'Support SLA & CSAT Compliance', Description: 'Customer support case resolution metrics, first-response time, and CSAT ratings.', CreatedDate: '2026-08-02', ModifiedDate: '2026-08-14' },
-      { Id: 'rep-05', Name: 'Marketing Campaign Lead Generation ROI', Description: 'ROI, cost-per-lead, and attribution metrics for trade shows, webinars, and inbound campaigns.', CreatedDate: '2026-07-28', ModifiedDate: '2026-08-10' },
-    ]
-  },
-  {
-    Name: 'Executive & Finance',
-    Reports: [
-      { Id: 'rep-06', Name: 'Enterprise Revenue & Invoicing Summary', Description: 'Comprehensive financial reporting by tenant company, billing status, and regional tax brackets.', CreatedDate: '2026-08-10', ModifiedDate: '2026-08-17' },
-      { Id: 'rep-07', Name: 'Multi-Tenant Row-Level Audit Log', Description: 'Security audit trail of user data actions and permission changes filtered by tenant schema.', CreatedDate: '2026-08-12', ModifiedDate: '2026-08-18' },
-    ]
-  }
-];
+// No hardcoded defaults - all report data is fetched from Bold Reports API via getReports()
 
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { getReports, reportsSidebarCollapsed, setReportsSidebarCollapsed } = useData();
+  const { getReports, getViewerSettings, reportsSidebarCollapsed, setReportsSidebarCollapsed } = useData();
 
   const [tree, setTree] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -224,7 +201,7 @@ export default function Reports() {
           id: r.Id || r.id,
           name: r.Name || r.name,
           categoryName: catName,
-          description: r.Description || r.description || 'Standard enterprise analytics report',
+          description: r.Description || r.description || '',
           modifiedDate: r.ModifiedDate || r.modifiedDate || r.ModifiedDateString || r.CreatedDate || r.createdDate || null,
           createdById: r.CreatedById || r.createdById,
           isPublic: r.IsPublic ?? r.isPublic ?? true,
@@ -280,11 +257,11 @@ export default function Reports() {
     setLoading(true);
     try {
       const data = await getReports();
-      const normalized = Array.isArray(data) && data.length > 0 ? data : DEFAULT_REPORT_TREE;
+      const normalized = Array.isArray(data) && data.length > 0 ? data : [];
       setTree(normalized);
     } catch (err) {
       console.error('Failed to load reports:', err);
-      setTree(DEFAULT_REPORT_TREE);
+      setTree([]);
     } finally {
       setLoading(false);
     }
@@ -293,8 +270,19 @@ export default function Reports() {
   const fetchViewerSettings = async () => {
     setViewerLoading(true);
     try {
-      const settings = await reportsAPI.getViewerSettings();
-      setViewerSettings(settings);
+      // Use the shared viewer-settings cache so we hit the same endpoint
+      // as Designer.jsx/Header.jsx (`/api/reports/viewer-settings`),
+      // which returns { token, serviceUrl, serverUrl, reportRootUrl } —
+      // the schema the viewer component below expects. The previous code
+      // called `getEmbedToken()` (different endpoint, different schema),
+      // which left `viewerSettings` null and caused the demo
+      // `demos.boldreports.com` fallbacks below to engage.
+      const settings = await getViewerSettings();
+      if (settings && (settings.token || settings.serviceUrl || settings.serverUrl)) {
+        setViewerSettings(settings);
+      } else {
+        console.warn('viewer-settings response missing known keys', settings);
+      }
     } catch (err) {
       console.error('Failed to load viewer settings:', err);
     } finally {
@@ -375,6 +363,38 @@ export default function Reports() {
     navigate(`/designer?${params.toString()}`);
   };
 
+  // Destroy the jQuery-based Bold Reports viewer before unmounting so it does
+  // not leak DOM event handlers or overlay the listing view, and so the next
+  // selected report always boots a fresh widget.
+  const destroyReportViewer = () => {
+    const $ = window.$ || window.jQuery;
+    const elem = viewerDivRef.current;
+    if (!$) return;
+    const sel = elem?.id ? `#${elem.id}` : null;
+    if (!sel) return;
+    try {
+      if ($(sel).data('boldReportViewer')) {
+        $(sel).boldReportViewer('destroy');
+      }
+    } catch (e) {
+      console.warn('Failed to destroy viewer on back-to-list:', e);
+    }
+    try {
+      // Force-clear any leftover render targets the widget may have appended
+      $(sel).empty().off().removeData();
+    } catch (e) {
+      // no-op
+    }
+  };
+
+  const handleBackToList = () => {
+    destroyReportViewer();
+    // Bump viewer key so the next mount uses a fresh DOM node id
+    setViewerKey(prev => prev + 1);
+    setSelectedReport(null);
+    setSelectedCategory(null);
+  };
+
   const handleDeleteReport = async (report, category) => {
     if (!report) return;
     if (!window.confirm(`Delete report "${report.name || report.Name}"?`)) return;
@@ -401,17 +421,26 @@ export default function Reports() {
       : `/${reportName.trim()}`
     : null;
 
+  // The viewer-settings endpoint returns:
+  //   { token, serviceUrl, serverUrl, reportRootUrl }
+  // `token` is the authentication bearer. `serviceUrl` already points at
+  // the `/reportservice/api/Viewer` endpoint on cloud.boldreports.com.
   const reportServiceUrl = viewerSettings?.serviceUrl ||
     import.meta.env.VITE_BOLD_REPORT_SERVICE_URL ||
-    'https://demos.boldreports.com/services/api/ReportViewer';
+    null;
 
-  const reportServerUrl = viewerSettings?.serverUrl || 'https://demos.boldreports.com/reporting/api';
+  const reportServerUrl = viewerSettings?.serverUrl || null;
 
-  const serviceAuthorizationToken = viewerSettings?.token
-    ? viewerSettings.token.toLowerCase().startsWith('bearer ')
-      ? viewerSettings.token
-      : `Bearer ${viewerSettings.token}`
-    : null;
+  // Reports viewer widget does NOT add a "Bearer " prefix around the
+  // embedToken — it forwards the value verbatim into both the
+  // `authorization` and `embedToken` request headers. Strip any prefix the
+  // upstream may have accidentally added so the widget doesn't end up
+  // sending "Authorization: Bearer Bearer eyJ…" (which the Reports site
+  // rejects with 401).
+  const rawToken = viewerSettings?.token || null;
+  const stripBearer = (s) =>
+    s ? String(s).replace(/^Bearer\s+/i, '').trim() : s;
+  const embedToken = rawToken ? stripBearer(rawToken) : null;
 
   const toolbarSettings = useMemo(() => ({
     showToolbar: true,
@@ -462,9 +491,9 @@ export default function Reports() {
         reportServiceUrl,
         reportServerUrl,
         reportPath,
+        embedToken,
         toolbarSettings,
         toolBarItemClick: onToolBarItemClick,
-        serviceAuthorizationToken,
         ajaxBeforeLoad: (args) => {
           const currentUser = authService.getUser()?.user || authService.getUser();
           if (currentUser && currentUser.email) {
@@ -492,7 +521,7 @@ export default function Reports() {
         } catch (e) { }
       }
     };
-  }, [viewerKey, reportPath, reportServiceUrl, reportServerUrl, serviceAuthorizationToken, toolbarSettings]);
+  }, [viewerKey, reportPath, reportServiceUrl, reportServerUrl, embedToken, toolbarSettings]);
 
   return (
     <div className="reports-page font-inter bg-slate-50 dark:bg-[#111422] h-full flex flex-col overflow-hidden">
@@ -508,7 +537,7 @@ export default function Reports() {
           {!reportsSidebarCollapsed && (
             <div className="p-4 space-y-3 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">
-                <span>Categories</span>
+                <span>Collections</span>
                 <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-semibold">
                   {categoriesList.length}
                 </span>
@@ -524,7 +553,7 @@ export default function Reports() {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <FolderIcon className="w-4 h-4 text-indigo-500" /> All Categories
+                  <FolderIcon className="w-4 h-4 text-indigo-500" /> All Collections
                 </span>
                 <span className="text-[11px] opacity-70 font-semibold">{allReports.length}</span>
               </button>
@@ -578,7 +607,7 @@ export default function Reports() {
               <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="flex items-center gap-3 min-w-0">
                   <button
-                    onClick={() => { setSelectedReport(null); setSelectedCategory(null); }}
+                    onClick={handleBackToList}
                     className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
                     <ChevronLeftIcon className="w-4 h-4" /> Back to list
@@ -800,11 +829,11 @@ export default function Reports() {
                 ) : (
                   /* TABLE VIEW */
                   <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <table className="w-full text-left border-collapse table-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 dark:bg-slate-900/60 select-none">
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-1/3 min-w-[200px]" onClick={() => handleSort('name')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[32%]" onClick={() => handleSort('name')}>
+                            <div className="flex items-center gap-1">
                               <span>Report Name</span>
                               {sortColumn === 'name' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -813,9 +842,9 @@ export default function Reports() {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-44 whitespace-nowrap" onClick={() => handleSort('categoryName')}>
-                            <div className="flex items-center gap-1.5">
-                              <span>Category</span>
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[18%]" onClick={() => handleSort('categoryName')}>
+                            <div className="flex items-center gap-1">
+                              <span>Collection</span>
                               {sortColumn === 'categoryName' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
                               ) : (
@@ -823,8 +852,8 @@ export default function Reports() {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-1/3 max-w-sm" onClick={() => handleSort('description')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[24%]" onClick={() => handleSort('description')}>
+                            <div className="flex items-center gap-1">
                               <span>Description</span>
                               {sortColumn === 'description' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -833,8 +862,8 @@ export default function Reports() {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-36 whitespace-nowrap" onClick={() => handleSort('modifiedDate')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[16%]" onClick={() => handleSort('modifiedDate')}>
+                            <div className="flex items-center gap-1">
                               <span>Last Modified</span>
                               {sortColumn === 'modifiedDate' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -843,7 +872,7 @@ export default function Reports() {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 text-right w-28 whitespace-nowrap">Actions</th>
+                          <th className="py-3 px-3 text-right w-[10%]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
@@ -856,40 +885,59 @@ export default function Reports() {
                               onClick={() => handleSelectReport(report, report.categoryName)}
                               className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
                             >
-                              <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
-                                <div className="flex items-center gap-2.5">
+                              <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white overflow-hidden">
+                                <div className="flex items-center gap-2 min-w-0">
                                   <DocumentIcon className={`w-4 h-4 ${palette.iconColor} shrink-0`} />
-                                  <span className="truncate">{report.name}</span>
+                                  <span className="truncate block" title={report.name}>{report.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`}>
-                                  {report.categoryName}
+                              <td className="py-3 px-3 overflow-hidden">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-full shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`} title={report.categoryName}>
+                                  <span className="truncate">{report.categoryName}</span>
                                 </span>
                               </td>
-                              <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{report.description}</td>
-                              <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">{getFormattedDateString(report.modifiedDate)}</td>
-                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                              <td className="py-3 px-3 text-slate-500 overflow-hidden align-middle">
+                                {report.description ? (
+                                  <span
+                                    className="block leading-snug break-words"
+                                    style={{
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                    title={report.description}
+                                  >
+                                    {report.description}
+                                  </span>
+                                ) : null}
+                              </td>
+                              <td className="py-3 px-3 text-slate-500 font-medium overflow-hidden whitespace-nowrap text-[11px] align-middle" title={getFormattedDateString(report.modifiedDate)}>
+                                {getFormattedDateString(report.modifiedDate)}
+                              </td>
+                              <td className="py-3 px-3 text-right whitespace-nowrap align-middle">
+                                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => toggleStar(report.id, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title={isStarred ? "Remove Star" : "Star Report"}
                                   >
-                                    {isStarred ? <StarIconSolid className="w-4 h-4 text-amber-400" /> : <StarIconOutline className="w-4 h-4" />}
+                                    {isStarred ? <StarIconSolid className="w-3.5 h-3.5 text-amber-400" /> : <StarIconOutline className="w-3.5 h-3.5" />}
                                   </button>
                                   <button
                                     onClick={() => handleEditReport(report.name, report.categoryName)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Edit"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Edit in Report Designer"
                                   >
-                                    <PencilIcon className="w-4 h-4" />
+                                    <PencilIcon className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteReport(report, report.categoryName)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                                    title="Delete"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                    title="Delete Report"
                                   >
-                                    <TrashIcon className="w-4 h-4" />
+                                    <TrashIcon className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </td>

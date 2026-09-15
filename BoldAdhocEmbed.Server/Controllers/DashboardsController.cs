@@ -1,31 +1,96 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using BoldAdhocEmbed.Server.Services;
 using BoldAdhocEmbed.Server.Models;
+using BoldAdhocEmbed.Server.Validators;
 
 namespace BoldAdhocEmbed.Server.Controllers
 {
     /// <summary>
-    /// Dashboards API endpoints for managing and embedding Bold BI dashboards
+    /// Dashboards API endpoints. Bracketed behind [Authorize] so the
+    /// [Authorize] policy supplies the validated JWT identity that
+    /// <see cref="IAuthenticatedUser"/> reads. No client-supplied
+    /// X-User-* headers are honored.
     /// </summary>
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class DashboardsController : BaseController
     {
         private readonly IBoldBIDashboardService _dashboardService;
         private readonly ICacheService _cacheService;
         private readonly IBoldReportsService _boldReportsService;
+        private readonly IUserStore _userStore;
+        private readonly IAuthenticatedUser _auth;
 
         public DashboardsController(
             IBoldBIDashboardService dashboardService,
             ILogger<DashboardsController> logger,
             ICacheService cacheService,
-            IBoldReportsService boldReportsService)
+            IBoldReportsService boldReportsService,
+            IUserStore userStore,
+            IAuthenticatedUser auth)
             : base(logger)
         {
             _dashboardService = dashboardService ?? throw new ArgumentNullException(nameof(dashboardService));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
+            _userStore = userStore ?? throw new ArgumentNullException(nameof(userStore));
+            _auth = auth ?? throw new ArgumentNullException(nameof(auth));
+        }
+
+        /// <summary>
+        /// Resolve the <see cref="AppUser"/> for the current request, falling
+        /// back to a minimal stub when no RBAC user matches (e.g. service-to-
+        /// service calls). The same fallback is used by the Bold Reports
+        /// embed-token flow so both products stay aligned.
+        /// </summary>
+        private AppUser ResolveAppUserForBiAuth(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new UnauthorizedAccessException(
+                    "Authenticated context missing email claim.");
+            }
+
+            var existing = _userStore.Get(email.Trim());
+            if (existing != null && existing.IsActive) return existing;
+
+            // No header fallback. Build a derived AppUser from validated
+            // claims only. If admin/region/tenant are missing the BI side
+            // cannot sign a meaningful embed_custom_attribute and the call
+            // must be rejected.
+            var auth = _auth.GetAuthContext()
+                ?? throw new UnauthorizedAccessException(
+                    "Authenticated context missing.");
+            return new AppUser
+            {
+                Id = auth.Email!,
+                Email = auth.Email,
+                Name = auth.Email,
+                Role = auth.Role,
+                TenantId = auth.TenantId,
+                TenantName = auth.TenantName,
+                Region = auth.Region,
+                IsActive = true,
+            };
+        }
+
+        /// <summary>
+        /// Distinct regions across all active users â€” used to build the
+        /// multi-value <c>Region IN(...)</c> clause for Admins so a single
+        /// embed shows every region instead of being scoped to one.
+        /// </summary>
+        private IEnumerable<string> GetAllRegions()
+        {
+            return _userStore.GetAll()
+                .Where(u => u != null && u.IsActive)
+                .Select(u => u.Region)
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Select(r => r.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         /// <summary>
@@ -44,8 +109,20 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse<dynamic>.ErrorResponse("Invalid Request", "UserEmail is required"));
                 }
 
-                // Try cache first
-                var cacheKey = $"dashboard-token-{request.UserEmail}";
+                // Validate email format to prevent cache poisoning / abuse
+                if (!RequestValidator.ValidateEmail(request.UserEmail).Count.Equals(0))
+                {
+                    var masked = request.UserEmail.Length > 10
+                        ? request.UserEmail.Substring(0, 10) + "..."
+                        : request.UserEmail;
+                    Logger.LogWarning("Invalid email format on dashboard token request: {Email}", masked);
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse(
+                        "Invalid Request", "UserEmail must be a valid email address"));
+                }
+
+                // Sanitize and bound the cache key length to keep the cache shallow.
+                var safeEmail = RequestValidator.SanitizeCacheKey(request.UserEmail, 200);
+                var cacheKey = $"dashboard-token-{safeEmail}";
                 var cachedToken = await _cacheService.GetAsync<string>(cacheKey);
                 
                 if (!string.IsNullOrEmpty(cachedToken))
@@ -91,7 +168,7 @@ namespace BoldAdhocEmbed.Server.Controllers
             try
             {
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
 
                 // Check cache first
                 var cacheKey = $"dashboards-list-{userEmail}";
@@ -193,7 +270,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = _auth.GetAuthContext()?.Email;
                 var token = await _dashboardService.GetTokenAsync(userEmail);
 
                 if (string.IsNullOrEmpty(token))
@@ -220,13 +297,16 @@ namespace BoldAdhocEmbed.Server.Controllers
         }
 
         /// <summary>
-        /// Get embed configuration for a specific dashboard
-        /// This configuration is used by the client to embed and display the dashboard
+        /// Get embed configuration for a specific dashboard, including a
+        /// server-minted <c>embedToken</c> so the browser can embed the
+        /// dashboard via <c>BoldBI.create({ embedToken })</c> with no
+        /// additional authorize handshake. The logged-in caller's email /
+        /// tenant / region are signed into the embed token along with the
+        /// dashboard id; admins receive a multi-value Region IN(...) list so
+        /// the dashboard renders rows for every region.
         /// </summary>
-        /// <param name="id">Dashboard ID</param>
-        /// <returns>Embed configuration</returns>
         [HttpGet("{id}/config")]
-        public IActionResult GetEmbedConfig(string id)
+        public async Task<IActionResult> GetEmbedConfig(string id)
         {
             try
             {
@@ -235,21 +315,49 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse<dynamic>.ErrorResponse("Invalid Request", errorMsg));
                 }
 
+                // Resolve the caller so the embed token reflects whoever is
+                // actually logged in, not the static site-default user.
+                var requestToken = GetTokenFromRequest();
+                var callerEmail = GetEmailFromToken(requestToken);
+                var appUser = ResolveAppUserForBiAuth(callerEmail ?? string.Empty);
+                IEnumerable<string>? adminRegions = string.Equals(appUser.Role, "Admin", StringComparison.OrdinalIgnoreCase)
+                    ? GetAllRegions()
+                    : null;
+
                 var settings = HttpContext.RequestServices.GetRequiredService<BoldBISettings>();
-                
-                var config = new
+
+                // Server-mint the embed_token; if signing/BI is unavailable the
+                // service returns null and we'll fall back to the SDK handshake
+                // (clients can opt back into authorizationServer).
+                var biConfig = await _dashboardService.GetEmbedConfigAsync(
+                    id, appUser, adminRegions, appUser.Email, settings.ServerUrl);
+
+                if (biConfig == null)
                 {
-                    DashboardId = id,
-                    ServerUrl = settings.ServerUrl,
-                    SiteIdentifier = settings.SiteIdentifier,
-                    Environment = settings.Environment,
-                    UserEmail = settings.UserEmail,
-                    EmbedType = "component",
-                    ExpirationTime = 10000
+                    return StatusCode(502, ApiResponse<dynamic>.ErrorResponse(
+                        "Failed to generate Bold BI embed configuration",
+                        "Bold BI service unavailable"));
+                }
+
+                // Shape the response with explicit casing so the client can
+                // rely on lowercase camelCase keys (BoldBI SDK + axios).
+                var payload = new
+                {
+                    dashboardId = biConfig.DashboardId,
+                    serverUrl = biConfig.ServerUrl,
+                    siteIdentifier = biConfig.SiteIdentifier,
+                    environment = biConfig.Environment,
+                    userEmail = biConfig.UserEmail,
+                    embedType = biConfig.EmbedType ?? "component",
+                    expirationTime = biConfig.ExpirationTime,
+                    embedToken = biConfig.EmbedToken ?? string.Empty
                 };
 
-                Logger.LogInformation("Embed config generated for dashboard {DashboardId}", id);
-                return Ok(config);
+                Logger.LogInformation(
+                    "Embed config (with embedToken {HasToken}) generated for dashboard {DashboardId} as {Email}",
+                    !string.IsNullOrEmpty(payload.embedToken), id, payload.userEmail);
+
+                return Ok(payload);
             }
             catch (Exception ex)
             {
@@ -283,16 +391,31 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var requestToken = GetTokenFromRequest();
-                var userEmail = GetEmailFromToken(requestToken) 
-                    ?? HttpContext.RequestServices.GetRequiredService<BoldBISettings>()?.UserEmail 
-                    ?? "manoranjan.rajendran@syncfusion.com";
+                var userEmail = GetEmailFromToken(requestToken)
+                    ?? HttpContext.RequestServices.GetRequiredService<BoldBISettings>()?.UserEmail;
+                if (string.IsNullOrEmpty(userEmail))
+                {
+                    return Unauthorized(new { error = "Authenticated user required to sign embed_custom_attribute" });
+                }
 
-                Logger.LogInformation("Authorizing dashboard for user {UserEmail} with query: {EmbedQueryString}", userEmail, embedClass.embedQuerString);
+                // Resolve RBAC user + admin region list so the BI authorize
+                // handshake can sign embed_custom_attribute (databaseName,
+                // Region) into the embed token. Non-admins get their own
+                // single region; admins get a multi-value IN(...) list.
+                var appUser = ResolveAppUserForBiAuth(userEmail);
+                IEnumerable<string>? adminRegions = string.Equals(appUser.Role, "Admin", StringComparison.OrdinalIgnoreCase)
+                    ? GetAllRegions()
+                    : null;
+
+                Logger.LogInformation("Authorizing dashboard for user {UserEmail} (role={Role}, tenant={Tenant}, region={Region}) with query: {EmbedQueryString}",
+                    userEmail, appUser.Role, appUser.TenantName, appUser.Region, embedClass.embedQuerString);
 
                 var authToken = await _dashboardService.GetAuthorizationTokenAsync(
                     embedClass.embedQuerString,
                     userEmail,
-                    embedClass.dashboardServerApiUrl
+                    embedClass.dashboardServerApiUrl,
+                    appUser,
+                    adminRegions
                 );
 
                 if (string.IsNullOrEmpty(authToken))
@@ -339,3 +462,4 @@ namespace BoldAdhocEmbed.Server.Controllers
         public string dashboardServerApiUrl { get; set; } = string.Empty;
     }
 }
+

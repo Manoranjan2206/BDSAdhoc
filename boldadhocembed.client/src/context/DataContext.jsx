@@ -15,6 +15,7 @@ export function DataProvider({ children }) {
     dashboards: null,
     schedules: null,
     users: null,
+    viewerSettings: null,
   });
 
   // Loading state
@@ -23,6 +24,7 @@ export function DataProvider({ children }) {
     dashboards: false,
     schedules: false,
     users: false,
+    viewerSettings: false,
   });
 
   // Error state
@@ -31,6 +33,7 @@ export function DataProvider({ children }) {
     dashboards: null,
     schedules: null,
     users: null,
+    viewerSettings: null,
   });
 
   // Sidebar collapsed states
@@ -89,8 +92,13 @@ export function DataProvider({ children }) {
     [fetchData]
   );
 
-  const getUsers = useCallback(() => 
+  const getUsers = useCallback(() =>
     fetchData('users', usersAPI.getUsers),
+    [fetchData]
+  );
+
+  const getViewerSettings = useCallback(() =>
+    fetchData('viewerSettings', () => reportsAPI.getViewerSettings()),
     [fetchData]
   );
 
@@ -104,6 +112,7 @@ export function DataProvider({ children }) {
         dashboards: null,
         schedules: null,
         users: null,
+        viewerSettings: null,
       });
     } else {
       setCache((prev) => ({ ...prev, [dataType]: null }));
@@ -145,6 +154,7 @@ export function DataProvider({ children }) {
     getDashboards,
     getSchedules,
     getUsers,
+    getViewerSettings,
     getAllData,
 
     // Cache management

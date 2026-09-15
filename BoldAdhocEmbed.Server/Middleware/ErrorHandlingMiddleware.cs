@@ -52,25 +52,28 @@ namespace BoldAdhocEmbed.Server.Middleware
             {
                 case ArgumentNullException or ArgumentException:
                     statusCode = (int)HttpStatusCode.BadRequest;
-                    response = ApiResponse<object>.ErrorResponse(exception.Message, "Invalid request parameters");
+                    response = ApiResponse<object>.ErrorResponse(
+                        "Invalid request parameters", "Invalid request parameters");
                     logger.LogWarning("Bad request: {Message}", exception.Message);
                     break;
 
                 case UnauthorizedAccessException:
                     statusCode = (int)HttpStatusCode.Unauthorized;
                     response = ApiResponse<object>.UnauthorizedResponse();
-                    logger.LogWarning("Unauthorized access attempted");
+                    logger.LogWarning("Unauthorized access: {Message}", exception.Message);
                     break;
 
                 case KeyNotFoundException:
                     statusCode = (int)HttpStatusCode.NotFound;
-                    response = ApiResponse<object>.ErrorResponse(exception.Message, "Resource not found");
+                    response = ApiResponse<object>.ErrorResponse(
+                        "Resource not found", "Resource not found");
                     logger.LogWarning("Resource not found: {Message}", exception.Message);
                     break;
 
                 case InvalidOperationException:
                     statusCode = (int)HttpStatusCode.BadRequest;
-                    response = ApiResponse<object>.ErrorResponse(exception.Message, "Invalid operation");
+                    response = ApiResponse<object>.ErrorResponse(
+                        "Invalid operation", "Invalid operation");
                     logger.LogWarning("Invalid operation: {Message}", exception.Message);
                     break;
 

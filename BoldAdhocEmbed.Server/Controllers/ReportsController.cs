@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BoldAdhocEmbed.Server.Services;
 using BoldAdhocEmbed.Server.Models;
 using BoldAdhocEmbed.Server.Validators;
@@ -6,27 +7,32 @@ using BoldAdhocEmbed.Server.Validators;
 namespace BoldAdhocEmbed.Server.Controllers
 {
     /// <summary>
-    /// Reports API endpoints for retrieving and managing reports
-    /// All operations respect user permissions through RLS
+    /// Reports API endpoints for retrieving and managing reports.
+    /// All operations respect user permissions through RLS enforced by
+    /// Bold Reports; identity is derived from validated JWT claims.
     /// </summary>
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class ReportsController : BaseController
     {
         private readonly IBoldReportsService _boldReportsService;
         private readonly BoldReportsSettings _settings;
         private readonly ICacheService _cacheService;
+        private readonly IAuthenticatedUser _auth;
 
         public ReportsController(
             IBoldReportsService boldReportsService,
             ILogger<ReportsController> logger,
             BoldReportsSettings settings,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IAuthenticatedUser auth)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+            _auth = auth ?? throw new ArgumentNullException(nameof(auth));
         }
 
         /// <summary>
@@ -39,11 +45,44 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var token = await GetBoldReportsTokenAsync(_boldReportsService);
-                if (string.IsNullOrEmpty(token))
+                // The widget consumes the embed_token different from the
+                // server-side API access token used by /items, /users, etc.
+                //   - embed_token  : minted via the embed_token JSON grant
+                //                    flow; sent verbatim as "embedToken" to
+                //                    boldReportViewer({ embedToken })
+                //   - api token    : minted via password grant; sent as
+                //                    "Authorization: Bearer <jwt>" on every
+                //                    server-side HttpClient call below
+                //
+                // Resolve the identity strictly from the validated local JWT.
+                // The Reports service then uses the caller email plus the
+                // configured Reports admin password to mint the user-scoped
+                // embed token (with embed_secret as its first attempt).
+                var auth = _auth.GetAuthContext();
+                if (auth == null || string.IsNullOrWhiteSpace(auth.Email))
                 {
-                    Logger.LogWarning("No token provided in Authorization header for viewer settings");
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var callerEmail = auth.Email;
+                var user = new AppUser
+                {
+                    Email = auth.Email,
+                    TenantId = auth.TenantId,
+                    TenantName = auth.TenantName,
+                    Role = auth.Role,
+                    Region = auth.Region,
+                };
+                var embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
+                if (string.IsNullOrEmpty(embedToken))
+                {
+                    Logger.LogWarning(
+                        "embed_token grant failed for caller {Email}; ensure BoldReports:EmbedSecret "
+                        + "(or BOLD_REPORTS_SECRET env var) is set and matches the site's embed secret.",
+                        callerEmail);
+                    return StatusCode(503, ApiResponse<dynamic>.ErrorResponse(
+                        "Embed token not configured",
+                        "Server is missing BoldReports:EmbedSecret or the Reports site rejected the embed_token grant."));
                 }
 
                 var reportRootUrl = _settings.ReportRootUrl;
@@ -51,19 +90,77 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 var viewerSettings = new
                 {
-                    token = token,
+                    token = embedToken,
                     serviceUrl = $"{reportRootUrl}/reportservice/api/Viewer",
                     serverUrl = $"{reportRootUrl}/api/site/{reportsSiteIdentifier}",
                     reportRootUrl = reportRootUrl
                 };
 
-                Logger.LogInformation("Viewer settings retrieved successfully");
+                Logger.LogInformation(
+                    "Viewer settings retrieved for caller {Email} (embedToken length={Len})",
+                    callerEmail, embedToken.Length);
                 return Ok(ApiResponse<dynamic>.SuccessResponse((dynamic)viewerSettings, "Viewer settings retrieved successfully"));
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error retrieving viewer settings");
                 return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to retrieve viewer settings"));
+            }
+        }
+
+        /// <summary>
+        /// Get Bold Reports embed token with CustomAttributes
+        /// Includes database name, organization, and tenant information for RLS
+        /// </summary>
+        /// <returns>Embed token for use with Bold Reports viewer</returns>
+        [HttpGet("embed-token")]
+        public async Task<IActionResult> GetEmbedToken()
+        {
+            try
+            {
+                // Identity is taken strictly from validated JWT claims; client-supplied
+                // X-User-* headers were a complete trust bypass and are no
+                // longer honored.
+                var auth = _auth.GetAuthContext();
+                if (auth == null)
+                {
+                    Logger.LogWarning("Embed token request without authenticated context");
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                // Create user context
+                var user = new AppUser
+                {
+                    Email = auth.Email,
+                    TenantName = auth.TenantName,
+                    Role = auth.Role,
+                    Region = auth.Region,
+                };
+
+                var embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
+                if (string.IsNullOrEmpty(embedToken))
+                {
+                    Logger.LogWarning("Failed to generate embed token for user: {Email}", user.Email);
+                    return StatusCode(500, ApiResponse<dynamic>.ErrorResponse("Failed to generate embed token"));
+                }
+
+                var reportRootUrl = _settings.ReportRootUrl;
+                var reportsSiteIdentifier = _settings.ReportsSiteIdentifier;
+
+                var response = new
+                {
+                    embedToken = embedToken,
+                    serviceUrl = $"{reportRootUrl}/reportservice/api/Viewer",
+                    serverUrl = $"{reportRootUrl}/api/site/{reportsSiteIdentifier}"
+                };
+
+                Logger.LogInformation("Embed token generated successfully for user: {Email}", user.Email);
+                return Ok(ApiResponse<dynamic>.SuccessResponse((dynamic)response, "Embed token generated successfully"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error generating embed token");
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to generate embed token"));
             }
         }
 
@@ -86,8 +183,28 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 var cacheKey = $"report_tree_{token}";
 
-                // Fetch reports directly to ensure latest date properties
-                var reports = await _boldReportsService.GetReportsAsync(token);
+                // Fetch reports and surface upstream failures instead of silently
+                // returning 200 with an empty array — that previously masked
+                // 4xx/5xx calls to the Bold Reports site.
+                var (reports, sourceStatus, sourceBody) = await _boldReportsService.GetReportsWithStatusAsync(token);
+                if (sourceStatus is null or >= 400)
+                {
+                    Logger.LogError(
+                        "Bold Reports items fetch failed upstream. Status={Status} Body={Body}",
+                        sourceStatus, sourceBody);
+                    var detail = $"Upstream Bold Reports items fetch failed with status {(sourceStatus?.ToString() ?? "n/a")}";
+                    if (!string.IsNullOrWhiteSpace(sourceBody))
+                    {
+                        // Trim huge payloads and surface the upstream error verbatim
+                        // so the UI / logs can show *why* it failed (401 invalid token,
+                        // 403 no access, 500 server error, etc.).
+                        detail += $" | body: {(sourceBody.Length > 300 ? sourceBody.Substring(0, 300) + "…" : sourceBody)}";
+                    }
+                    return StatusCode(
+                        StatusCodes.Status502BadGateway,
+                        ApiResponse<dynamic>.ErrorResponse(detail, "Bold Reports service unavailable")
+                    );
+                }
                 
                 var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
@@ -257,7 +374,11 @@ namespace BoldAdhocEmbed.Server.Controllers
                 if (deleted)
                 {
                     var requestToken = GetTokenFromRequest();
-                    var userEmail = GetEmailFromToken(requestToken) ?? "manoranjan.rajendran@syncfusion.com";
+                    var userEmail = GetEmailFromToken(requestToken);
+                    if (string.IsNullOrEmpty(userEmail))
+                    {
+                        return Unauthorized(ApiResponse<bool>.UnauthorizedResponse());
+                    }
                     var cacheKey = $"report-tree-{userEmail}";
                     await _cacheService.RemoveAsync(cacheKey);
 

@@ -95,6 +95,10 @@ const Dashboards = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardInstance, setDashboardInstance] = useState(null);
+  // Mirror the latest instance on a ref so destroyDashboardViewer always sees the
+  // current value even when called from an event handler with a stale closure.
+  const dashboardInstanceRef = useRef(null);
+  useEffect(() => { dashboardInstanceRef.current = dashboardInstance; }, [dashboardInstance]);
 
   // Filters & View state
   const [activeScope, setActiveScope] = useState('all'); // 'all' | 'favorites'
@@ -249,10 +253,12 @@ const Dashboards = () => {
       if (!config) throw new Error('No embed config');
 
       const serverUrl = `${config.serverUrl}/site/${config.siteIdentifier}`;
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-      const authorizationUrl = `${API_BASE_URL}/dashboards/authorize`;
 
-      const dashboard = BoldBI.create({
+      // Prefer the server-minted embedToken. The backend signs
+      // (dashboardId, userEmail, databaseName, Region) into the token so the
+      // Bold BI iframe renders the dashboard filtered for the logged-in user
+      // without an additional authorize round-trip.
+      const embed = {
         serverUrl,
         dashboardId,
         embedContainerId: 'dashboard-container',
@@ -261,15 +267,77 @@ const Dashboards = () => {
         embedType: config.embedType || BoldBI.EmbedType.Component,
         environment: config.environment || BoldBI.Environment.Enterprise,
         mode: BoldBI.Mode.View,
-        authorizationServer: { url: authorizationUrl },
-        expirationTime: 100000,
-      });
+        expirationTime: config.expirationTime || 100000,
+      };
 
+      if (config.embedToken) {
+        embed.embedToken = config.embedToken;
+      } else {
+        // Fallback for older /config payloads that don't carry a token yet.
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+        embed.authorizationServer = { url: `${API_BASE_URL}/dashboards/authorize` };
+      }
+
+      const dashboard = BoldBI.create(embed);
       dashboard.loadDashboard();
       setDashboardInstance(dashboard);
     } catch (err) {
       console.error('Dashboard viewer error:', err);
       setError(err.message || 'Failed to load dashboard');
+    }
+  };
+
+  // Tear down the Bold BI dashboard instance so it does not overlay the listing
+  // view, and so the next selected dashboard always boots a fresh widget.
+  const destroyDashboardViewer = () => {
+    const instance = dashboardInstanceRef.current || dashboardInstance;
+    if (!instance) return;
+    try {
+      if (typeof instance.destroy === 'function') {
+        instance.destroy();
+      } else if (typeof instance.unload === 'function') {
+        instance.unload();
+      }
+    } catch (e) {
+      console.warn('Failed to destroy dashboard instance:', e);
+    }
+    setDashboardInstance(null);
+    const container = document.getElementById('dashboard-container');
+    if (container) {
+      try { container.innerHTML = ''; } catch { /* no-op */ }
+    }
+  };
+
+  const handleBackToList = () => {
+    destroyDashboardViewer();
+    setSelectedDashboard(null);
+  };
+
+  // Edit/Delete used to be undefined (lint no-undef + runtime
+  // ReferenceError). They are now wired: edit opens the designer with the
+  // dashboard id pre-selected on the design page; delete prompts and calls
+  // the dashboards service. Both are no-ops if the service is unreachable
+  // rather than throwing.
+  const handleEditDashboard = async (dashboardId) => {
+    if (!dashboardId) return;
+    try {
+      navigate(`/dashboards/designer?id=${encodeURIComponent(dashboardId)}`);
+    } catch (err) {
+      console.warn('Navigate to designer failed', err);
+    }
+  };
+
+  const handleDeleteDashboard = async (dashboard) => {
+    if (!dashboard?.id) return;
+    const confirmed = window.confirm(
+      `Delete dashboard “${dashboard.name ?? dashboard.Id}”? This cannot be undone.`);
+    if (!confirmed) return;
+    try {
+      await dashboardsAPI.delete(dashboard.id);
+      setDashboards(prev => prev.filter(d => (d.id || d.Id) !== dashboard.id));
+    } catch (err) {
+      console.warn('Delete dashboard failed', err);
+      setError(err?.message ?? 'Failed to delete dashboard');
     }
   };
 
@@ -323,13 +391,13 @@ const Dashboards = () => {
           {!dashboardsSidebarCollapsed && (
             <div className="p-4 space-y-3 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-1">
-                <span>Categories</span>
+                <span>Collections</span>
                 <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-semibold">
                   {categoriesList.length}
                 </span>
               </div>
 
-              {/* All Categories */}
+              {/* All Collections */}
               <button
                 onClick={() => setSelectedCategoryFilter('all')}
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
@@ -339,7 +407,7 @@ const Dashboards = () => {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <FolderIcon className="w-4 h-4 text-blue-500" /> All Categories
+                  <FolderIcon className="w-4 h-4 text-blue-500" /> All Collections
                 </span>
                 <span className="text-[11px] opacity-70 font-semibold">{dashboards.length}</span>
               </button>
@@ -392,7 +460,7 @@ const Dashboards = () => {
               <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="flex items-center gap-3 min-w-0">
                   <button
-                    onClick={() => setSelectedDashboard(null)}
+                    onClick={handleBackToList}
                     className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
                     <ChevronLeftIcon className="w-4 h-4" /> Back to list
@@ -405,7 +473,7 @@ const Dashboards = () => {
                 </div>
 
                 <button
-                  onClick={() => setSelectedDashboard(null)}
+                  onClick={handleBackToList}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
                   Close Viewer
@@ -575,11 +643,11 @@ const Dashboards = () => {
                 ) : (
                   /* TABLE VIEW */
                   <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <table className="w-full text-left border-collapse table-auto">
+                    <table className="w-full text-left border-collapse table-fixed">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 dark:bg-slate-900/60 select-none">
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-1/3 min-w-[200px]" onClick={() => handleSort('name')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[32%]" onClick={() => handleSort('name')}>
+                            <div className="flex items-center gap-1">
                               <span>Dashboard Name</span>
                               {sortColumn === 'name' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -588,9 +656,9 @@ const Dashboards = () => {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-44 whitespace-nowrap" onClick={() => handleSort('categoryName')}>
-                            <div className="flex items-center gap-1.5">
-                              <span>Category</span>
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[18%]" onClick={() => handleSort('categoryName')}>
+                            <div className="flex items-center gap-1">
+                              <span>Collection</span>
                               {sortColumn === 'categoryName' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
                               ) : (
@@ -598,8 +666,8 @@ const Dashboards = () => {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-1/3 max-w-sm" onClick={() => handleSort('description')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[24%]" onClick={() => handleSort('description')}>
+                            <div className="flex items-center gap-1">
                               <span>Description</span>
                               {sortColumn === 'description' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -608,8 +676,8 @@ const Dashboards = () => {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-36 whitespace-nowrap" onClick={() => handleSort('modifiedDate')}>
-                            <div className="flex items-center gap-1.5">
+                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[16%]" onClick={() => handleSort('modifiedDate')}>
+                            <div className="flex items-center gap-1">
                               <span>Last Modified</span>
                               {sortColumn === 'modifiedDate' ? (
                                 <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
@@ -618,7 +686,7 @@ const Dashboards = () => {
                               )}
                             </div>
                           </th>
-                          <th className="py-3.5 px-4 text-right w-28 whitespace-nowrap">Actions</th>
+                          <th className="py-3 px-3 text-right w-[10%]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
@@ -631,26 +699,45 @@ const Dashboards = () => {
                               onClick={() => setSelectedDashboard(dashboard)}
                               className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
                             >
-                              <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
-                                <div className="flex items-center gap-2.5">
+                              <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white overflow-hidden">
+                                <div className="flex items-center gap-2 min-w-0">
                                   <ChartBarIcon className={`w-4 h-4 ${palette.iconColor} shrink-0`} />
-                                  <span className="truncate">{dashboard.name}</span>
+                                  <span className="truncate block" title={dashboard.name}>{dashboard.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`}>
-                                  {dashboard.categoryName}
+                              <td className="py-3 px-3 overflow-hidden">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-full shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`} title={dashboard.categoryName}>
+                                  <span className="truncate">{dashboard.categoryName}</span>
                                 </span>
                               </td>
-                              <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{dashboard.description}</td>
-                              <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">{getFormattedDateString(dashboard.modifiedDate || dashboard.createdDate)}</td>
-                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                              <td className="py-3 px-3 text-slate-500 overflow-hidden">
+                                <span className="truncate block" title={dashboard.description}>{dashboard.description}</span>
+                              </td>
+                              <td className="py-3 px-3 text-slate-500 font-medium overflow-hidden whitespace-nowrap text-[11px]" title={getFormattedDateString(dashboard.modifiedDate || dashboard.createdDate)}>
+                                {getFormattedDateString(dashboard.modifiedDate || dashboard.createdDate)}
+                              </td>
+                              <td className="py-3 px-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => toggleStar(dashboard.id, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title={isStarred ? "Remove Star" : "Star Dashboard"}
                                   >
-                                    {isStarred ? <StarIconSolid className="w-4 h-4 text-amber-400" /> : <StarIconOutline className="w-4 h-4" />}
+                                    {isStarred ? <StarIconSolid className="w-3.5 h-3.5 text-amber-400" /> : <StarIconOutline className="w-3.5 h-3.5" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleEditDashboard(dashboard.id)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Edit in Dashboard Designer"
+                                  >
+                                    <PencilIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteDashboard(dashboard)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                    title="Delete Dashboard"
+                                  >
+                                    <TrashIcon className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </td>

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace BoldAdhocEmbed.Server.Validators
 {
@@ -8,6 +9,12 @@ namespace BoldAdhocEmbed.Server.Validators
     /// </summary>
     public static class RequestValidator
     {
+        private static readonly Regex CacheKeySafeChars = new(@"[^a-zA-Z0-9_\-\.@]", RegexOptions.Compiled);
+
+        private static readonly HashSet<string> ValidTenants = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "AlphaCorp", "BetaSolutions", "GammaIndustries", "DeltaEnterprises"
+        };
         /// <summary>
         /// Validate email address format
         /// </summary>
@@ -127,6 +134,50 @@ namespace BoldAdhocEmbed.Server.Validators
             }
 
             return errors;
+        }
+
+        /// <summary>
+        /// Validate a tenant name against the allowed set.
+        /// Returns errors list (empty when valid).
+        /// </summary>
+        public static List<string> ValidateTenant(string tenant, string fieldName = "Tenant")
+        {
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(tenant))
+            {
+                errors.Add($"{fieldName} is required");
+            }
+            else if (!ValidTenants.Contains(tenant.Trim()))
+            {
+                errors.Add($"{fieldName} '{tenant}' is not recognized");
+            }
+            return errors;
+        }
+
+        /// <summary>
+        /// Sanitize a cache key: bounds its length and strips characters that
+        /// could blow up memory cache or conflict with prefix boundaries.
+        /// </summary>
+        public static string SanitizeCacheKey(string input, int maxLength = 200)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return "unknown";
+
+            var trimmed = input.Length > maxLength
+                ? input.Substring(0, maxLength)
+                : input;
+
+            return CacheKeySafeChars.Replace(trimmed, string.Empty);
+        }
+
+        /// <summary>
+        /// Validate pagination parameters, clamping values into safe ranges.
+        /// </summary>
+        public static (int skip, int take) ValidatePagination(int? skip, int? take)
+        {
+            var validSkip = Math.Max(0, skip ?? 0);
+            var validTake = Math.Clamp(take ?? 100, 1, 500);
+            return (validSkip, validTake);
         }
     }
 }

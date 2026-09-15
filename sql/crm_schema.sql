@@ -262,16 +262,31 @@ ALTER TABLE tasks FORCE ROW LEVEL SECURITY;
 ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
 ALTER TABLE email_logs FORCE ROW LEVEL SECURITY;
 
--- Helper function for RLS policy check
+-- Helper function for RLS policy check. Reads the session variable we
+-- now set in CrmDataService ('app.current_user_region') and additionally
+-- honors 'app.is_admin' so an admin can bypass per-row restrictions
+-- without making the policy fail open when the variable is unset.
 CREATE OR REPLACE FUNCTION rls_region_check(row_region VARCHAR)
 RETURNS BOOLEAN AS $$
+DECLARE
+    region_value TEXT;
+    is_admin     BOOLEAN;
 BEGIN
-    RETURN (
-        current_setting('app.current_region', true) IS NULL OR
-        current_setting('app.current_region', true) = '' OR
-        current_setting('app.current_region', true) = 'ALL' OR
-        row_region = current_setting('app.current_region', true)
-    );
+    region_value := NULLIF(current_setting('app.current_user_region', true), '');
+    is_admin := COALESCE(NULLIF(current_setting('app.is_admin', true), '') = 'true', FALSE);
+
+    -- Fail closed when nothing is set. The single-tenant "ALL" sentinel
+    -- is no longer respected unless the role is explicitly admin and the
+    -- tenant provided an 'ALL' override.
+    IF region_value IS NULL OR region_value = '' THEN
+        RETURN is_admin;
+    END IF;
+
+    IF is_admin THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN row_region = region_value;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -305,3 +320,22 @@ CREATE POLICY rls_audit_log_policy ON audit_log USING (rls_region_check(region))
 
 DROP POLICY IF EXISTS rls_email_logs_policy ON email_logs;
 CREATE POLICY rls_email_logs_policy ON email_logs USING (rls_region_check(region));
+
+-- Composite / partial indexes that match the hot query patterns
+-- surfaced by Home/Deals/Tickets/Campaigns. The previous single-column
+-- indexes still exist; these are additive and prefer selective use.
+CREATE INDEX IF NOT EXISTS idx_deals_region_stage ON deals(region, stage);
+CREATE INDEX IF NOT EXISTS idx_deals_region_probability ON deals(region, probability);
+CREATE INDEX IF NOT EXISTS idx_contacts_region_status ON contacts(region, status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_region_status_due
+    ON support_tickets(region, status, sla_due_date);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_open
+    ON support_tickets(region, sla_due_date)
+    WHERE status IN ('Open','In Progress','Escalated');
+CREATE INDEX IF NOT EXISTS idx_campaigns_region_active
+    ON campaigns(region)
+    WHERE status = 'Active';
+CREATE INDEX IF NOT EXISTS idx_revenue_summary_region_month
+    ON revenue_summary(region, month DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_region_due_date
+    ON tasks(region, due_date);

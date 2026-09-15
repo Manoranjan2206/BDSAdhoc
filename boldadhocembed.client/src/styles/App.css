@@ -1,39 +1,72 @@
-/* App.css - BDS CRM Suite Enterprise Design System */
+/* App.css - CRM Suite Enterprise Design System v2 */
 
 :root {
-  --primary: #5341cd;
-  --primary-container: #6c5ce7;
-  --role-admin: #6c5ce7;
+  /* === Primary Brand === */
+  --primary: #5b4ce6;
+  --primary-soft: #eae6ff;
+  --primary-container: #5b4ce6;
+
+  /* === Semantic Colors === */
+  --info: #2563eb;
+  --info-soft: #eaf2ff;
+  --success: #059669;
+  --success-soft: #e8f8f2;
+  --warning: #d97706;
+  --warning-soft: #fff5df;
+  --danger: #dc2626;
+  --danger-soft: #feeeee;
+
+  /* === Role Colors === */
+  --role-admin: #5b4ce6;
   --role-sales: #3b82f6;
   --role-finance: #10b981;
   --role-support: #f97316;
   --role-ops: #14b8a6;
-  --background: #f8f9ff;
-  --surface: #f8f9ff;
-  --on-surface: #0b1c30;
-  --on-surface-variant: #474554;
-  --outline: #787586;
-  --outline-variant: #c8c4d7;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.35);
-  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+  /* === Text & Surface === */
+  --text-primary: #111827;
+  --text-secondary: #526078;
+  --text-muted: #8491a7;
+  --border: #dfe5ee;
+  --surface: #ffffff;
+  --background: #f6f8fb;
+
+  /* === Glass === */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  /* === Radii === */
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --radius-panel: 20px;
+  --radius-pill: 999px;
+
+  /* === Shadows === */
+  --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 .dark {
-  --background: #0b1329;
+  --primary: #a78bfa;
+  --primary-soft: #2e1d5e;
+  --info-soft: #1e3a5f;
+  --success-soft: #0f3d2e;
+  --warning-soft: #3d2e0f;
+  --danger-soft: #3d0f0f;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
   --surface: #0f172a;
-  --on-surface: #f8fafc;
-  --on-surface-variant: #94a3b8;
-  --outline: #64748b;
-  --outline-variant: #334155;
+  --background: #0b1329;
   --glass-bg: rgba(15, 23, 42, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--on-surface);
+  color: var(--text-primary);
   background-color: var(--background);
 }
 
@@ -60,21 +93,26 @@ body {
   border-right: 1px solid var(--glass-border);
 }
 
-.hover-lift {
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
+/* Modern Button */
+.btn-primary {
+  background-color: var(--primary);
+  color: #ffffff;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(83, 65, 205, 0.08);
+.btn-primary:hover {
+  background-color: #4a3bc4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(91, 76, 230, 0.25);
 }
 
-.bg-canvas {
-  background-image: radial-gradient(circle at 100% 100%, #eff4ff 0%, #f8f9ff 100%);
-}
-
-.dark .bg-canvas {
-  background-image: radial-gradient(circle at 100% 100%, #0f172a 0%, #0b1329 100%);
+/* Material Symbols alignment helper */
+.material-symbols-outlined {
+  vertical-align: middle;
+  line-height: 1;
 }
 
 /* Custom Scrollbar */
@@ -88,36 +126,22 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #c8c4d7;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #787586;
+  background: #94a3b8;
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #334155;
 }
 
-/* Modern Button */
-.btn-primary {
-  background-color: var(--primary-container);
-  color: #ffffff;
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
+.bg-canvas {
+  background-image: radial-gradient(circle at 100% 100%, #eef2ff 0%, #f6f8fb 100%);
 }
 
-.btn-primary:hover {
-  background-color: #5341cd;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.25);
-}
-
-/* Material Symbols alignment helper */
-.material-symbols-outlined {
-  vertical-align: middle;
-  line-height: 1;
+.dark .bg-canvas {
+  background-image: radial-gradient(circle at 100% 100%, #0f172a 0%, #0b1329 100%);
 }

@@ -277,7 +277,7 @@ export default function Settings() {
                         <input
                           type="text"
                           readOnly
-                          value={reportsSettings.reportsSiteIdentifier || 'site/b1159702'}
+                          value={reportsSettings.reportsSiteIdentifier || 'site/site11'}
                           className="w-full border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none"
                         />
                       </div>

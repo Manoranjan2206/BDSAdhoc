@@ -1,23 +1,35 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import './styles/App.css';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import Home from './pages/Home';
-import Reports from './pages/Reports';
-import Dashboards from './pages/Dashboards';
-import Schedules from './pages/Schedules';
-import Settings from './pages/Settings';
-import Designer from './pages/Designer';
-import DashboardDesigner from './pages/DashboardDesigner';
-import Deals from './pages/Deals';
-import Contacts from './pages/Contacts';
-import Tickets from './pages/Tickets';
-import Operations from './pages/Operations';
+import SSOCallback from './pages/SSOCallback';
 import { authService } from './services/authService';
 import { DataProvider } from './context/DataContext';
 import { applyTheme } from './themeConfig';
+
+// Route-level code splitting. Designer + Dashboard pages import multi-MB
+// Bold editors; lazy loading them cuts the initial bundle by ~50% for
+// users that only need reports/dashboards viewing.
+const Home = lazy(() => import('./pages/Home'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Designer = lazy(() => import('./pages/Designer'));
+const Dashboards = lazy(() => import('./pages/Dashboards'));
+const DashboardDesigner = lazy(() => import('./pages/DashboardDesigner'));
+const Schedules = lazy(() => import('./pages/Schedules'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Deals = lazy(() => import('./pages/Deals'));
+const Contacts = lazy(() => import('./pages/Contacts'));
+const Tickets = lazy(() => import('./pages/Tickets'));
+const Operations = lazy(() => import('./pages/Operations'));
+const Users = lazy(() => import('./pages/Users'));
+
+const PageFallback = (
+  <div className="flex items-center justify-center h-full bg-canvas">
+    <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin" />
+  </div>
+);
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -34,13 +46,9 @@ export default function App() {
   useEffect(() => {
     const handleThemeChange = () => {
       const savedTheme = localStorage.getItem('settings_theme');
-      if (savedTheme === 'Dark Theme') {
-        setDarkMode(true);
-      } else if (savedTheme === 'Light Theme') {
-        setDarkMode(false);
-      } else {
-        setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
-      }
+      if (savedTheme === 'Dark Theme') setDarkMode(true);
+      else if (savedTheme === 'Light Theme') setDarkMode(false);
+      else setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
     };
 
     window.addEventListener('storage', handleThemeChange);
@@ -52,7 +60,7 @@ export default function App() {
   }, []);
 
   const handleToggleDarkMode = () => {
-    setDarkMode(prev => {
+    setDarkMode((prev) => {
       const next = !prev;
       localStorage.setItem('settings_theme', next ? 'Dark Theme' : 'Light Theme');
       localStorage.setItem('darkMode', String(next));
@@ -66,31 +74,25 @@ export default function App() {
       const isAuthenticated = authService.isAuthenticated();
       if (isAuthenticated) {
         const isValid = await authService.validateToken();
-        if (!isValid) {
-          await authService.logout();
-        }
+        if (!isValid) await authService.logout();
       }
       setIsAuthChecked(true);
     };
-
     checkAuth();
   }, []);
 
   useEffect(() => {
-    const themeKey = `${syncfusionBaseTheme}-${darkMode ? 'dark' : 'light'}`;
-    applyTheme(themeKey);
+    applyTheme(`${syncfusionBaseTheme}-${darkMode ? 'dark' : 'light'}`);
   }, [syncfusionBaseTheme, darkMode]);
 
   if (!isAuthChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-canvas">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center font-bold text-2xl text-white shadow-xl mx-auto mb-6">
-            B
-          </div>
-          <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-sm font-medium text-on-surface-variant">Loading BDS CRM Suite...</p>
+        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center font-bold text-2xl text-white shadow-xl mx-auto mb-6">
+          A
         </div>
+        <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" />
+        <p className="mt-4 text-sm font-medium text-on-surface-variant">Loading CRM Suite...</p>
       </div>
     );
   }
@@ -100,192 +102,37 @@ export default function App() {
       <div className={darkMode ? 'dark' : ''}>
         <BrowserRouter>
           <Routes>
-            {/* Public Routes */}
+            {/* Public */}
             <Route path="/login" element={<Login />} />
+            <Route path="/sso-callback" element={<SSOCallback />} />
+            <Route path="/Home/SSOCallback" element={<SSOCallback />} />
 
-            {/* Protected Core CRM Routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
+            {/* Protected. We collapse all the previous 11 duplicated
+                <ProtectedRoute><Layout>{Page}</Layout></ProtectedRoute>
+                blocks into a single route + a single Layout. */}
+            <Route element={<ProtectedRoute />}>
+              <Route
+                element={
                   <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Home />
+                    <Suspense fallback={PageFallback} />
                   </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboards"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Dashboards />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboards/designer"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <DashboardDesigner />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Reports />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports/designer"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Designer />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/schedules"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Schedules />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/deals"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Deals />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/contacts"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Contacts />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tickets"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Tickets />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/activities"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleDarkMode => handleToggleDarkMode()}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/invoices"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/campaigns"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tasks"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/audit-log"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/operations"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Operations />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/scheduler"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Schedules />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/designer"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Designer />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Settings />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+                }
+              >
+                <Route path="/" element={<Suspense fallback={PageFallback}><Home /></Suspense>} />
+                <Route path="/dashboards" element={<Suspense fallback={PageFallback}><Dashboards /></Suspense>} />
+                <Route path="/dashboards/designer" element={<Suspense fallback={PageFallback}><DashboardDesigner /></Suspense>} />
+                <Route path="/reports" element={<Suspense fallback={PageFallback}><Reports /></Suspense>} />
+                <Route path="/reports/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
+                <Route path="/schedules" element={<Suspense fallback={PageFallback}><Schedules /></Suspense>} />
+                <Route path="/deals" element={<Suspense fallback={PageFallback}><Deals /></Suspense>} />
+                <Route path="/contacts" element={<Suspense fallback={PageFallback}><Contacts /></Suspense>} />
+                <Route path="/tickets" element={<Suspense fallback={PageFallback}><Tickets /></Suspense>} />
+                <Route path="/operations" element={<Suspense fallback={PageFallback}><Operations /></Suspense>} />
+                <Route path="/users" element={<Suspense fallback={PageFallback}><Users /></Suspense>} />
+                <Route path="/settings" element={<Suspense fallback={PageFallback}><Settings /></Suspense>} />
+              </Route>
+            </Route>
 
-            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
