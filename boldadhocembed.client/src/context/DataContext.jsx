@@ -40,6 +40,21 @@ export function DataProvider({ children }) {
   const [reportsSidebarCollapsed, setReportsSidebarCollapsed] = useState(false);
   const [dashboardsSidebarCollapsed, setDashboardsSidebarCollapsed] = useState(false);
 
+  // Clear cache whenever user logs in or out
+  React.useEffect(() => {
+    const handleAuthChange = () => {
+      setCache({
+        reports: null,
+        dashboards: null,
+        schedules: null,
+        users: null,
+        viewerSettings: null,
+      });
+    };
+    window.addEventListener('auth-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-changed', handleAuthChange);
+  }, []);
+
   /**
    * Generic fetch function with caching
    * Only fetches if data is not already cached
@@ -174,7 +189,23 @@ export function DataProvider({ children }) {
 export function useData() {
   const context = useContext(DataContext);
   if (!context) {
-    throw new Error('useData must be used within DataProvider');
+    console.warn('useData was called outside DataProvider -- using fallback context');
+    return {
+      reportsSidebarCollapsed: false,
+      setReportsSidebarCollapsed: () => {},
+      dashboardsSidebarCollapsed: false,
+      setDashboardsSidebarCollapsed: () => {},
+      cache: {},
+      loading: {},
+      errors: {},
+      getReports: async () => [],
+      getDashboards: async () => [],
+      getSchedules: async () => [],
+      getUsers: async () => [],
+      getViewerSettings: async () => null,
+      getAllData: async () => ({}),
+      invalidate: () => {},
+    };
   }
   return context;
 }

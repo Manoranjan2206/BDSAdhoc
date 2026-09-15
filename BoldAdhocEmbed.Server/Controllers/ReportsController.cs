@@ -65,24 +65,32 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
 
                 var callerEmail = auth.Email;
-                var user = new AppUser
-                {
-                    Email = auth.Email,
-                    TenantId = auth.TenantId,
-                    TenantName = auth.TenantName,
-                    Role = auth.Role,
-                    Region = auth.Region,
-                };
-                var embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
+                var cacheKey = $"bold-reports-embed-token-{callerEmail}";
+                var embedToken = await _cacheService.GetAsync<string>(cacheKey);
+
                 if (string.IsNullOrEmpty(embedToken))
                 {
-                    Logger.LogWarning(
-                        "embed_token grant failed for caller {Email}; ensure BoldReports:EmbedSecret "
-                        + "(or BOLD_REPORTS_SECRET env var) is set and matches the site's embed secret.",
-                        callerEmail);
-                    return StatusCode(503, ApiResponse<dynamic>.ErrorResponse(
-                        "Embed token not configured",
-                        "Server is missing BoldReports:EmbedSecret or the Reports site rejected the embed_token grant."));
+                    var user = new AppUser
+                    {
+                        Email = auth.Email,
+                        TenantId = auth.TenantId,
+                        TenantName = auth.TenantName,
+                        Role = auth.Role,
+                        Region = auth.Region,
+                    };
+                    embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
+                    if (string.IsNullOrEmpty(embedToken))
+                    {
+                        Logger.LogWarning(
+                            "embed_token grant failed for caller {Email}; ensure BoldReports:EmbedSecret "
+                            + "(or BOLD_REPORTS_SECRET env var) is set and matches the site's embed secret.",
+                            callerEmail);
+                        return StatusCode(503, ApiResponse<dynamic>.ErrorResponse(
+                            "Embed token not configured",
+                            "Server is missing BoldReports:EmbedSecret or the Reports site rejected the embed_token grant."));
+                    }
+
+                    await _cacheService.SetAsync(cacheKey, embedToken, TimeSpan.FromHours(12));
                 }
 
                 var reportRootUrl = _settings.ReportRootUrl;
@@ -128,20 +136,29 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
                 }
 
-                // Create user context
-                var user = new AppUser
-                {
-                    Email = auth.Email,
-                    TenantName = auth.TenantName,
-                    Role = auth.Role,
-                    Region = auth.Region,
-                };
+                var cacheKey = $"bold-reports-embed-token-{auth.Email}";
+                var embedToken = await _cacheService.GetAsync<string>(cacheKey);
 
-                var embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
                 if (string.IsNullOrEmpty(embedToken))
                 {
-                    Logger.LogWarning("Failed to generate embed token for user: {Email}", user.Email);
-                    return StatusCode(500, ApiResponse<dynamic>.ErrorResponse("Failed to generate embed token"));
+                    // Create user context
+                    var user = new AppUser
+                    {
+                        Email = auth.Email,
+                        TenantId = auth.TenantId,
+                        TenantName = auth.TenantName,
+                        Role = auth.Role,
+                        Region = auth.Region,
+                    };
+
+                    embedToken = await _boldReportsService.GetEmbedTokenAsync(user);
+                    if (string.IsNullOrEmpty(embedToken))
+                    {
+                        Logger.LogWarning("Failed to generate embed token for user: {Email}", user.Email);
+                        return StatusCode(500, ApiResponse<dynamic>.ErrorResponse("Failed to generate embed token"));
+                    }
+
+                    await _cacheService.SetAsync(cacheKey, embedToken, TimeSpan.FromHours(12));
                 }
 
                 var reportRootUrl = _settings.ReportRootUrl;
@@ -154,7 +171,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     serverUrl = $"{reportRootUrl}/api/site/{reportsSiteIdentifier}"
                 };
 
-                Logger.LogInformation("Embed token generated successfully for user: {Email}", user.Email);
+                Logger.LogInformation("Embed token generated successfully for user: {Email}", auth.Email);
                 return Ok(ApiResponse<dynamic>.SuccessResponse((dynamic)response, "Embed token generated successfully"));
             }
             catch (Exception ex)

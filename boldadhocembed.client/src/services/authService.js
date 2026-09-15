@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Authentication Service for Bold Reports
  * Handles login, logout, and token management
  */
@@ -279,12 +279,14 @@ export const authService = {
       // Clear local storage
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      window.dispatchEvent(new Event('auth-changed'));
       console.log('[Auth] Logout complete');
     } catch (error) {
       console.error('[Auth] Logout error:', error.message);
       // Continue with logout even if API call fails
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      window.dispatchEvent(new Event('auth-changed'));
     }
   },
 

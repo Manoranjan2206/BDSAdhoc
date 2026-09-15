@@ -1,5 +1,7 @@
 {
-    "dotrush.roslyn.projectOrSolutionFiles": [],
+    "dotrush.roslyn.projectOrSolutionFiles": [
+        "c:\\Users\\manor\\Downloads\\Adhoc\\BDSAdhoc\\BoldAdhocEmbed.slnx"
+    ],
     "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
         "BoldAdhocEmbed.slnx"
     ]

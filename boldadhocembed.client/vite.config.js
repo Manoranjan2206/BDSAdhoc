@@ -40,8 +40,8 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
 // flow used by the ASP.NET Core launchSettings profile.
 const useHttps = !(env.DISABLE_DEV_HTTPS === '1' || env.DISABLE_DEV_HTTPS === 'true');
 
-const target = useHttps
-    ? (env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` : 'https://localhost:62350')
+const target = env.ASPNETCORE_HTTPS_PORT
+    ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}`
     : (env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'http://localhost:5274');
 
 const serverConfig = {

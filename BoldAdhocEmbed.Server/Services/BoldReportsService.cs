@@ -123,56 +123,8 @@ namespace BoldAdhocEmbed.Server.Services
         /// </summary>
         public async Task<string> GetTokenFromSecretAsync(string email)
         {
-            try
-            {
-                // If embed secret is not configured, fall back to password auth
-                if (string.IsNullOrEmpty(_settings.EmbedSecret))
-                {
-                    _logger.LogInformation("Embed secret not configured, attempting password authentication");
-                    return await GetTokenAsync(email, _settings.AdminPassword);
-                }
-
-                var tokenUrl = $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/token";
-
-                _logger.LogInformation(
-                    "Attempting token generation for {Email} using embed_token grant. URL: {TokenUrl}",
-                    email, tokenUrl);
-
-                // Use the canonical Cloud JSON payload. The secret travels in the
-                // body — the site returns 401 if it doesn't match.
-                var payload = new
-                {
-                    grant_type = "embed_token",
-                    ReportServerUser = email,
-                    Embed_Secret = _settings.EmbedSecret
-                };
-                var json = JsonConvert.SerializeObject(payload);
-                using var jsonContent = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await _httpClient.PostAsync(tokenUrl, jsonContent);
-                _logger.LogInformation("Token response status: {StatusCode}", response.StatusCode);
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var tokenResponse = JsonConvert.DeserializeObject<TokenResponse>(responseContent);
-                    if (tokenResponse != null)
-                    {
-                        // Return raw access_token — the client widget adds Bearer itself.
-                        return tokenResponse.access_token;
-                    }
-                }
-
-                _logger.LogError(
-                    "Token generation failed with status {StatusCode}. Response: {ResponseContent}",
-                    response.StatusCode, responseContent);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Token generation from secret failed");
-                return null;
-            }
+            if (string.IsNullOrEmpty(email)) return null;
+            return await GetEmbedTokenAsync(new AppUser { Email = email });
         }
 
         /// <summary>
@@ -219,16 +171,26 @@ namespace BoldAdhocEmbed.Server.Services
                     "Issuing embed_token via embed_token grant for {Email} (site {Site})",
                     username, _settings.ReportsSiteIdentifier);
 
+                var tenantNameValue = user?.TenantName ?? "default";
+
                 var payload = new
                 {
                     grant_type = "embed_token",
                     ReportServerUser = username,
                     Embed_Secret = _settings.EmbedSecret,
+                    ReportParameters = new[]
+                    {
+                        new
+                        {
+                            Key = "image",
+                            Values = new[] { tenantNameValue }
+                        }
+                    },
                     CustomAttributes = new[]
                     {
                         new { Key = "databaseName", Value = databaseName },
                         new { Key = "tenantId", Value = user?.TenantId.ToString() ?? "0" },
-                        new { Key = "tenantName", Value = user?.TenantName ?? "default" },
+                        new { Key = "tenantName", Value = tenantNameValue },
                         new { Key = "userRole", Value = user?.Role ?? "User" },
                         new { Key = "region", Value = user?.Region ?? "default" }
                     }
@@ -242,7 +204,7 @@ namespace BoldAdhocEmbed.Server.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning(
+                    _logger.LogError(
                         "Embed_token grant returned {StatusCode}: {Body}",
                         response.StatusCode,
                         string.IsNullOrEmpty(responseContent) ? "(empty response)" : responseContent);

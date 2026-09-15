@@ -200,7 +200,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 Logger.LogInformation("Generated Bold Reports token via password grant for {Email}", targetEmail);
                 if (cacheService != null)
                 {
-                    await cacheService.SetAsync(cacheKey, realToken, TimeSpan.FromHours(1));
+                    await cacheService.SetAsync(cacheKey, realToken, TimeSpan.FromHours(12));
                 }
                 return realToken;
             }
@@ -260,10 +260,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return null;
             }
 
-            // Cache for 30 min — embed_tokens are short-lived on the Reports side.
+            // Cache for 12 hours — cached until user logs out or session expires.
             if (cacheService != null)
             {
-                await cacheService.SetAsync(cacheKey, embedToken, TimeSpan.FromMinutes(30));
+                await cacheService.SetAsync(cacheKey, embedToken, TimeSpan.FromHours(12));
             }
             return embedToken;
         }

@@ -170,19 +170,15 @@ export default function Designer() {
             };
         }
 
-        if (window.currentItem && isEdit) {
-            openServerReport(window.currentItem.Name, window.currentItem.CategoryName);
-        } else if (window.currentItem) {
-            const hasDataset = !!window.currentItem.DatasetName;
-            const hasCategory = !!window.currentItem.CategoryName;
-            if (hasDataset) {
-                designer.newServerReport(window.currentItem.Name, window.currentItem.DatasetName);
-            } else if (hasCategory) {
-                designer.newServerReport(window.currentItem.Name);
-            } else {
-                newUntitledReport();
-            }
+        const q = new URLSearchParams(window.location.search);
+        const urlName = q.get('name') || (window.currentItem && window.currentItem.Name);
+        const urlCategory = q.get('category') || (window.currentItem && window.currentItem.CategoryName) || '';
+
+        if (urlName) {
+            setIsEdit(true);
+            openServerReport(urlName, urlCategory);
         } else {
+            setIsEdit(false);
             newUntitledReport();
         }
     };
@@ -276,14 +272,19 @@ export default function Designer() {
 
     const openServerReport = (name, category) => {
         const designer = getDesigner();
-        if (!designer) return;
+        if (!designer || !name) return;
         window.currentItem = {
             ...(window.currentItem || {}),
             Name: name,
-            CategoryName: category,
+            CategoryName: category || '',
             Description: (window.currentItem && window.currentItem.Description) || 'no desc',
         };
-        const reportPath = category ? `${category}/${name}` : name;
+        const cleanName = name.trim();
+        const cleanCat = category ? category.trim() : '';
+        const reportPath = cleanCat
+            ? `/${cleanCat}/${cleanName}`.replace(/\/{2,}/g, '/')
+            : (cleanName.startsWith('/') ? cleanName : `/${cleanName}`);
+        console.log('[openServerReport] Opening report path:', reportPath);
         designer.openReport(reportPath);
     };
 
@@ -539,13 +540,13 @@ export default function Designer() {
                     openReportClick={openMenuClick}
                     toolbarSettings={{
                         items:
-                            ej.ReportDesigner.ToolbarItems.All &
-                            ~ej.ReportDesigner.ToolbarItems.Save &
-                            ~ej.ReportDesigner.ToolbarItems.Open &
-                            ~ej.ReportDesigner.ToolbarItems.New,
+                            window.ej?.ReportDesigner?.ToolbarItems?.All &
+                            ~window.ej?.ReportDesigner?.ToolbarItems?.New,
                     }}
                     permissionSettings={{
-                        dataSource: ej.ReportDesigner.Permission[permissionForDs],
+                        dataSource: window.ej?.ReportDesigner?.Permission?.All || 15,
+                        dataset: window.ej?.ReportDesigner?.Permission?.All || 15,
+                        report: window.ej?.ReportDesigner?.Permission?.All || 15,
                     }}
                     toolbarClick={toolbarClick}
                     reportModified={reportModified}

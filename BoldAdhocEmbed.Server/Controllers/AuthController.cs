@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using BoldAdhocEmbed.Server.Services;
@@ -25,6 +25,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _env;
+        private readonly ICacheService _cacheService;
 
         public AuthController(
             IBoldReportsService boldReportsService,
@@ -32,7 +33,8 @@ namespace BoldAdhocEmbed.Server.Controllers
             IUserStore userStore,
             ILogger<AuthController> logger,
             IConfiguration configuration,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            ICacheService cacheService)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
@@ -41,6 +43,7 @@ namespace BoldAdhocEmbed.Server.Controllers
             _logger = logger;
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _env = env ?? throw new ArgumentNullException(nameof(env));
+            _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
         }
 
         /// <summary>
@@ -165,6 +168,30 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return StatusCode(500, ApiResponse<LoginResponse>.ErrorResponse(
                     "An unexpected error occurred. Please try again.",
                     "Login failed"));
+            }
+        }
+
+        /// <summary>
+        /// Logout user and clear all cached tokens.
+        /// </summary>
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                var email = GetClaimSafely("email", "preferred_username", "sub");
+                if (!string.IsNullOrEmpty(email))
+                {
+                    await _cacheService.RemoveAsync($"bold-reports-exchanged-token-{email}");
+                    await _cacheService.RemoveAsync($"bold-reports-embed-token-{email}");
+                    Logger.LogInformation("Evicted cached tokens on logout for user {Email}", email);
+                }
+                return Ok(ApiResponse<dynamic>.SuccessResponse(null, "Logout successful"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error during logout token cleanup");
+                return Ok(ApiResponse<dynamic>.SuccessResponse(null, "Logout complete"));
             }
         }
 

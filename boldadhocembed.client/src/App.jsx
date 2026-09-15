@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useState, useEffect } from 'react';
 import './styles/App.css';
 import Layout from './components/Layout';
@@ -122,6 +122,7 @@ export default function App() {
                 <Route path="/dashboards" element={<Suspense fallback={PageFallback}><Dashboards /></Suspense>} />
                 <Route path="/dashboards/designer" element={<Suspense fallback={PageFallback}><DashboardDesigner /></Suspense>} />
                 <Route path="/reports" element={<Suspense fallback={PageFallback}><Reports /></Suspense>} />
+                <Route path="/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
                 <Route path="/reports/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
                 <Route path="/schedules" element={<Suspense fallback={PageFallback}><Schedules /></Suspense>} />
                 <Route path="/deals" element={<Suspense fallback={PageFallback}><Deals /></Suspense>} />
