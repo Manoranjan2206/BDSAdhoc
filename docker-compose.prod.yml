@@ -81,6 +81,9 @@ services:
       BoldBI__UserEmail: ${BBI_UserEmail}
       BoldBI__Environment: ${BBI_Environment:-onpremise}
 
+      # ---- Keycloak SSO Authority ----
+      Jwt__Authority: ${JWT_AUTHORITY:-https://keycloak.boldbidemo.com/realms/master}
+
     networks:
       - bdsadhoc-t1-net
     healthcheck:

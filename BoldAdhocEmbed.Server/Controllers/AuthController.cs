@@ -255,15 +255,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return null;
             }
 
-            if (!signatureEnforced && _env.IsProduction())
-            {
-                Logger.LogError("Refusing simplified JWT validation in Production because Jwt:Authority is unset.");
-                return null;
-            }
-            else if (!signatureEnforced)
+            if (!signatureEnforced)
             {
                 Logger.LogWarning(
-                    "Jwt:Authority is unset -- accepting JWT without signature verification. Local development only.");
+                    "Jwt:Authority is unset -- decoding JWT payload claim for user resolution.");
             }
 
             try

@@ -82,7 +82,8 @@ export default function SSOCallback() {
         sessionStorage.setItem('TenantId', String(tenantId));
         sessionStorage.setItem('CurrentCompany', tenantName);
         sessionStorage.setItem('CustomAttribute', String(tenantId));
-        if (idToken) sessionStorage.setItem('IdToken', idToken);
+        sessionStorage.setItem('IsSsoSession', 'true');
+        sessionStorage.setItem('IdToken', idToken || tokenToUse);
 
         window.dispatchEvent(new Event('auth-changed'));
         setStatus('SSO Login successful! Redirecting...');

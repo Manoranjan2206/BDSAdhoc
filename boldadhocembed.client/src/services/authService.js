@@ -226,18 +226,18 @@ export const authService = {
         if (!res) return goToKeycloak();
 
         // `opaqueredirect` is what browsers report when redirect:'manual'
-        // was applied to a real 3xx Location: header â€” that's the happy
+        // was applied to a real 3xx Location: header — that's the happy
         // path. We can't read the Location, but the browser followed it
         // already for cookies; re-navigating to the URL would still
         // work, so just go straight to Keycloak to be safe.
         if (res.type === 'opaqueredirect') return goToKeycloak();
 
-        // Status 0 + no URL = CORS / opaque response â€” server is
+        // Status 0 + no URL = CORS / opaque response — server is
         // unreachable, fall back to client-side.
         if (res.status === 0 && !res.url) return goToKeycloak();
 
         // Anything that returned HTML (SPA fallback), redirected to a
-        // non-SSO page, or 4xx/5xx â€” skip the server hop.
+        // non-SSO page, or 4xx/5xx — skip the server hop.
         const contentType = res.headers?.get?.('content-type') || '';
         const isHtml = contentType.includes('text/html');
         const looksLikeSso = /keycloak|sso|oauth|login/i.test(res.url || '');
@@ -279,6 +279,7 @@ export const authService = {
       // Clear local storage
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      sessionStorage.clear();
       window.dispatchEvent(new Event('auth-changed'));
       console.log('[Auth] Logout complete');
     } catch (error) {
@@ -286,6 +287,7 @@ export const authService = {
       // Continue with logout even if API call fails
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      sessionStorage.clear();
       window.dispatchEvent(new Event('auth-changed'));
     }
   },

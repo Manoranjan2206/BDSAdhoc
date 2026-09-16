@@ -98,6 +98,7 @@ services:
       - BoldBI__EmbedSecret=${BBI_EmbedSecret}
       - BoldBI__UserEmail=${BBI_UserEmail}
       - BoldBI__Environment=${BBI_Environment:-onpremise}
+      - Jwt__Authority=${JWT_AUTHORITY:-https://keycloak.boldbidemo.com/realms/master}
     depends_on:
       postgres:
         condition: service_healthy
