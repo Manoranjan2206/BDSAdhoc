@@ -27,7 +27,7 @@ export default function Designer() {
     const [isEdit, setIsEdit] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
-// currentUser (email used for defaulting category in Save-As)
+    // currentUser (email used for defaulting category in Save-As)
     const currentUser = useMemo(() => {
         try { return authService.getUser()?.user || authService.getUser() || null; }
         catch { return null; }
@@ -55,7 +55,7 @@ export default function Designer() {
         load();
         // getViewerSettings from DataContext has stable identity per state,
         // but to avoid re-firing on every render we only depend on mount.
-         
+
     }, []);
 
     const currentItem = useMemo(() => {
@@ -139,7 +139,7 @@ export default function Designer() {
         // matching the MVC Design page behaviour.
         if (designer.model) {
             designer.model.newDataClick = function (args) {
-                try { args.cancel = true; } catch (e) {}
+                try { args.cancel = true; } catch (e) { }
                 try {
                     const dataSources = designer.getDataSources() || [];
                     const existing = dataSources.find(ds => ds.Name === ADVENTUREWORKS_NAME);
@@ -243,7 +243,7 @@ export default function Designer() {
         setIsEdit(true);
         setIsSaving(false);
         setHasChanges(false);
-        try { notifyReportSaved(); } catch (e) {}
+        try { notifyReportSaved(); } catch (e) { }
     };
 
     const notifyReportSaved = () => {
@@ -359,16 +359,16 @@ export default function Designer() {
     // succession because Bold Reports' internal Save lifecycle can re-enter
     // after our explicit designer.saveReport() call.
     const handlePublishClick = () => {
-         
+
         console.log('[publish-click] invoked. isSaving=', isSaving, 'isEdit=', isEdit);
         if (isSaving) {
-             
+
             console.log('[publish-click] BLOCKED — already saving');
             return;
         }
         const designer = getDesigner();
         if (!designer) {
-             
+
             console.log('[publish-click] BLOCKED — designer not ready');
             return;
         }
@@ -544,9 +544,8 @@ export default function Designer() {
                             ~window.ej?.ReportDesigner?.ToolbarItems?.New,
                     }}
                     permissionSettings={{
-                        dataSource: window.ej?.ReportDesigner?.Permission?.All || 15,
-                        dataset: window.ej?.ReportDesigner?.Permission?.All || 15,
-                        report: window.ej?.ReportDesigner?.Permission?.All || 15,
+                        dataSource: window.ej?.ReportDesigner?.Permission?.Shared,
+                        dataset: window.ej?.ReportDesigner?.Permission?.All
                     }}
                     toolbarClick={toolbarClick}
                     reportModified={reportModified}

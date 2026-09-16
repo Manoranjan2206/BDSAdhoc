@@ -90,15 +90,7 @@ export default function Deals() {
     return () => { isMounted = false; };
   }, [tenantName, userRegion, userRole]);
 
-  // Derive regionFilter from props via lazy initial state so the region
-  // filter stays in sync without a synchronously-set effect. The previous
-  // implementation tripped the react-hooks/set-state-in-effect rule.
-  const regionInit = userRole === 'Admin' ? 'ALL' : userRegion;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const [regionFilter, setRegionFilter] = useState(regionInit);
-  if (regionFilter !== regionInit && (regionFilter === 'ALL' || regionFilter === userRegion)) {
-    setRegionFilter(regionInit);
-  }
+
 
   const filteredDeals = deals.filter(d => {
     const matchesSearch = (d.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (d.company || '').toLowerCase().includes(searchTerm.toLowerCase());
