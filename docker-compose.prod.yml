@@ -81,7 +81,10 @@ services:
       BoldBI__UserEmail: ${BBI_UserEmail}
       BoldBI__Environment: ${BBI_Environment:-onpremise}
 
-      # ---- Keycloak SSO Authority ----
+      # ---- Keycloak SSO Authority & JWT ----
+      Jwt__Key: ${JWT_KEY:-CHANGE_ME_jwt_signing_key_min_32_chars_xxxxxxxxxxxxxxxx}
+      Jwt__Issuer: ${JWT_ISSUER:-BoldAdhoc}
+      Jwt__Audience: ${JWT_AUDIENCE:-BoldAdhocUsers}
       Jwt__Authority: ${JWT_AUTHORITY:-https://keycloak.boldbidemo.com/realms/master}
 
     networks:
