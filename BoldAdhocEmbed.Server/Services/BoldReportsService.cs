@@ -184,6 +184,13 @@ namespace BoldAdhocEmbed.Server.Services
                         {
                             Key = "image",
                             Values = new[] { tenantNameValue }
+                        },
+                        new
+                        {
+                            Key = "Region",
+                            Values = string.Equals(user?.Role, "Admin", StringComparison.OrdinalIgnoreCase)
+                                ? new[] { "North America", "Europe", "Asia", "Oceania" }
+                                : new[] { user?.Region ?? "North America" }
                         }
                     },
                     CustomAttributes = new[]

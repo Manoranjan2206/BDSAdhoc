@@ -30,4 +30,5 @@ node_modules/
 # Temporary and reference directories
 BasicAppCore/
 *.zip
+*.tar
 

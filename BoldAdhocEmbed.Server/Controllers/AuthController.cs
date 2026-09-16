@@ -272,23 +272,55 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var payload = parts[1];
                 while (payload.Length % 4 != 0) payload += "=";
                 var bytes = Convert.FromBase64String(payload);
-                var decoded = System.Text.Encoding.UTF8.GetString(bytes);
+                var jsonString = System.Text.Encoding.UTF8.GetString(bytes);
 
-                var emailIndex = decoded.IndexOf("\"email\":\"", StringComparison.OrdinalIgnoreCase);
-                if (emailIndex < 0) return null;
-                var emailStart = emailIndex + 9;
-                var emailEnd = decoded.IndexOf("\"", emailStart);
-                if (emailEnd < 0) return null;
-                var email = decoded.Substring(emailStart, emailEnd - emailStart);
-                if (string.IsNullOrEmpty(email)) return null;
+                using var doc = System.Text.Json.JsonDocument.Parse(jsonString);
+                var root = doc.RootElement;
 
-                var user = _userStore.Get(email);
+                string? userIdentifier = null;
+
+                if (root.TryGetProperty("email", out var emailProp) && emailProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    userIdentifier = emailProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(userIdentifier) && root.TryGetProperty("preferred_username", out var userProp) && userProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    userIdentifier = userProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(userIdentifier) && root.TryGetProperty("upn", out var upnProp) && upnProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    userIdentifier = upnProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(userIdentifier) && root.TryGetProperty("sub", out var subProp) && subProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    userIdentifier = subProp.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(userIdentifier))
+                {
+                    Logger.LogWarning("No email, preferred_username, upn, or sub claim found in JWT token");
+                    return null;
+                }
+
+                // Attempt exact lookup by email or handle username fallback (e.g., "alpha1" -> "alpha1@alphacorp.com")
+                var user = _userStore.Get(userIdentifier);
+                if (user == null && !userIdentifier.Contains('@'))
+                {
+                    user = _userStore.GetAll().FirstOrDefault(u =>
+                        u.Email != null && u.Email.StartsWith(userIdentifier + "@", StringComparison.OrdinalIgnoreCase));
+                }
+
                 if (user != null && user.IsActive)
                 {
                     user.LastLoginDate = DateTime.UtcNow;
                     _userStore.Update(user);
                     return user;
                 }
+
+                Logger.LogWarning("User '{UserIdentifier}' extracted from JWT was not found in active UserStore", userIdentifier);
                 return null;
             }
             catch (Exception ex)

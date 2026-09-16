@@ -32,6 +32,16 @@ export default function Designer() {
         try { return authService.getUser()?.user || authService.getUser() || null; }
         catch { return null; }
     }, []);
+    const canEdit = useMemo(() => {
+        return ['admin', 'operations'].includes(currentUser?.role?.toLowerCase());
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (currentUser && !canEdit) {
+            navigate('/reports');
+        }
+    }, [currentUser, canEdit, navigate]);
+
     const permissionForDs = useMemo(() => {
         return getPermissionForRole(currentUser?.role);
     }, [currentUser?.role]);
@@ -56,6 +66,11 @@ export default function Designer() {
         // getViewerSettings from DataContext has stable identity per state,
         // but to avoid re-firing on every render we only depend on mount.
 
+    }, []);
+
+    const isClone = useMemo(() => {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('mode') === 'clone' || q.get('mode') === 'copy' || q.get('isCopy') === 'true';
     }, []);
 
     const currentItem = useMemo(() => {
@@ -186,7 +201,8 @@ export default function Designer() {
     const reportOpened = (args) => {
         setIsEdit(true);
         if (args?.reportName) {
-            document.title = String(args.reportName).replace('.rdl', '');
+            const cleanName = String(args.reportName).replace('.rdl', '');
+            document.title = isClone ? `Copy of ${cleanName}` : cleanName;
         }
     };
 
@@ -258,32 +274,41 @@ export default function Designer() {
         designer.newReport('Untitled');
     };
 
+    const CUSTOM_GROUPS = [
+        'Sales Analytics',
+        'Marketing & Finance Analytics',
+        'Finance Analytics',
+        'Marketing Analytics',
+        'System & Operational Reports',
+        'System Reports',
+        'Other Analytics'
+    ];
+
     const saveAsServer = (name, category) => {
         const designer = getDesigner();
         if (!designer) return;
+        const targetCategory = 'Analytics Reports';
         window.currentItem = {
             ...(window.currentItem || {}),
             Name: name,
-            CategoryName: category,
+            CategoryName: targetCategory,
             Description: (window.currentItem && window.currentItem.Description) || 'no desc',
         };
-        designer.saveReport(`${category}/${name}`);
+        designer.saveReport(`${targetCategory}/${name}`);
     };
 
     const openServerReport = (name, category) => {
         const designer = getDesigner();
         if (!designer || !name) return;
+        const serverCat = (!category || CUSTOM_GROUPS.includes(category.trim())) ? 'Analytics Reports' : category.trim();
         window.currentItem = {
             ...(window.currentItem || {}),
             Name: name,
-            CategoryName: category || '',
+            CategoryName: serverCat,
             Description: (window.currentItem && window.currentItem.Description) || 'no desc',
         };
         const cleanName = name.trim();
-        const cleanCat = category ? category.trim() : '';
-        const reportPath = cleanCat
-            ? `/${cleanCat}/${cleanName}`.replace(/\/{2,}/g, '/')
-            : (cleanName.startsWith('/') ? cleanName : `/${cleanName}`);
+        const reportPath = `/${serverCat}/${cleanName}`.replace(/\/{2,}/g, '/');
         console.log('[openServerReport] Opening report path:', reportPath);
         designer.openReport(reportPath);
     };
@@ -394,49 +419,25 @@ export default function Designer() {
     const [showDialog, setShowDialog] = useState(false);
     const [pendingName, setPendingName] = useState('');
     const [pendingDescription, setPendingDescription] = useState('');
-    const [pendingCategory, setPendingCategory] = useState('');
-    const [pendingTags, setPendingTags] = useState('');
-    const [availableCategories, setAvailableCategories] = useState([]);
     const [dialogMode, setDialogMode] = useState('publish'); // 'publish' | 'publishAs'
-
-    // Fetch the report tree once to derive a category list for the Save-As
-    // dialog (mirrors MVC's populateCatagories + /api/Report/GetCatagories).
-    // We do NOT remove this state when navigating — the user can reopen the
-    // dialog and the dropdown is still populated.
-    const refreshCategories = async () => {
-        try {
-            const tree = await getReports();
-            if (Array.isArray(tree)) {
-                const names = Array.from(new Set(
-                    tree
-                        .map(c => c.Name || c.name)
-                        .filter(n => n && n.toLowerCase() !== 'master')
-                ));
-                setAvailableCategories(names);
-            }
-        } catch (e) {
-            console.warn('Failed to load categories for designer dialog', e);
-        }
-    };
 
     const openSaveDialog = (mode = 'publish') => {
         // Reset dialog state with sensible defaults
-        const seedName = window.currentItem?.Name || '';
+        let seedName = window.currentItem?.Name || '';
+        if (isClone && seedName && !seedName.startsWith('Copy of ')) {
+            seedName = `Copy of ${seedName}`;
+        }
         setPendingName(seedName || '');
         setPendingDescription(window.currentItem?.Description || '');
-        setPendingCategory(window.currentItem?.CategoryName || '');
-        setPendingTags('');
         setDialogMode(mode);
         setShowDialog(true);
-        // Refresh category list in the background
-        refreshCategories();
     };
 
     const confirmSave = () => {
         const name = (pendingName || '').trim();
-        const category = (pendingCategory || '').trim() || currentUser?.email || '';
-        if (!name || !category) {
-            alert('Report name and category are required.');
+        const category = 'Analytics Reports';
+        if (!name) {
+            alert('Report name is required.');
             return;
         }
         const designer = getDesigner();
@@ -492,13 +493,21 @@ export default function Designer() {
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-semibold text-slate-400">Reports /</span>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                        {isEdit ? (window.currentItem?.Name || 'Edit Report') : 'New Report'}
+                        {isClone
+                            ? (window.currentItem?.Name ? `Copy of ${window.currentItem.Name}` : 'Cloned Report')
+                            : isEdit
+                            ? (window.currentItem?.Name || 'Edit Report')
+                            : 'New Report'}
                     </h2>
-                    {isEdit && (
+                    {isClone ? (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-600 dark:bg-purple-950/40 rounded-full border border-purple-200/60 dark:border-purple-900/40">
+                            Copy / Clone Mode
+                        </span>
+                    ) : isEdit ? (
                         <span className="px-2 py-0.5 text-[10px] font-semibold bg-orange-50 text-[#FF4800] dark:bg-orange-950/40 rounded-full border border-orange-200/60 dark:border-orange-900/40">
                             Editing
                         </span>
-                    )}
+                    ) : null}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -516,7 +525,7 @@ export default function Designer() {
                         disabled={isSaving}
                         className="px-4 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        {isEdit ? 'Save Report' : 'Publish Report'}
+                        {(isEdit && !isClone) ? 'Save Report' : 'Publish Report'}
                     </button>
                     <button
                         onClick={() => navigate('/reports')}
@@ -580,37 +589,13 @@ export default function Designer() {
                             style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 14, boxSizing: 'border-box' }}
                         />
 
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600 }}>Category<span style={{ color: '#dc2626' }}> *</span></label>
-                        <select
-                            value={pendingCategory}
-                            onChange={(e) => setPendingCategory(e.target.value)}
-                            style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 10px', fontSize: 13, marginBottom: 14, background: '#fff', boxSizing: 'border-box' }}
-                        >
-                            <option value="">Choose a category…</option>
-                            {currentUser?.email ? (
-                                <option value={currentUser.email}>{currentUser.email} (your workspace)</option>
-                            ) : null}
-                            {availableCategories.map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
-                        </select>
-
                         <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600 }}>Description</label>
                         <textarea
                             value={pendingDescription}
                             onChange={(e) => setPendingDescription(e.target.value)}
                             placeholder="Optional description shown in the report tree"
                             rows={3}
-                            style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 14, resize: 'vertical', boxSizing: 'border-box' }}
-                        />
-
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6, fontWeight: 600 }}>Tags <span style={{ fontWeight: 400, color: '#94a3b8' }}>(comma separated)</span></label>
-                        <input
-                            type="text"
-                            value={pendingTags}
-                            onChange={(e) => setPendingTags(e.target.value)}
-                            placeholder="e.g. finance, monthly, kpi"
-                            style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 18, boxSizing: 'border-box' }}
+                            style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 18, resize: 'vertical', boxSizing: 'border-box' }}
                         />
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

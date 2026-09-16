@@ -225,28 +225,93 @@ namespace BoldAdhocEmbed.Server.Controllers
                 
                 var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-                // Group reports by category
-                var tree = reports
-                    .GroupBy(r => r.CategoryName ?? "Uncategorized")
-                    .Select(g => new
-                    {
-                        Id = g.Key.ToLower().Replace(" ", "-"),
-                        Name = g.Key,
-                        Reports = g.Select(r => new
-                        {
-                            r.Id,
-                            r.Name,
-                            r.Description,
-                            r.CanRead,
-                            r.CanWrite,
-                            CreatedById = r.CreatedById,
-                            IsPublic = r.IsPublic,
-                            ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
-                            CreatedDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
-                            ModifiedDateString = !string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso)
-                        }).ToList()
-                    })
+                // We only ever surface the "Analytics Reports" category to any user.
+                var analyticsReports = reports.Where(r => string.Equals(r.CategoryName, "Analytics Reports", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                // Split the 7 reports in "Analytics Reports" into distinct groups:
+                // 1. Sales Analytics: Product Sales Breakdown, Deal Products Pipeline Analysis Report, Sales Reps Performance Report
+                var salesReports = analyticsReports.Where(r => 
+                    r.Name.Contains("Sales", StringComparison.OrdinalIgnoreCase) || 
+                    r.Name.Contains("Deal", StringComparison.OrdinalIgnoreCase) || 
+                    r.Name.Contains("Pipeline", StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+
+                // 2. Marketing & Finance Analytics: Campaign Performance Report, Monthly Revenue Report
+                var financeMarketingReports = analyticsReports.Where(r => 
+                    r.Name.Contains("Revenue", StringComparison.OrdinalIgnoreCase) || 
+                    r.Name.Contains("Campaign", StringComparison.OrdinalIgnoreCase) ||
+                    r.Name.Contains("Finance", StringComparison.OrdinalIgnoreCase) ||
+                    r.Name.Contains("Financial", StringComparison.OrdinalIgnoreCase) ||
+                    r.Name.Contains("Marketing", StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+
+                // 3. System & Operational Reports: Audit Trail Report, Contact Details Report
+                var systemOperationalReports = analyticsReports.Where(r => 
+                    r.Name.Contains("Audit", StringComparison.OrdinalIgnoreCase) || 
+                    r.Name.Contains("Contact", StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+
+                // 4. Other Analytics: any remaining reports in Analytics Reports
+                var otherReports = analyticsReports
+                    .Except(salesReports)
+                    .Except(financeMarketingReports)
+                    .Except(systemOperationalReports)
                     .ToList();
+
+                var userRole = _auth.GetAuthContext()?.Role;
+                var restructured = new List<(string Id, string Name, IEnumerable<BoldAdhocEmbed.Server.Services.BoldReport> Reports)>();
+
+                if (string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Admin sees all groups with all 7 reports
+                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
+                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
+                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
+                    if (otherReports.Any()) restructured.Add(("other-analytics", "Other Analytics", otherReports));
+                }
+                else if (string.Equals(userRole, "Sales", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Sales users see ONLY Sales related reports among the 7 reports
+                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
+                }
+                else if (string.Equals(userRole, "Finance", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Finance users see ONLY Marketing & Finance Analytics
+                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
+                }
+                else if (string.Equals(userRole, "Operations", StringComparison.OrdinalIgnoreCase) || string.Equals(userRole, "Support", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Operations / Support see ONLY System & Operational Reports
+                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
+                }
+                else
+                {
+                    // Manager and other non-admin roles see relevant groups
+                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
+                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
+                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
+                    if (otherReports.Any()) restructured.Add(("other-analytics", "Other Analytics", otherReports));
+                }
+
+                object tree = restructured.Select(g => new
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    Reports = g.Reports.Select(r => new
+                    {
+                        r.Id,
+                        r.Name,
+                        r.Description,
+                        CategoryName = r.CategoryName ?? "Analytics Reports",
+                        r.CanRead,
+                        r.CanWrite,
+                        CreatedById = r.CreatedById,
+                        IsPublic = r.IsPublic,
+                        ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
+                        CreatedDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
+                        ModifiedDateString = !string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso)
+                    }).ToList()
+                }).ToList();
 
                 // Cache for 5 minutes
                 await _cacheService.SetAsync(cacheKey, (dynamic)tree, TimeSpan.FromMinutes(5));
