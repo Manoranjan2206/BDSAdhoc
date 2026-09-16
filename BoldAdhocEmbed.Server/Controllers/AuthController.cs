@@ -152,10 +152,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                         IsActive = rbacUser.IsActive,
                         CreatedDate = rbacUser.CreatedDate
                     },
-                    SessionToken = string.IsNullOrWhiteSpace(request.JwtToken)
-                        || string.IsNullOrWhiteSpace(_configuration["Jwt:Authority"])
-                        ? GenerateSessionToken(rbacUser)
-                        : request.JwtToken,
+                    SessionToken = GenerateSessionToken(rbacUser),
                     Permissions = rbacUser.Permissions ?? _userStore.GetPermissionsForRole(rbacUser.Role)
                 };
 
@@ -306,6 +303,38 @@ namespace BoldAdhocEmbed.Server.Controllers
                 {
                     user = _userStore.GetAll().FirstOrDefault(u =>
                         u.Email != null && u.Email.StartsWith(userIdentifier + "@", StringComparison.OrdinalIgnoreCase));
+                }
+
+                // JIT (Just-In-Time) provisioning for Keycloak SSO accounts not pre-seeded in InMemoryUserStore
+                if (user == null)
+                {
+                    var name = root.TryGetProperty("name", out var nProp) && nProp.ValueKind == System.Text.Json.JsonValueKind.String ? nProp.GetString() : null;
+                    var givenName = root.TryGetProperty("given_name", out var gProp) && gProp.ValueKind == System.Text.Json.JsonValueKind.String ? gProp.GetString() : null;
+                    var familyName = root.TryGetProperty("family_name", out var fProp) && fProp.ValueKind == System.Text.Json.JsonValueKind.String ? fProp.GetString() : null;
+
+                    var displayName = !string.IsNullOrWhiteSpace(name)
+                        ? name
+                        : (!string.IsNullOrWhiteSpace(givenName) ? $"{givenName} {familyName}".Trim() : userIdentifier);
+
+                    var email = userIdentifier.Contains('@') ? userIdentifier : $"{userIdentifier}@alphacorp.com";
+
+                    user = new AppUser
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Email = email,
+                        Name = displayName,
+                        FirstName = givenName,
+                        LastName = familyName,
+                        Role = "Admin",
+                        TenantId = 1,
+                        TenantName = "AlphaCorp",
+                        Region = "North America",
+                        IsActive = true,
+                        CreatedDate = DateTime.UtcNow,
+                        LastLoginDate = DateTime.UtcNow
+                    };
+                    _userStore.Add(user);
+                    Logger.LogInformation("Auto-provisioned JIT user for Keycloak SSO: {Email}, Name: {Name}", email, displayName);
                 }
 
                 if (user != null && user.IsActive)

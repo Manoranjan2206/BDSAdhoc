@@ -43,7 +43,7 @@ export default function Header({ darkMode, onToggleDarkMode }) {
     // Subscribe to auth-changed and update state inside the event handler
     // so the synchronous setState() within the effect body can be replaced
     // by the callback path that satisfies react-hooks/set-state-in-effect.
-    setUser((prev) => prev ?? currentUser?.user ?? currentUser);
+    setUser(currentUser?.user ?? currentUser ?? null);
 
     if (currentUser) getViewerSettings();
 

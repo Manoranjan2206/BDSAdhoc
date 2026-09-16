@@ -22,31 +22,27 @@ builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
 // AuthController.AuthenticateWithJwt is gated behind a feature flag and
 // rejected by default in Production.
 var jwtAuthority = builder.Configuration["Jwt:Authority"];
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "DemoRealm";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "BoldAdhocEmbed.Local";
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"];
-var jwtRequireHttps = !(builder.Configuration["Jwt:RequireHttpsMetadata"] == "false");
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "BoldAdhocUsers";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "BoldAdhoc";
+var jwtSigningKey = builder.Configuration["Jwt:Key"] ?? builder.Configuration["Jwt:SigningKey"];
+
+var effectiveSigningKey = string.IsNullOrWhiteSpace(jwtSigningKey)
+    ? "local-development-signing-key-change-before-production-2026"
+    : jwtSigningKey;
 
 builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        if (!string.IsNullOrWhiteSpace(jwtAuthority))
-        {
-            options.Authority = jwtAuthority;
-            options.Audience = jwtAudience;
-            options.RequireHttpsMetadata = jwtRequireHttps;
-        }
+        options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
-            ValidateIssuer = string.IsNullOrWhiteSpace(jwtAuthority),
+            ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
             ValidateAudience = true,
             ValidAudience = jwtAudience,
             ValidateLifetime = true,
-            ValidateIssuerSigningKey = string.IsNullOrWhiteSpace(jwtAuthority),
-            IssuerSigningKey = string.IsNullOrWhiteSpace(jwtAuthority) && !string.IsNullOrWhiteSpace(jwtSigningKey)
-                ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey))
-                : null,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(effectiveSigningKey)),
             ClockSkew = TimeSpan.FromSeconds(30),
         };
     });
