@@ -363,7 +363,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             var issuer = _configuration["Jwt:Issuer"] ?? "BoldAdhocEmbed.Local";
             var audience = _configuration["Jwt:Audience"] ?? "DemoRealm";
-            var signingKey = _configuration["Jwt:SigningKey"];
+            var signingKey = _configuration["Jwt:Key"] ?? _configuration["Jwt:SigningKey"];
             if (string.IsNullOrWhiteSpace(signingKey))
             {
                 throw new InvalidOperationException("Jwt:SigningKey is required for local password authentication.");

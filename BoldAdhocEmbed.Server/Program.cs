@@ -45,6 +45,22 @@ builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(effectiveSigningKey)),
             ClockSkew = TimeSpan.FromSeconds(30),
         };
+
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(context.Exception, "JWT Authentication failed!");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("JWT Token successfully validated.");
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
