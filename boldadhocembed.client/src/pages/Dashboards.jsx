@@ -313,6 +313,13 @@ const Dashboards = () => {
     setSelectedDashboard(null);
   };
 
+  const handleCategorySelect = (catName) => {
+    if (selectedDashboard) {
+      handleBackToList();
+    }
+    setSelectedCategoryFilter(catName);
+  };
+
   // Edit/Delete used to be undefined (lint no-undef + runtime
   // ReferenceError). They are now wired: edit opens the designer with the
   // dashboard id pre-selected on the design page; delete prompts and calls
@@ -399,7 +406,7 @@ const Dashboards = () => {
 
               {/* All Collections */}
               <button
-                onClick={() => setSelectedCategoryFilter('all')}
+                onClick={() => handleCategorySelect('all')}
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
                   selectedCategoryFilter === 'all'
                     ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
@@ -420,7 +427,7 @@ const Dashboards = () => {
                   return (
                     <button
                       key={idx}
-                      onClick={() => setSelectedCategoryFilter(cat.name)}
+                      onClick={() => handleCategorySelect(cat.name)}
                       className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors ${
                         isSelected
                           ? `${palette.bg} ${palette.text} font-semibold border ${palette.border}`

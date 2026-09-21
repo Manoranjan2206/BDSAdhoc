@@ -154,6 +154,9 @@ builder.Services.AddScoped<ITokenHelper, TokenHelper>();
 // Register CRM Data Service for multi-tenant PostgreSQL queries
 builder.Services.AddScoped<ICrmDataService, CrmDataService>();
 
+// Register Database Bootstrapper for automated multi-tenant schema initialization
+builder.Services.AddScoped<IDatabaseBootstrapper, DatabaseBootstrapper>();
+
 // HttpContext-aware identity resolver — controllers MUST scope identity
 // through this rather than reading client-supplied X-User-* headers.
 builder.Services.AddHttpContextAccessor();
@@ -217,6 +220,21 @@ builder.Services.AddLogging(config =>
 });
 
 var app = builder.Build();
+
+// Auto-create databases, schemas, tables, and starter data for all tenants on startup
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapper>();
+        await bootstrapper.InitializeAllDatabasesAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Failed to auto-initialize multi-tenant databases during startup");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

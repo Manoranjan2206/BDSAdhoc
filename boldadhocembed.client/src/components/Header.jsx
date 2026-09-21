@@ -135,19 +135,32 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   }, [searchValue, getReports, getDashboards]);
 
   const handleLogout = async () => {
+    const isSso = authService.isSsoSession();
+    const idToken = authService.getSsoIdToken();
     try {
-      await authService.logout();
+      await authService.logout({ triggerSso: false });
       setShowProfileMenu(false);
       setShowLogoutConfirm(false);
-      navigate('/login');
+      if (isSso) {
+        authService.startSsoLogout({ idToken });
+      } else {
+        navigate('/login');
+      }
     } catch (error) {
       console.error('Logout error:', error);
       // Clear auth anyway and redirect
       localStorage.removeItem('boldreports_token');
       localStorage.removeItem('boldreports_user');
+      localStorage.removeItem('boldreports_is_sso');
+      localStorage.removeItem('boldreports_id_token');
+      sessionStorage.clear();
       setShowProfileMenu(false);
       setShowLogoutConfirm(false);
-      navigate('/login');
+      if (isSso) {
+        authService.startSsoLogout({ idToken });
+      } else {
+        navigate('/login');
+      }
     }
   };
 
@@ -785,7 +798,9 @@ export default function Header({ darkMode, onToggleDarkMode }) {
               Confirm Logout
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Are you sure you want to sign out of your account? You will need to log in again to access your reports and dashboards.
+              {authService.isSsoSession()
+                ? 'Are you sure you want to sign out? This will log you out of the application and your Keycloak SSO session.'
+                : 'Are you sure you want to sign out of your account? You will need to log in again to access your reports and dashboards.'}
             </p>
 
             <div className="flex gap-3 justify-center">

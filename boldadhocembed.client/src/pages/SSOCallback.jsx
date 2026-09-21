@@ -74,7 +74,8 @@ export default function SSOCallback() {
         // session. Local development receives a local signed JWT; a deployed
         // Keycloak configuration can preserve the validated provider token.
         const loginData = await authService.loginWithToken(tokenToUse);
-        localStorage.setItem('boldreports_user', JSON.stringify(loginData?.user || userData));
+        const savedUser = { ...(loginData?.user || userData), isSso: true };
+        localStorage.setItem('boldreports_user', JSON.stringify(savedUser));
         // Mirror MVC Session keys so any code reading either source is happy.
         sessionStorage.setItem('CurrentUser', email);
         sessionStorage.setItem('CurrentRole', role);
@@ -84,6 +85,12 @@ export default function SSOCallback() {
         sessionStorage.setItem('CustomAttribute', String(tenantId));
         sessionStorage.setItem('IsSsoSession', 'true');
         sessionStorage.setItem('IdToken', idToken || tokenToUse);
+        localStorage.setItem('boldreports_is_sso', 'true');
+        if (idToken) {
+          localStorage.setItem('boldreports_id_token', idToken);
+        } else if (tokenToUse) {
+          localStorage.setItem('boldreports_id_token', tokenToUse);
+        }
 
         window.dispatchEvent(new Event('auth-changed'));
         setStatus('SSO Login successful! Redirecting...');

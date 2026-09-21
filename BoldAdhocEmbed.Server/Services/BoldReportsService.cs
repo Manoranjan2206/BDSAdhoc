@@ -555,19 +555,52 @@ namespace BoldAdhocEmbed.Server.Services
         }
 
         // Schedules - v5.0
+        // Schedules - fetch via /items?itemType=Schedule similar to reports
         public async Task<List<BoldSchedule>> GetSchedulesAsync(string token)
         {
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, GetV5ApiUrl("/reports/schedule/items"));
+                // Similar to reports (/items?itemType=Report), fetch schedules via /items?itemType=Schedule
+                using var request = new HttpRequestMessage(HttpMethod.Get, GetApiUrl("/items?itemType=Schedule"));
                 request.Headers.Add("Authorization", NormalizeAuthHeader(token));
 
                 var response = await _httpClient.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
+                    var items = JsonConvert.DeserializeObject<List<BoldSchedule>>(content);
+                    if (items != null && items.Count > 0)
+                    {
+                        _logger.LogInformation("Schedules retrieved successfully via /items?itemType=Schedule: {Count} items", items.Count);
+                        return items;
+                    }
+                }
+
+                // Fallback: v5 /items?itemType=Schedule
+                using var v5Req = new HttpRequestMessage(HttpMethod.Get, GetV5ApiUrl("/items?itemType=Schedule"));
+                v5Req.Headers.Add("Authorization", NormalizeAuthHeader(token));
+                var v5Resp = await _httpClient.SendAsync(v5Req);
+                if (v5Resp.IsSuccessStatusCode)
+                {
+                    var content = await v5Resp.Content.ReadAsStringAsync();
+                    var items = JsonConvert.DeserializeObject<List<BoldSchedule>>(content);
+                    if (items != null && items.Count > 0)
+                    {
+                        _logger.LogInformation("Schedules retrieved via v5.0 /items?itemType=Schedule: {Count} items", items.Count);
+                        return items;
+                    }
+                }
+
+                // Fallback: v5 /reports/schedule/items
+                using var legacyReq = new HttpRequestMessage(HttpMethod.Get, GetV5ApiUrl("/reports/schedule/items"));
+                legacyReq.Headers.Add("Authorization", NormalizeAuthHeader(token));
+                var legacyResp = await _httpClient.SendAsync(legacyReq);
+                if (legacyResp.IsSuccessStatusCode)
+                {
+                    var content = await legacyResp.Content.ReadAsStringAsync();
                     return JsonConvert.DeserializeObject<List<BoldSchedule>>(content) ?? new List<BoldSchedule>();
                 }
+
                 return new List<BoldSchedule>();
             }
             catch (Exception ex)
@@ -622,35 +655,30 @@ namespace BoldAdhocEmbed.Server.Services
         {
             try
             {
-                // Try path-style delete first: /reports/schedule/{id}
+                // 1. Delete via /items/{id} (Bold Reports v1.0 item delete)
+                var itemUrl = GetApiUrl($"/items/{Uri.EscapeDataString(scheduleIdOrName)}");
+                using var itemRequest = new HttpRequestMessage(HttpMethod.Delete, itemUrl);
+                itemRequest.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var itemResponse = await _httpClient.SendAsync(itemRequest);
+                if (itemResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Deleted schedule (items) {ScheduleId} with status {StatusCode}", scheduleIdOrName, itemResponse.StatusCode);
+                    return true;
+                }
+
+                // 2. Fallback: v5 path delete /reports/schedule/{id}
                 var pathUrl = GetV5ApiUrl($"/reports/schedule/{Uri.EscapeDataString(scheduleIdOrName)}");
                 using var pathRequest = new HttpRequestMessage(HttpMethod.Delete, pathUrl);
                 pathRequest.Headers.Add("Authorization", NormalizeAuthHeader(token));
 
                 var pathResponse = await _httpClient.SendAsync(pathRequest);
-                var pathBody = await pathResponse.Content.ReadAsStringAsync();
                 if (pathResponse.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("Deleted schedule (path) {ScheduleId} with status {StatusCode}", scheduleIdOrName, pathResponse.StatusCode);
                     return true;
                 }
 
-                _logger.LogWarning("Delete schedule (path) failed for {ScheduleId} with status {StatusCode}: {Resp}", scheduleIdOrName, pathResponse.StatusCode, pathBody);
-
-                // Fallback: delete via items endpoint using itemType=Schedule and serverPath
-                var itemsUrl = GetV5ApiUrl($"/items?itemType=Schedule&serverPath={Uri.EscapeDataString(scheduleIdOrName)}");
-                using var itemsRequest = new HttpRequestMessage(HttpMethod.Delete, itemsUrl);
-                itemsRequest.Headers.Add("Authorization", NormalizeAuthHeader(token));
-
-                var itemsResponse = await _httpClient.SendAsync(itemsRequest);
-                var itemsBody = await itemsResponse.Content.ReadAsStringAsync();
-                if (itemsResponse.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Deleted schedule (items) {ScheduleId} with status {StatusCode}", scheduleIdOrName, itemsResponse.StatusCode);
-                    return true;
-                }
-
-                _logger.LogWarning("Delete schedule (items) failed for {ScheduleId} with status {StatusCode}: {Resp}", scheduleIdOrName, itemsResponse.StatusCode, itemsBody);
                 return false;
             }
             catch (Exception ex)

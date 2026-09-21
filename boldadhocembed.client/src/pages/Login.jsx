@@ -110,8 +110,16 @@ export default function Login() {
       <div className="max-w-5xl mx-auto w-full relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-4">
-          <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-xl mx-auto mb-2 shadow-md">
-            A
+          <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-2 shadow-lg shadow-primary/25 ring-2 ring-primary/20 transition-transform duration-300 hover:scale-105">
+            <img
+              src="/acme-logo.png"
+              alt="ACME CRM Suite Logo"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/acme-logo.svg';
+              }}
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-on-surface">
             ACME CRM Suite

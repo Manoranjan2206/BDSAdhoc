@@ -13,6 +13,49 @@ namespace BoldAdhocEmbed.Server.Services
         Task<List<SupportTicketDto>> GetTicketsAsync(AuthUserContext ctx, int page = 1, int pageSize = 50, CancellationToken ct = default);
         Task<List<CampaignDto>> GetCampaignsAsync(AuthUserContext ctx, int page = 1, int pageSize = 50, CancellationToken ct = default);
         Task<List<AuditLogDto>> GetAuditLogsAsync(AuthUserContext ctx, int page = 1, int pageSize = 50, CancellationToken ct = default);
+        Task EnsureCustomReportsTableAsync(AuthUserContext ctx, CancellationToken ct = default);
+        Task RegisterCustomReportAsync(AuthUserContext ctx, string reportName, string? description, string? category = "Analytics Reports", string? serverReportName = null, CancellationToken ct = default);
+        Task<List<CustomReportDto>> GetCustomReportsAsync(AuthUserContext ctx, CancellationToken ct = default);
+        Task<bool> DeleteCustomReportAsync(AuthUserContext ctx, string reportName, CancellationToken ct = default);
+
+        Task EnsureTenantSchedulesTableAsync(AuthUserContext ctx, CancellationToken ct = default);
+        Task RegisterTenantScheduleAsync(AuthUserContext ctx, string scheduleId, string scheduleName, string? serverScheduleName, string? itemId, string? itemName, string? itemType, string? categoryName, string? description, string? exportType, string? recurrenceType, bool isEnabled, CancellationToken ct = default);
+        Task<List<TenantScheduleDto>> GetTenantSchedulesAsync(AuthUserContext ctx, CancellationToken ct = default);
+        Task<bool> DeleteTenantScheduleAsync(AuthUserContext ctx, string scheduleIdOrName, CancellationToken ct = default);
+    }
+
+    public class TenantScheduleDto
+    {
+        public int Id { get; set; }
+        public string ScheduleId { get; set; } = string.Empty;
+        public string ScheduleName { get; set; } = string.Empty;
+        public string? ServerScheduleName { get; set; }
+        public string? ItemId { get; set; }
+        public string? ItemName { get; set; }
+        public string ItemType { get; set; } = "Report";
+        public string? CategoryName { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public int TenantId { get; set; }
+        public string OwnerEmail { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? ExportType { get; set; }
+        public string? RecurrenceType { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class CustomReportDto
+    {
+        public int Id { get; set; }
+        public string ReportName { get; set; } = string.Empty;
+        public string ServerReportName { get; set; } = string.Empty;
+        public string CategoryName { get; set; } = "Analytics Reports";
+        public string TenantName { get; set; } = string.Empty;
+        public int TenantId { get; set; }
+        public string OwnerEmail { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class HomeSummaryDto
@@ -177,7 +220,7 @@ namespace BoldAdhocEmbed.Server.Services
 
         private static readonly HashSet<string> ValidRoles = new(StringComparer.OrdinalIgnoreCase)
         {
-            "Admin", "Manager", "User", "Viewer", "ReadOnly"
+            "Admin", "Manager", "User", "Viewer", "ReadOnly", "Sales", "Finance", "Support", "Operations"
         };
 
         private async Task<NpgsqlConnection> CreateOpenConnectionAsync(
@@ -416,7 +459,7 @@ namespace BoldAdhocEmbed.Server.Services
                     ORDER BY d.amount DESC
                     LIMIT @pageSize OFFSET @offset;";
                 var cmd = new NpgsqlCommand(query, conn);
-                cmd.Parameters.AddWithValue("stage", (object?)stage ?? DBNull.Value);
+                cmd.Parameters.Add(new NpgsqlParameter("stage", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = (object?)stage ?? DBNull.Value });
                 cmd.Parameters.AddWithValue("pageSize", pageSize);
                 cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
 
@@ -618,6 +661,282 @@ namespace BoldAdhocEmbed.Server.Services
             if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} hours ago";
             if (diff.TotalDays < 7) return $"{(int)diff.TotalDays} days ago";
             return dateTime.ToString("MMM dd");
+        }
+
+        public async Task EnsureCustomReportsTableAsync(AuthUserContext ctx, CancellationToken ct = default)
+        {
+            try
+            {
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    CREATE TABLE IF NOT EXISTS custom_reports (
+                        id SERIAL PRIMARY KEY,
+                        report_name VARCHAR(255) NOT NULL,
+                        server_report_name VARCHAR(255),
+                        category_name VARCHAR(255) NOT NULL DEFAULT 'Analytics Reports',
+                        tenant_name VARCHAR(100) NOT NULL,
+                        tenant_id INT NOT NULL,
+                        owner_email VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT uq_tenant_custom_report UNIQUE (tenant_name, report_name)
+                    );
+                    ALTER TABLE custom_reports ADD COLUMN IF NOT EXISTS server_report_name VARCHAR(255);";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ensuring custom_reports table for {Tenant}", ctx.TenantName);
+            }
+        }
+
+        public async Task RegisterCustomReportAsync(AuthUserContext ctx, string reportName, string? description, string? category = "Analytics Reports", string? serverReportName = null, CancellationToken ct = default)
+        {
+            try
+            {
+                await EnsureCustomReportsTableAsync(ctx, ct);
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                var finalServerName = string.IsNullOrWhiteSpace(serverReportName) ? $"{ctx.TenantName}_{reportName.Trim()}" : serverReportName.Trim();
+                const string sql = @"
+                    INSERT INTO custom_reports (report_name, server_report_name, category_name, tenant_name, tenant_id, owner_email, description, updated_at)
+                    VALUES (@reportName, @serverReportName, @categoryName, @tenantName, @tenantId, @ownerEmail, @description, CURRENT_TIMESTAMP)
+                    ON CONFLICT (tenant_name, report_name)
+                    DO UPDATE SET
+                        server_report_name = EXCLUDED.server_report_name,
+                        description = EXCLUDED.description,
+                        category_name = EXCLUDED.category_name,
+                        updated_at = CURRENT_TIMESTAMP;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("reportName", reportName.Trim());
+                cmd.Parameters.AddWithValue("serverReportName", finalServerName);
+                cmd.Parameters.AddWithValue("categoryName", string.IsNullOrWhiteSpace(category) ? "Analytics Reports" : category.Trim());
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                cmd.Parameters.AddWithValue("tenantId", ctx.TenantId);
+                cmd.Parameters.AddWithValue("ownerEmail", ctx.Email);
+                cmd.Parameters.AddWithValue("description", (object?)description ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync(ct);
+                _logger.LogInformation("Custom report {ReportName} (server: {ServerName}) registered for tenant {Tenant}", reportName, finalServerName, ctx.TenantName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering custom report {ReportName} for {Tenant}", reportName, ctx.TenantName);
+            }
+        }
+
+        public async Task<List<CustomReportDto>> GetCustomReportsAsync(AuthUserContext ctx, CancellationToken ct = default)
+        {
+            var list = new List<CustomReportDto>();
+            try
+            {
+                await EnsureCustomReportsTableAsync(ctx, ct);
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    SELECT id, report_name, category_name, tenant_name, tenant_id, owner_email, description, created_at, COALESCE(server_report_name, report_name)
+                    FROM custom_reports
+                    WHERE tenant_name = @tenantName
+                    ORDER BY created_at DESC;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    list.Add(new CustomReportDto
+                    {
+                        Id = reader.GetInt32(0),
+                        ReportName = reader.GetString(1),
+                        CategoryName = reader.GetString(2),
+                        TenantName = reader.GetString(3),
+                        TenantId = reader.GetInt32(4),
+                        OwnerEmail = reader.GetString(5),
+                        Description = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CreatedAt = reader.GetDateTime(7),
+                        ServerReportName = reader.GetString(8)
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching custom reports from PostgreSQL for {Tenant}", ctx.TenantName);
+            }
+            return list;
+        }
+
+        public async Task<bool> DeleteCustomReportAsync(AuthUserContext ctx, string reportName, CancellationToken ct = default)
+        {
+            try
+            {
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    DELETE FROM custom_reports
+                    WHERE tenant_name = @tenantName AND report_name = @reportName;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                cmd.Parameters.AddWithValue("reportName", reportName.Trim());
+                var affected = await cmd.ExecuteNonQueryAsync(ct);
+                return affected > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting custom report {ReportName} for {Tenant}", reportName, ctx.TenantName);
+                return false;
+            }
+        }
+
+        public async Task EnsureTenantSchedulesTableAsync(AuthUserContext ctx, CancellationToken ct = default)
+        {
+            try
+            {
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    CREATE TABLE IF NOT EXISTS tenant_schedules (
+                        id SERIAL PRIMARY KEY,
+                        schedule_id VARCHAR(255) NOT NULL,
+                        schedule_name VARCHAR(255) NOT NULL,
+                        server_schedule_name VARCHAR(255),
+                        item_id VARCHAR(255),
+                        item_name VARCHAR(255),
+                        item_type VARCHAR(50) NOT NULL DEFAULT 'Report',
+                        category_name VARCHAR(255),
+                        tenant_name VARCHAR(100) NOT NULL,
+                        tenant_id INT NOT NULL,
+                        owner_email VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        export_type VARCHAR(50),
+                        recurrence_type VARCHAR(50),
+                        is_enabled BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT uq_tenant_schedule UNIQUE (tenant_name, schedule_name)
+                    );";
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ensuring tenant_schedules table for {Tenant}", ctx.TenantName);
+            }
+        }
+
+        public async Task RegisterTenantScheduleAsync(AuthUserContext ctx, string scheduleId, string scheduleName, string? serverScheduleName, string? itemId, string? itemName, string? itemType, string? categoryName, string? description, string? exportType, string? recurrenceType, bool isEnabled, CancellationToken ct = default)
+        {
+            try
+            {
+                await EnsureTenantSchedulesTableAsync(ctx, ct);
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                var finalServerName = string.IsNullOrWhiteSpace(serverScheduleName) ? $"{ctx.TenantName}_{scheduleName.Trim()}" : serverScheduleName.Trim();
+                const string sql = @"
+                    INSERT INTO tenant_schedules (schedule_id, schedule_name, server_schedule_name, item_id, item_name, item_type, category_name, tenant_name, tenant_id, owner_email, description, export_type, recurrence_type, is_enabled, updated_at)
+                    VALUES (@scheduleId, @scheduleName, @serverScheduleName, @itemId, @itemName, @itemType, @categoryName, @tenantName, @tenantId, @ownerEmail, @description, @exportType, @recurrenceType, @isEnabled, CURRENT_TIMESTAMP)
+                    ON CONFLICT (tenant_name, schedule_name)
+                    DO UPDATE SET
+                        schedule_id = EXCLUDED.schedule_id,
+                        server_schedule_name = EXCLUDED.server_schedule_name,
+                        item_id = EXCLUDED.item_id,
+                        item_name = EXCLUDED.item_name,
+                        item_type = EXCLUDED.item_type,
+                        category_name = EXCLUDED.category_name,
+                        description = EXCLUDED.description,
+                        export_type = EXCLUDED.export_type,
+                        recurrence_type = EXCLUDED.recurrence_type,
+                        is_enabled = EXCLUDED.is_enabled,
+                        updated_at = CURRENT_TIMESTAMP;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("scheduleId", scheduleId.Trim());
+                cmd.Parameters.AddWithValue("scheduleName", scheduleName.Trim());
+                cmd.Parameters.AddWithValue("serverScheduleName", finalServerName);
+                cmd.Parameters.AddWithValue("itemId", (object?)itemId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("itemName", (object?)itemName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("itemType", string.IsNullOrWhiteSpace(itemType) ? "Report" : itemType.Trim());
+                cmd.Parameters.AddWithValue("categoryName", (object?)categoryName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                cmd.Parameters.AddWithValue("tenantId", ctx.TenantId);
+                cmd.Parameters.AddWithValue("ownerEmail", ctx.Email);
+                cmd.Parameters.AddWithValue("description", (object?)description ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("exportType", (object?)exportType ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("recurrenceType", (object?)recurrenceType ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("isEnabled", isEnabled);
+                await cmd.ExecuteNonQueryAsync(ct);
+                _logger.LogInformation("Tenant schedule {ScheduleName} (server: {ServerName}) registered for tenant {Tenant}", scheduleName, finalServerName, ctx.TenantName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering tenant schedule {ScheduleName} for {Tenant}", scheduleName, ctx.TenantName);
+            }
+        }
+
+        public async Task<List<TenantScheduleDto>> GetTenantSchedulesAsync(AuthUserContext ctx, CancellationToken ct = default)
+        {
+            var list = new List<TenantScheduleDto>();
+            try
+            {
+                await EnsureTenantSchedulesTableAsync(ctx, ct);
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    SELECT id, schedule_id, schedule_name, server_schedule_name, item_id, item_name, item_type, category_name, tenant_name, tenant_id, owner_email, description, export_type, recurrence_type, is_enabled, created_at, updated_at
+                    FROM tenant_schedules
+                    WHERE tenant_name = @tenantName
+                    ORDER BY created_at DESC;";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    list.Add(new TenantScheduleDto
+                    {
+                        Id = reader.GetInt32(0),
+                        ScheduleId = reader.GetString(1),
+                        ScheduleName = reader.GetString(2),
+                        ServerScheduleName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        ItemId = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        ItemName = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        ItemType = reader.GetString(6),
+                        CategoryName = reader.IsDBNull(7) ? null : reader.GetString(7),
+                        TenantName = reader.GetString(8),
+                        TenantId = reader.GetInt32(9),
+                        OwnerEmail = reader.GetString(10),
+                        Description = reader.IsDBNull(11) ? null : reader.GetString(11),
+                        ExportType = reader.IsDBNull(12) ? null : reader.GetString(12),
+                        RecurrenceType = reader.IsDBNull(13) ? null : reader.GetString(13),
+                        IsEnabled = reader.GetBoolean(14),
+                        CreatedAt = reader.GetDateTime(15),
+                        UpdatedAt = reader.GetDateTime(16)
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching tenant schedules from PostgreSQL for {Tenant}", ctx.TenantName);
+            }
+            return list;
+        }
+
+        public async Task<bool> DeleteTenantScheduleAsync(AuthUserContext ctx, string scheduleIdOrName, CancellationToken ct = default)
+        {
+            try
+            {
+                await using var conn = await CreateOpenConnectionAsync(ctx, ct);
+                const string sql = @"
+                    DELETE FROM tenant_schedules
+                    WHERE tenant_name = @tenantName AND (schedule_id = @idOrName OR schedule_name = @idOrName OR server_schedule_name = @idOrName);";
+
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("tenantName", ctx.TenantName);
+                cmd.Parameters.AddWithValue("idOrName", scheduleIdOrName.Trim());
+                var affected = await cmd.ExecuteNonQueryAsync(ct);
+                return affected > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting tenant schedule {ScheduleIdOrName} for {Tenant}", scheduleIdOrName, ctx.TenantName);
+                return false;
+            }
         }
     }
 }

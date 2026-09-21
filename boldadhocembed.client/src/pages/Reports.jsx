@@ -5,8 +5,6 @@ import {
   DocumentIcon,
   FolderIcon,
   PlusIcon,
-  PencilIcon,
-  TrashIcon,
   DocumentDuplicateIcon,
   EllipsisVerticalIcon,
   StarIcon as StarIconOutline,
@@ -19,6 +17,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { reportsAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
 import { authService } from '../services/authService';
+import { usePermissions } from '../hooks/usePermissions';
 import { motion } from 'framer-motion';
 import '../styles/reports.css';
 
@@ -91,6 +90,16 @@ const COLOR_PALETTES = [
 ];
 
 const getCategoryPalette = (categoryName) => {
+  if (categoryName === 'My Reports') {
+    return {
+      bg: 'bg-indigo-50 dark:bg-indigo-950/40',
+      text: 'text-indigo-700 dark:text-indigo-400 font-semibold',
+      border: 'border-indigo-200 dark:border-indigo-800/40',
+      iconBg: 'bg-indigo-100/70 dark:bg-indigo-900/40',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      dot: 'bg-indigo-500',
+    };
+  }
   if (!categoryName) return COLOR_PALETTES[0];
   let hash = 0;
   for (let i = 0; i < categoryName.length; i++) {
@@ -112,14 +121,15 @@ export default function Reports() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const currentUser = useMemo(() => {
-    try { return authService.getUser()?.user || authService.getUser() || null; }
-    catch { return null; }
-  }, []);
-
-  const canEdit = useMemo(() => {
-    return ['admin', 'operations'].includes(currentUser?.role?.toLowerCase());
-  }, [currentUser]);
+  const { currentUser, canEditReports, canCopyReports, canExportReports } = usePermissions();
+  const canCreateReport = canEditReports || canCopyReports;
+  
+  // Copy Report Modal state
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [copySourceReport, setCopySourceReport] = useState(null);
+  const [copyTargetName, setCopyTargetName] = useState('');
+  const [copyTargetDescription, setCopyTargetDescription] = useState('');
+  const [copyError, setCopyError] = useState('');
   
   // Filtering & View state
   const [activeScope, setActiveScope] = useState('all'); // 'all' | 'favorites'
@@ -366,17 +376,39 @@ export default function Reports() {
     setViewerKey(prev => prev + 1);
   };
 
-  const handleEditReport = (reportName, category) => {
-    const params = new URLSearchParams();
-    if (reportName) params.set('name', reportName);
-    if (category) params.set('category', category);
-    navigate(`/designer?${params.toString()}`);
+
+  const handleOpenCopyModal = (report, category) => {
+    const name = report?.name || report?.Name || '';
+    setCopySourceReport({
+      name,
+      serverReportName: report?.serverReportName || report?.ServerReportName || name,
+      category: category || report?.categoryName || 'Analytics Reports',
+      description: report?.description || report?.Description || '',
+    });
+    setCopyTargetName('');
+    setCopyTargetDescription(report?.description || report?.Description || '');
+    setCopyError('');
+    setCopyModalOpen(true);
   };
 
-  const handleCloneReport = (reportName, category) => {
+  const handleConfirmCopy = (e) => {
+    e?.preventDefault();
+    const trimmed = (copyTargetName || '').trim();
+    if (!trimmed) {
+      setCopyError('Report name is required.');
+      return;
+    }
+    if (copySourceReport?.name && trimmed.toLowerCase() === copySourceReport.name.toLowerCase()) {
+      setCopyError('Please provide a unique name different from the original report.');
+      return;
+    }
+    setCopyModalOpen(false);
     const params = new URLSearchParams();
-    if (reportName) params.set('name', reportName);
-    if (category) params.set('category', category);
+    params.set('source', copySourceReport.serverReportName || copySourceReport.name);
+    params.set('name', trimmed);
+    params.set('category', 'Analytics Reports');
+    params.set('appCategory', 'My Reports');
+    if (copyTargetDescription) params.set('description', copyTargetDescription);
     params.set('mode', 'clone');
     navigate(`/designer?${params.toString()}`);
   };
@@ -413,25 +445,16 @@ export default function Reports() {
     setSelectedCategory(null);
   };
 
-  const handleDeleteReport = async (report, category) => {
-    if (!report) return;
-    if (!window.confirm(`Delete report "${report.name || report.Name}"?`)) return;
-    try {
-      const serverCategory = 'Analytics Reports';
-      await reportsAPI.deleteReport(report.name || report.Name, serverCategory);
-      fetchReports();
-      if (selectedReport && (selectedReport.id === report.id || selectedReport.name === report.name)) {
-        setSelectedReport(null);
-        setSelectedCategory(null);
-      }
-    } catch (err) {
-      console.error('Delete report failed:', err);
-      alert('Failed to delete report.');
+  const handleCategorySelect = (catName) => {
+    if (selectedReport) {
+      handleBackToList();
     }
+    setSelectedCategoryFilter(catName);
   };
 
   // Viewer parameters
   const reportName = selectedReport?.name || selectedReport?.Name || null;
+  const serverReportName = selectedReport?.serverReportName || selectedReport?.ServerReportName || reportName;
   const categoryName = selectedReport?.CategoryName || selectedCategory || selectedReport?.categoryName || 'Analytics Reports';
 
   const CUSTOM_GROUPS = [
@@ -441,14 +464,15 @@ export default function Reports() {
     'Marketing Analytics',
     'System & Operational Reports',
     'System Reports',
-    'Other Analytics'
+    'Other Analytics',
+    'My Reports'
   ];
   const serverCategory = (!categoryName || CUSTOM_GROUPS.includes(categoryName.trim()))
     ? 'Analytics Reports'
     : categoryName.trim();
 
-  const reportPath = reportName
-    ? `/${serverCategory}/${reportName.trim()}`.replace(/\/{2,}/g, '/')
+  const reportPath = serverReportName
+    ? `/${serverCategory}/${serverReportName.trim()}`.replace(/\/{2,}/g, '/')
     : null;
 
   // The viewer-settings endpoint returns:
@@ -473,30 +497,14 @@ export default function Reports() {
   const embedToken = rawToken ? stripBearer(rawToken) : null;
 
   const toolbarSettings = useMemo(() => {
-    const customItems = [];
-    if (canEdit) {
-      customItems.push({
-        groupIndex: 4,
-        index: 2,
-        type: 'Default',
-        cssClass: 'e-icons',
-        prefixIcon: 'e-edit',
-        id: 'EditIcon',
-        tooltip: { header: 'Edit', content: 'Edit this report in designer' },
-      });
-    }
     return {
       showToolbar: true,
       items: window.ej?.ReportViewer?.ToolbarItems?.All & ~window.ej?.ReportViewer?.ToolbarItems?.Print,
-      customItems,
+      customItems: [],
     };
-  }, [canEdit]);
+  }, []);
 
-  const onToolBarItemClick = (args) => {
-    if (args?.value === 'EditIcon') {
-      handleEditReport(reportName, categoryName);
-    }
-  };
+  const onToolBarItemClick = () => {};
 
   useEffect(() => {
     if (!reportPath || !viewerDivRef.current) return;
@@ -579,7 +587,7 @@ export default function Reports() {
 
               {/* All Categories Option */}
               <button
-                onClick={() => setSelectedCategoryFilter('all')}
+                onClick={() => handleCategorySelect('all')}
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
                   selectedCategoryFilter === 'all'
                     ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
@@ -600,7 +608,7 @@ export default function Reports() {
                   return (
                     <button
                       key={idx}
-                      onClick={() => setSelectedCategoryFilter(cat.name)}
+                      onClick={() => handleCategorySelect(cat.name)}
                       className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-colors ${
                         isSelected
                           ? `${palette.bg} ${palette.text} font-semibold border ${palette.border}`
@@ -654,21 +662,13 @@ export default function Reports() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {canEdit && (
-                    <>
-                      <button
-                        onClick={() => handleEditReport(reportName, categoryName)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        <PencilIcon className="w-3.5 h-3.5" /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleCloneReport(reportName, categoryName)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
-                      >
-                        <DocumentDuplicateIcon className="w-3.5 h-3.5" /> Copy
-                      </button>
-                    </>
+                  {canCopyReports && (
+                    <button
+                      onClick={() => handleOpenCopyModal({ name: reportName, description: '' }, categoryName)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
+                    >
+                      <DocumentDuplicateIcon className="w-3.5 h-3.5" /> Copy
+                    </button>
                   )}
                   <button
                     onClick={() => setViewerKey(prev => prev + 1)}
@@ -760,7 +760,7 @@ export default function Reports() {
                     </button>
                   </div>
 
-                  {canEdit && (
+                  {canCreateReport && (
                     <button
                       onClick={() => navigate('/designer')}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
@@ -835,27 +835,13 @@ export default function Reports() {
                                   </button>
                                   {activeMenu === report.id && (
                                     <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-[#181c2c] border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-50 text-xs">
-                                      {canEdit && (
-                                        <>
-                                          <button
-                                            onClick={() => handleEditReport(report.name, report.categoryName)}
-                                            className="w-full text-left px-3 py-1.5 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                                          >
-                                            <PencilIcon className="w-3.5 h-3.5 text-blue-500" /> Edit
-                                          </button>
-                                          <button
-                                            onClick={() => handleCloneReport(report.name, report.categoryName)}
-                                            className="w-full text-left px-3 py-1.5 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                                          >
-                                            <DocumentDuplicateIcon className="w-3.5 h-3.5 text-purple-500" /> Copy
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteReport(report, report.categoryName)}
-                                            className="w-full text-left px-3 py-1.5 font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2"
-                                          >
-                                            <TrashIcon className="w-3.5 h-3.5" /> Delete
-                                          </button>
-                                        </>
+                                      {canCopyReports && (
+                                        <button
+                                          onClick={() => handleOpenCopyModal(report, report.categoryName)}
+                                          className="w-full text-left px-3 py-1.5 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                                        >
+                                          <DocumentDuplicateIcon className="w-3.5 h-3.5 text-purple-500" /> Copy
+                                        </button>
                                       )}
                                     </div>
                                   )}
@@ -981,30 +967,14 @@ export default function Reports() {
                                   >
                                     {isStarred ? <StarIconSolid className="w-3.5 h-3.5 text-amber-400" /> : <StarIconOutline className="w-3.5 h-3.5" />}
                                   </button>
-                                  {canEdit && (
-                                    <>
-                                      <button
-                                        onClick={() => handleEditReport(report.name, report.categoryName)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                        title="Edit in Report Designer"
-                                      >
-                                        <PencilIcon className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleCloneReport(report.name, report.categoryName)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                        title="Copy / Clone Report"
-                                      >
-                                        <DocumentDuplicateIcon className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteReport(report, report.categoryName)}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                                        title="Delete Report"
-                                      >
-                                        <TrashIcon className="w-3.5 h-3.5" />
-                                      </button>
-                                    </>
+                                  {canCopyReports && (
+                                    <button
+                                      onClick={() => handleOpenCopyModal(report, report.categoryName)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                      title="Copy Report"
+                                    >
+                                      <DocumentDuplicateIcon className="w-3.5 h-3.5" />
+                                    </button>
                                   )}
                                 </div>
                               </td>
@@ -1020,6 +990,91 @@ export default function Reports() {
           )}
         </div>
       </div>
+
+      {/* Copy Report Modal Dialog */}
+      {copyModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#181c2c] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Copy Report</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Save a personalized version under <strong className="text-indigo-600 dark:text-indigo-400">My Reports</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCopyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCopy} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Source Template
+                </label>
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 truncate">
+                  {copySourceReport?.name}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  New Report Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={copyTargetName}
+                  onChange={(e) => {
+                    setCopyTargetName(e.target.value);
+                    setCopyError('');
+                  }}
+                  placeholder="e.g. My Custom Sales Summary"
+                  className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF4800]/50"
+                />
+                {copyError && (
+                  <p className="text-[11px] text-red-500 mt-1 font-medium">{copyError}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Description <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={copyTargetDescription}
+                  onChange={(e) => setCopyTargetDescription(e.target.value)}
+                  placeholder="Brief description of this report..."
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF4800]/50 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setCopyModalOpen(false)}
+                  className="px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl shadow-sm transition-all cursor-pointer"
+                >
+                  Create Copy & Open Designer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

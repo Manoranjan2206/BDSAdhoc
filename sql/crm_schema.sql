@@ -339,3 +339,21 @@ CREATE INDEX IF NOT EXISTS idx_revenue_summary_region_month
     ON revenue_summary(region, month DESC);
 CREATE INDEX IF NOT EXISTS idx_tasks_region_due_date
     ON tasks(region, due_date);
+
+-- ============================================================================
+-- CUSTOM REPORTS (Multi-Tenant Domain Scoped Reports)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS custom_reports (
+    id SERIAL PRIMARY KEY,
+    report_name VARCHAR(255) NOT NULL,
+    server_report_name VARCHAR(255),
+    category_name VARCHAR(255) NOT NULL DEFAULT 'Analytics Reports',
+    tenant_name VARCHAR(100) NOT NULL,
+    tenant_id INT NOT NULL,
+    owner_email VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_tenant_custom_report UNIQUE (tenant_name, report_name)
+);
+

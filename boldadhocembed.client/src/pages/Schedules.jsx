@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { schedulesAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
+import { authService } from '../services/authService';
 import { motion } from 'framer-motion';
 import '../styles/reports.css';
 
@@ -107,9 +108,22 @@ function toLocalInputValue(date = new Date()) {
   return new Date(d.getTime() - tz).toISOString().slice(0, 16);
 }
 
+function cleanScheduleName(name) {
+  if (!name) return '';
+  return String(name).replace(/^(AlphaCorp|BetaSolutions|GammaIndustries|DeltaEnterprises)_/i, '').trim();
+}
+
+function cleanScheduleDescription(desc) {
+  if (!desc) return '';
+  return String(desc)
+    .replace(/\[Tenant:[^\]]*\]/gi, '')
+    .replace(/\[Owner:[^\]]*\]/gi, '')
+    .trim();
+}
+
 function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByCategory = {} }) {
   const isEdit = !!schedule;
-  const title = isEdit ? `Edit Schedule – ${schedule.reportName || 'Asset'}` : 'Create New Schedule';
+  const title = isEdit ? `Edit Schedule – ${cleanScheduleName(schedule.reportName || schedule.name || 'Asset')}` : 'Create New Schedule';
 
   const isDashboardInit = isEdit && (
     (schedule?.itemType || schedule?.ItemType || '').toLowerCase() === 'dashboard' ||
@@ -137,11 +151,14 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
   const [assetType, setAssetType] = useState(isDashboardInit ? 'Dashboard' : 'Report');
   const reportCategories = categories.filter(c => c !== 'Dashboards');
 
+  const currentUser = authService.getUser();
+  const defaultRecipients = currentUser?.email || 'admin@alphacorp.com';
+
   const [formData, setFormData] = useState({
     category: initialCategory,
     reportId: initialReportId,
     reportName: initialReportName,
-    scheduleName: isEdit ? (schedule.name || '') : '',
+    scheduleName: isEdit ? cleanScheduleName(schedule.name || '') : '',
     enabled: isEdit ? !!schedule.enabled : true,
     type: schedule?.recurrenceType || schedule?.scheduleType || 'Hourly',
     startsOn: schedule?.startDate || schedule?.startTime || toLocalInputValue(),
@@ -150,7 +167,7 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
     endDate: schedule?.endDate || '',
     hourlyInterval: schedule?.hourlySchedule?.scheduleInterval || '00:15',
     format: isEdit ? exportCodeToKey(schedule?.exportType) : 'Pdf',
-    recipients: isEdit && schedule.externalRecipientsList ? schedule.externalRecipientsList.join(', ') : '',
+    recipients: isEdit && schedule.externalRecipientsList && schedule.externalRecipientsList.length > 0 ? schedule.externalRecipientsList.join(', ') : defaultRecipients,
     isEmailAttachment: isEdit ? !!(schedule.isEmailAttachment || schedule.IsEmailAttachment) : true,
   });
 
@@ -207,6 +224,15 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
       return;
     }
 
+    const recipientList = (formData.recipients || '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(Boolean);
+
+    if (recipientList.length === 0) {
+      recipientList.push(defaultRecipients);
+    }
+
     const payload = {
       Name: formData.scheduleName.trim(),
       Description: formData.reportName,
@@ -218,14 +244,33 @@ function ScheduleModal({ schedule, onClose, onSaved, categories = [], reportsByC
       EndAfterOccurrence: formData.endsMode === 'after' ? Number(formData.afterOccurrences) : 0,
       Enabled: formData.enabled,
       IsEmailAttachment: !!formData.isEmailAttachment,
-      ExternalRecipientsList: formData.recipients.split(',').map(e => e.trim()).filter(Boolean),
+      ExternalRecipientsList: recipientList,
       ScheduleType: formData.type,
-      UserList: [],
-      GroupList: []
     };
+
     if (formData.type === 'Hourly') {
-      payload.HourlySchedule = { ScheduleInterval: formData.hourlyInterval };
+      payload.HourlySchedule = { ScheduleInterval: formData.hourlyInterval || '01:00' };
+    } else if (formData.type === 'Weekly') {
+      payload.WeeklySchedule = {
+        RecurrenceWeeks: 1,
+        RecurrenceDays: ['Monday']
+      };
+    } else if (formData.type === 'Monthly') {
+      payload.MonthlySchedule = {
+        RecurrenceType: 'DayRecurrence',
+        DayRecurrence: {
+          DayInterval: 1,
+          MonthInterval: 1
+        }
+      };
+    } else {
+      payload.DailySchedule = {
+        RecurrenceType: 'EveryNdays',
+        EveryNdays: 1,
+        EveryWeekday: false
+      };
     }
+
     if (formData.endsMode === 'on' && formData.endDate) {
       payload.EndDate = new Date(formData.endDate).toISOString();
     }
@@ -720,8 +765,8 @@ export default function Schedules() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredSchedules.map(s => {
                   const id = s.id || s.Id;
-                  const name = s.name || s.Name || 'Untitled Schedule';
-                  const reportName = s.reportName || s.ReportName || '';
+                  const name = cleanScheduleName(s.name || s.Name || 'Untitled Schedule');
+                  const reportName = cleanScheduleName(s.reportName || s.ReportName || '');
                   const rawType = s.itemType || s.ItemType || 'Report';
                   const isDashboard = rawType.toLowerCase() === 'dashboard';
                   const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);
@@ -870,8 +915,8 @@ export default function Schedules() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                     {filteredSchedules.map(s => {
                       const id = s.id || s.Id;
-                      const name = s.name || s.Name || 'Untitled Schedule';
-                      const reportName = s.reportName || s.ReportName || '';
+                      const name = cleanScheduleName(s.name || s.Name || 'Untitled Schedule');
+                      const reportName = cleanScheduleName(s.reportName || s.ReportName || '');
                       const rawType = s.itemType || s.ItemType || 'Report';
                       const isDashboard = rawType.toLowerCase() === 'dashboard';
                       const enabled = s.enabled !== undefined ? s.enabled : (s.Enabled !== undefined ? s.Enabled : true);

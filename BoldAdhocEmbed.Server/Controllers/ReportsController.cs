@@ -20,19 +20,33 @@ namespace BoldAdhocEmbed.Server.Controllers
         private readonly BoldReportsSettings _settings;
         private readonly ICacheService _cacheService;
         private readonly IAuthenticatedUser _auth;
+        private readonly ICrmDataService _crmDataService;
+
+        private static readonly HashSet<string> StandardReportNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Product Sales Breakdown",
+            "Deal Products Pipeline Analysis Report",
+            "Sales Reps Performance Report",
+            "Campaign Performance Report",
+            "Monthly Revenue Report",
+            "Audit Trail Report",
+            "Contact Details Report"
+        };
 
         public ReportsController(
             IBoldReportsService boldReportsService,
             ILogger<ReportsController> logger,
             BoldReportsSettings settings,
             ICacheService cacheService,
-            IAuthenticatedUser auth)
+            IAuthenticatedUser auth,
+            ICrmDataService crmDataService)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
+            _crmDataService = crmDataService ?? throw new ArgumentNullException(nameof(crmDataService));
         }
 
         /// <summary>
@@ -198,8 +212,6 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
                 }
 
-                var cacheKey = $"report_tree_{token}";
-
                 // Fetch reports and surface upstream failures instead of silently
                 // returning 200 with an empty array — that previously masked
                 // 4xx/5xx calls to the Bold Reports site.
@@ -225,19 +237,147 @@ namespace BoldAdhocEmbed.Server.Controllers
                 
                 var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-                // We only ever surface the "Analytics Reports" category to any user.
+                var authUser = _auth.GetAuthContext();
+                var userEmail = authUser?.Email ?? "";
+                var userRole = authUser?.Role ?? "";
+                var tenantName = authUser?.TenantName ?? "";
+                var tenantDomain = userEmail.Contains('@') ? userEmail.Substring(userEmail.IndexOf('@') + 1).ToLowerInvariant() : "";
+                var isAdmin = string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase);
+
+                var cacheKey = $"report_tree_{tenantName}_{userEmail}";
+
+                // We only ever surface the "Analytics Reports" category from server.
                 var analyticsReports = reports.Where(r => string.Equals(r.CategoryName, "Analytics Reports", StringComparison.OrdinalIgnoreCase)).ToList();
 
-                // Split the 7 reports in "Analytics Reports" into distinct groups:
+                // Standard template reports
+                var standardReports = analyticsReports.Where(r => StandardReportNames.Contains(r.Name?.Trim() ?? "")).ToList();
+
+                // Custom / User-copied reports: any report not in the standard set
+                var customReports = analyticsReports.Where(r => !StandardReportNames.Contains(r.Name?.Trim() ?? "")).ToList();
+
+                // Fetch registered custom reports for the caller's tenant from PostgreSQL
+                List<CustomReportDto> dbCustomReports = new();
+                if (authUser != null && !string.IsNullOrEmpty(tenantName))
+                {
+                    try
+                    {
+                        dbCustomReports = await _crmDataService.GetCustomReportsAsync(authUser);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to load custom reports from DB for tenant {Tenant}, falling back to metadata tags", tenantName);
+                    }
+                }
+                // Build lookup dictionaries from caller tenant's PostgreSQL database
+                var dbByServerName = new Dictionary<string, CustomReportDto>(StringComparer.OrdinalIgnoreCase);
+                var dbByName = new Dictionary<string, CustomReportDto>(StringComparer.OrdinalIgnoreCase);
+                foreach (var cr in dbCustomReports)
+                {
+                    if (!string.IsNullOrWhiteSpace(cr.ServerReportName))
+                    {
+                        dbByServerName[cr.ServerReportName.Trim()] = cr;
+                    }
+                    if (!string.IsNullOrWhiteSpace(cr.ReportName))
+                    {
+                        dbByName[cr.ReportName.Trim()] = cr;
+                        var expectedPrefix = $"{tenantName}_{cr.ReportName.Trim()}";
+                        if (!dbByServerName.ContainsKey(expectedPrefix))
+                        {
+                            dbByServerName[expectedPrefix] = cr;
+                        }
+                    }
+                }
+
+                // Map to keep track of matched DB metadata for each server report
+                var serverToDbMap = new Dictionary<string, CustomReportDto>(StringComparer.OrdinalIgnoreCase);
+
+                // Domain / Tenant Isolation check: strictly ensure reports only show for their domain
+                bool BelongsToCallerDomain(BoldReport r)
+                {
+                    var name = r.Name?.Trim() ?? "";
+                    var desc = r.Description ?? "";
+
+                    // CRITICAL RULE 1: If explicitly tagged for a DIFFERENT tenant, strictly exclude!
+                    if (!string.IsNullOrEmpty(desc) && desc.Contains("[Tenant:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (string.IsNullOrEmpty(tenantName) || !desc.Contains($"[Tenant: {tenantName}]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return false;
+                        }
+                    }
+
+                    // CRITICAL RULE 2: If explicitly tagged with an owner email from another domain, strictly exclude!
+                    if (!string.IsNullOrEmpty(desc) && desc.Contains("[Owner:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrEmpty(tenantDomain) && !desc.Contains($"@{tenantDomain}", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return false;
+                        }
+                    }
+
+                    // 1. Matched by ServerReportName (e.g. AlphaCorp_test)
+                    if (dbByServerName.TryGetValue(name, out var matchedByServer))
+                    {
+                        serverToDbMap[name] = matchedByServer;
+                        return true;
+                    }
+
+                    // 2. Matched by tenant prefix (e.g. r.Name starts with $"{tenantName}_")
+                    if (!string.IsNullOrEmpty(tenantName) && name.StartsWith($"{tenantName}_", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var cleanPart = name.Substring(tenantName.Length + 1);
+                        if (dbByName.TryGetValue(cleanPart, out var matchedClean))
+                        {
+                            serverToDbMap[name] = matchedClean;
+                        }
+                        return true;
+                    }
+
+                    // 3. Matched in caller tenant's PostgreSQL database by report_name (e.g. legacy 'Test')
+                    // ONLY if description did not fail the cross-tenant checks above
+                    if (dbByName.TryGetValue(name, out var matchedByName))
+                    {
+                        serverToDbMap[name] = matchedByName;
+                        return true;
+                    }
+
+                    // 4. Explicit tenant tag matching caller's tenant
+                    if (!string.IsNullOrEmpty(tenantName) && desc.Contains($"[Tenant: {tenantName}]", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    // 5. Explicit owner tag with matching domain (e.g. @alphacorp.com)
+                    if (!string.IsNullOrEmpty(tenantDomain) && desc.Contains($"@{tenantDomain}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                // Filter custom reports: ONLY reports belonging to the caller's domain
+                var domainCustomReports = customReports.Where(BelongsToCallerDomain).ToList();
+
+                // Within the tenant:
+                // Admins see all reports belonging to their domain.
+                // Non-admins see reports they created OR reports created without specific personal owner restriction in their domain.
+                var myReports = domainCustomReports.Where(r =>
+                    isAdmin ||
+                    (!string.IsNullOrEmpty(userEmail) && r.Description != null && r.Description.Contains($"[Owner: {userEmail}]", StringComparison.OrdinalIgnoreCase)) ||
+                    (r.Description == null || !r.Description.Contains("[Owner:"))
+                ).ToList();
+
+                // Split standard reports into distinct groups:
                 // 1. Sales Analytics: Product Sales Breakdown, Deal Products Pipeline Analysis Report, Sales Reps Performance Report
-                var salesReports = analyticsReports.Where(r => 
+                var salesReports = standardReports.Where(r => 
                     r.Name.Contains("Sales", StringComparison.OrdinalIgnoreCase) || 
                     r.Name.Contains("Deal", StringComparison.OrdinalIgnoreCase) || 
                     r.Name.Contains("Pipeline", StringComparison.OrdinalIgnoreCase)
                 ).ToList();
 
                 // 2. Marketing & Finance Analytics: Campaign Performance Report, Monthly Revenue Report
-                var financeMarketingReports = analyticsReports.Where(r => 
+                var financeMarketingReports = standardReports.Where(r => 
                     r.Name.Contains("Revenue", StringComparison.OrdinalIgnoreCase) || 
                     r.Name.Contains("Campaign", StringComparison.OrdinalIgnoreCase) ||
                     r.Name.Contains("Finance", StringComparison.OrdinalIgnoreCase) ||
@@ -246,70 +386,85 @@ namespace BoldAdhocEmbed.Server.Controllers
                 ).ToList();
 
                 // 3. System & Operational Reports: Audit Trail Report, Contact Details Report
-                var systemOperationalReports = analyticsReports.Where(r => 
+                var systemOperationalReports = standardReports.Where(r => 
                     r.Name.Contains("Audit", StringComparison.OrdinalIgnoreCase) || 
                     r.Name.Contains("Contact", StringComparison.OrdinalIgnoreCase)
                 ).ToList();
 
-                // 4. Other Analytics: any remaining reports in Analytics Reports
-                var otherReports = analyticsReports
-                    .Except(salesReports)
-                    .Except(financeMarketingReports)
-                    .Except(systemOperationalReports)
-                    .ToList();
-
-                var userRole = _auth.GetAuthContext()?.Role;
                 var restructured = new List<(string Id, string Name, IEnumerable<BoldAdhocEmbed.Server.Services.BoldReport> Reports)>();
 
-                if (string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase))
+                // Prominently add "My Reports" at the top if any exist for this user/tenant
+                if (myReports.Any())
                 {
-                    // Admin sees all groups with all 7 reports
+                    restructured.Add(("my-reports", "My Reports", myReports));
+                }
+
+                if (isAdmin)
+                {
+                    // Admin sees all groups with all reports
                     if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
                     if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
                     if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
-                    if (otherReports.Any()) restructured.Add(("other-analytics", "Other Analytics", otherReports));
                 }
                 else if (string.Equals(userRole, "Sales", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Sales users see ONLY Sales related reports among the 7 reports
                     if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
                 }
                 else if (string.Equals(userRole, "Finance", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Finance users see ONLY Marketing & Finance Analytics
                     if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
                 }
                 else if (string.Equals(userRole, "Operations", StringComparison.OrdinalIgnoreCase) || string.Equals(userRole, "Support", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Operations / Support see ONLY System & Operational Reports
                     if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
                 }
                 else
                 {
-                    // Manager and other non-admin roles see relevant groups
                     if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
                     if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
                     if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
-                    if (otherReports.Any()) restructured.Add(("other-analytics", "Other Analytics", otherReports));
                 }
 
                 object tree = restructured.Select(g => new
                 {
                     Id = g.Id,
                     Name = g.Name,
-                    Reports = g.Reports.Select(r => new
+                    Reports = g.Reports.Select(r =>
                     {
-                        r.Id,
-                        r.Name,
-                        r.Description,
-                        CategoryName = r.CategoryName ?? "Analytics Reports",
-                        r.CanRead,
-                        r.CanWrite,
-                        CreatedById = r.CreatedById,
-                        IsPublic = r.IsPublic,
-                        ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
-                        CreatedDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
-                        ModifiedDateString = !string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso)
+                        string displayName = r.Name;
+                        string serverReportName = r.Name;
+                        string desc;
+
+                        if (serverToDbMap.TryGetValue(r.Name, out var dbItem))
+                        {
+                            displayName = !string.IsNullOrWhiteSpace(dbItem.ReportName) ? dbItem.ReportName : displayName;
+                            serverReportName = !string.IsNullOrWhiteSpace(dbItem.ServerReportName) ? dbItem.ServerReportName : r.Name;
+                            desc = CleanDescription(!string.IsNullOrWhiteSpace(dbItem.Description) ? dbItem.Description : r.Description);
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(tenantName) && displayName.StartsWith($"{tenantName}_", StringComparison.OrdinalIgnoreCase))
+                            {
+                                displayName = displayName.Substring(tenantName.Length + 1);
+                            }
+                            desc = CleanDescription(r.Description);
+                        }
+
+                        return new
+                        {
+                            r.Id,
+                            Name = displayName,
+                            ServerReportName = serverReportName,
+                            Description = desc,
+                            CategoryName = g.Name,
+                            r.CanRead,
+                            r.CanWrite,
+                            CreatedById = r.CreatedById,
+                            IsPublic = r.IsPublic,
+                            ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
+                            CreatedDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
+                            ModifiedDateString = !string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso)
+                        };
                     }).ToList()
                 }).ToList();
 
@@ -445,6 +600,22 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return BadRequest(ApiResponse.ErrorResponse("Invalid Request", "Name is required"));
                 }
 
+                var cleanName = request.Name.Trim();
+                if (cleanName.Contains('/'))
+                {
+                    cleanName = cleanName.Split('/').Last().Trim();
+                }
+
+                // Strictly protect against deleting standard multi-tenant template reports
+                if (StandardReportNames.Contains(cleanName))
+                {
+                    Logger.LogWarning("Blocked attempt to delete standard template report: {ReportName}", cleanName);
+                    return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.ErrorResponse(
+                        "Shared template reports cannot be deleted",
+                        "Deleting shared reports affects all tenants and users. Deletion of standard reports is forbidden."
+                    ));
+                }
+
                 var token = await GetBoldReportsTokenAsync(_boldReportsService);
                 if (string.IsNullOrEmpty(token))
                 {
@@ -455,14 +626,13 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var deleted = await _boldReportsService.DeleteReportAsync(token, request.Name, request.Category);
                 if (deleted)
                 {
-                    var requestToken = GetTokenFromRequest();
-                    var userEmail = GetEmailFromToken(requestToken);
-                    if (string.IsNullOrEmpty(userEmail))
+                    var authUser = _auth.GetAuthContext();
+                    if (authUser != null)
                     {
-                        return Unauthorized(ApiResponse<bool>.UnauthorizedResponse());
+                        await _crmDataService.DeleteCustomReportAsync(authUser, cleanName);
+                        await _cacheService.RemoveAsync($"report_tree_{authUser.TenantName}_{authUser.Email}");
+                        await _cacheService.RemoveAsync($"report-tree-{authUser.Email}");
                     }
-                    var cacheKey = $"report-tree-{userEmail}";
-                    await _cacheService.RemoveAsync(cacheKey);
 
                     Logger.LogInformation("Report {ReportName} deleted successfully", request.Name);
                     return Ok(ApiResponse<bool>.SuccessResponse(true, "Report deleted successfully"));
@@ -479,6 +649,69 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return StatusCode(500, ApiResponse.ErrorResponse(ex.Message, "Failed to delete report"));
             }
         }
+
+        private static string CleanDescription(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return "";
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(raw, @"\[Tenant:\s*[^\]]+\]", "");
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\[Owner:\s*[^\]]+\]", "").Trim();
+            return cleaned;
+        }
+
+        /// <summary>
+        /// Register or update a custom report's tenant ownership in PostgreSQL
+        /// </summary>
+        [HttpPost("register")]
+        public async Task<IActionResult> RegisterReport([FromBody] RegisterReportRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.ReportName))
+                {
+                    return BadRequest(ApiResponse<bool>.ErrorResponse("Report name is required"));
+                }
+
+                var authUser = _auth.GetAuthContext();
+                if (authUser == null)
+                {
+                    return Unauthorized(ApiResponse<bool>.UnauthorizedResponse());
+                }
+
+                var serverName = !string.IsNullOrWhiteSpace(request.ServerReportName)
+                    ? request.ServerReportName.Trim()
+                    : $"{authUser.TenantName}_{request.ReportName.Trim()}";
+
+                await _crmDataService.RegisterCustomReportAsync(
+                    authUser,
+                    request.ReportName.Trim(),
+                    request.Description,
+                    request.Category ?? "Analytics Reports",
+                    serverName
+                );
+
+                await _cacheService.RemoveAsync($"report_tree_{authUser.TenantName}_{authUser.Email}");
+                Logger.LogInformation("Report {ReportName} (server: {ServerName}) registered to tenant {Tenant} by {Email}",
+                    request.ReportName, serverName, authUser.TenantName, authUser.Email);
+
+                return Ok(ApiResponse<bool>.SuccessResponse(true, "Report registered to tenant successfully"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error registering report {ReportName}", request?.ReportName);
+                return StatusCode(500, ApiResponse<bool>.ErrorResponse(ex.Message, "Failed to register report"));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Request model for registering reports to a tenant
+    /// </summary>
+    public class RegisterReportRequest
+    {
+        public string ReportName { get; set; } = string.Empty;
+        public string? ServerReportName { get; set; }
+        public string? Category { get; set; } = "Analytics Reports";
+        public string? Description { get; set; }
     }
 
     /// <summary>

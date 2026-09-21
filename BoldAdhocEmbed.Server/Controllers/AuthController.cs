@@ -150,7 +150,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                         Region = rbacUser.Region ?? "US",
                         AvatarUrl = rbacUser.AvatarUrl,
                         IsActive = rbacUser.IsActive,
-                        CreatedDate = rbacUser.CreatedDate
+                        CreatedDate = rbacUser.CreatedDate,
+                        Permissions = rbacUser.Permissions ?? _userStore.GetPermissionsForRole(rbacUser.Role)
                     },
                     SessionToken = GenerateSessionToken(rbacUser),
                     Permissions = rbacUser.Permissions ?? _userStore.GetPermissionsForRole(rbacUser.Role)
@@ -362,7 +363,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         private string GenerateSessionToken(AppUser user)
         {
             var issuer = _configuration["Jwt:Issuer"] ?? "BoldAdhocEmbed.Local";
-            var audience = _configuration["Jwt:Audience"] ?? "DemoRealm";
+            var audience = _configuration["Jwt:Audience"] ?? "crm-app";
             var signingKey = _configuration["Jwt:Key"] ?? _configuration["Jwt:SigningKey"];
             if (string.IsNullOrWhiteSpace(signingKey))
             {

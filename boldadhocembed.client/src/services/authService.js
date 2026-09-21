@@ -25,6 +25,8 @@ function buildApiUrl(path) {
 }
 const TOKEN_KEY = 'boldreports_token';
 const USER_KEY = 'boldreports_user';
+const SSO_FLAG_KEY = 'boldreports_is_sso';
+const SSO_ID_TOKEN_KEY = 'boldreports_id_token';
 
 /**
  * Unwrap API response { success, message, data }
@@ -88,6 +90,11 @@ export const authService = {
         token = token.replace(/^Bearer\s+/i, '').trim();
         localStorage.setItem(TOKEN_KEY, token);
         localStorage.setItem(USER_KEY, JSON.stringify(loginData.user || loginData));
+        // Clear any old SSO session markers on regular credential login
+        localStorage.removeItem(SSO_FLAG_KEY);
+        localStorage.removeItem(SSO_ID_TOKEN_KEY);
+        sessionStorage.removeItem('IsSsoSession');
+        sessionStorage.removeItem('IdToken');
         console.log('[Auth] Login successful, token stored');
         return loginData;
       } else {
@@ -165,7 +172,7 @@ export const authService = {
    * @param {object} [options]
    * @param {string} [options.keycloakBase] - Override the Keycloak base URL
    * @param {string} [options.realm] - Realm (default 'master')
-   * @param {string} [options.clientId] - Client (default 'DemoRealm')
+   * @param {string} [options.clientId] - Client (default 'crm-app')
    * @param {string} [options.pathPrefix] - Server-side route prefix to mimic
    *   (default ''). With the default, the redirect_uri is /sso-callback.
    * @returns {string} The full authorize URL
@@ -174,9 +181,11 @@ export const authService = {
     const {
       keycloakBase = 'https://keycloak.boldbidemo.com',
       realm = 'master',
-      clientId = 'DemoRealm',
+      clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'crm-app',
       pathPrefix = '',
       callbackPath,
+      responseType = 'id_token token',
+      nonce = Math.random().toString(36).substring(2) + Date.now().toString(36),
     } = options;
 
     // `/sso-callback` is registered in App.jsx and works in both
@@ -197,8 +206,9 @@ export const authService = {
     const url =
       `${keycloakBase}/realms/${realm}/protocol/openid-connect/auth` +
       `?client_id=${encodeURIComponent(clientId)}` +
-      `&response_type=token` +
+      `&response_type=${encodeURIComponent(responseType)}` +
       `&scope=openid` +
+      `&nonce=${encodeURIComponent(nonce)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     return url;
   },
@@ -257,12 +267,117 @@ export const authService = {
   },
 
   /**
-   * Logout user - clear stored credentials
+   * Check whether current session was authenticated through SSO
+   * @returns {boolean}
+   */
+  isSsoSession: () => {
+    const user = authService.getUser();
+    return (
+      sessionStorage.getItem('IsSsoSession') === 'true' ||
+      localStorage.getItem(SSO_FLAG_KEY) === 'true' ||
+      user?.isSso === true
+    );
+  },
+
+  /**
+   * Get stored Keycloak ID Token if available
+   * @returns {string|null}
+   */
+  getSsoIdToken: () => {
+    return (
+      sessionStorage.getItem('IdToken') ||
+      localStorage.getItem(SSO_ID_TOKEN_KEY) ||
+      null
+    );
+  },
+
+  /**
+   * Build the Keycloak RP-Initiated logout URL
+   * @param {object} [options]
+   * @param {string} [options.keycloakBase] - Base URL of Keycloak
+   * @param {string} [options.realm] - Keycloak Realm
+   * @param {string} [options.clientId] - Keycloak client ID
+   * @param {string} [options.postLogoutRedirectUri] - Where to return after logout
+   * @param {string} [options.idToken] - ID token hint
+   * @returns {string} The full logout URL
+   */
+  buildSsoLogoutUrl: (options = {}) => {
+    const {
+      keycloakBase = 'https://keycloak.boldbidemo.com',
+      realm = 'master',
+      clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'crm-app',
+      postLogoutRedirectUri = `${window.location.protocol}//${window.location.host}/login`,
+      idToken = authService.getSsoIdToken(),
+    } = options;
+
+    let url =
+      `${keycloakBase}/realms/${realm}/protocol/openid-connect/logout` +
+      `?client_id=${encodeURIComponent(clientId)}`;
+
+    if (idToken) {
+      url += `&id_token_hint=${encodeURIComponent(idToken)}`;
+    }
+
+    if (postLogoutRedirectUri) {
+      url += `&post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirectUri)}`;
+    }
+
+    return url;
+  },
+
+  /**
+   * Start Keycloak SSO logout flow: tries server-side /Home/SSOLogout first,
+   * then falls back to direct browser navigation to Keycloak logout.
+   * @param {object} [options]
+   * @returns {void}
+   */
+  startSsoLogout: (options = {}) => {
+    const idToken = options.idToken || authService.getSsoIdToken();
+    const url = authService.buildSsoLogoutUrl({ ...options, idToken });
+
+    const goToKeycloakLogout = () => {
+      console.log('[Auth] Redirecting to Keycloak logout URL:', url);
+      window.location.href = url;
+    };
+
+    const serverLogoutUrl = `/Home/SSOLogout${idToken ? `?idToken=${encodeURIComponent(idToken)}` : ''}`;
+    fetch(serverLogoutUrl, { redirect: 'manual', credentials: 'include' })
+      .then((res) => {
+        if (!res) return goToKeycloakLogout();
+        if (res.type === 'opaqueredirect') return goToKeycloakLogout();
+        if (res.status === 0 && !res.url) return goToKeycloakLogout();
+
+        const contentType = res.headers?.get?.('content-type') || '';
+        const isHtml = contentType.includes('text/html');
+        const looksLikeSso = /keycloak|sso|oauth|logout/i.test(res.url || '');
+
+        if (res.ok && !isHtml && looksLikeSso) {
+          window.location.href = res.url;
+          return null;
+        }
+
+        return goToKeycloakLogout();
+      })
+      .catch((err) => {
+        console.warn('[Auth] /Home/SSOLogout probe failed, going to Keycloak directly:', err);
+        goToKeycloakLogout();
+      });
+  },
+
+  /**
+   * Logout user - clear stored credentials and optionally trigger SSO logout
+   * @param {object} [options]
+   * @param {boolean} [options.triggerSso] - Whether to navigate to SSO logout if session is SSO
+   * @param {boolean} [options.sso] - Override SSO session check
+   * @param {string} [options.idToken] - Override ID token hint
    * @returns {Promise<void>}
    */
-  logout: async () => {
+  logout: async (options = {}) => {
+    const isSso = options.sso !== undefined ? options.sso : authService.isSsoSession();
+    const idToken = options.idToken || authService.getSsoIdToken();
+
     try {
-      console.log('[Auth] Logging out user');
+      console.log('[Auth] Logging out user (isSso =', isSso, ')');
       
       // Notify backend
       const token = authService.getToken();
@@ -276,19 +391,31 @@ export const authService = {
         }).catch(err => console.warn('[Auth] Logout notification failed:', err));
       }
 
-      // Clear local storage
+      // Clear local storage and session storage
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SSO_FLAG_KEY);
+      localStorage.removeItem(SSO_ID_TOKEN_KEY);
       sessionStorage.clear();
       window.dispatchEvent(new Event('auth-changed'));
       console.log('[Auth] Logout complete');
+
+      if (options.triggerSso && isSso) {
+        authService.startSsoLogout({ idToken });
+      }
     } catch (error) {
       console.error('[Auth] Logout error:', error.message);
       // Continue with logout even if API call fails
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(SSO_FLAG_KEY);
+      localStorage.removeItem(SSO_ID_TOKEN_KEY);
       sessionStorage.clear();
       window.dispatchEvent(new Event('auth-changed'));
+
+      if (options.triggerSso && isSso) {
+        authService.startSsoLogout({ idToken });
+      }
     }
   },
 

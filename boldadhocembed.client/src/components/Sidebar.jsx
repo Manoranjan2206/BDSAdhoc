@@ -7,6 +7,7 @@ const ALL_NAV_ITEMS = [
   { key: '/', label: 'Home', icon: 'home', exact: true, roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
   { key: '/dashboards', label: 'Dashboard', icon: 'dashboard', matchPrefix: '/dashboards', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
   { key: '/reports', label: 'Reports', icon: 'assessment', matchPrefix: '/reports', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
+  { key: '/schedules', label: 'Schedules', icon: 'schedule', matchPrefix: '/schedules', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
   { key: '/contacts', label: 'Contacts', icon: 'contacts', matchPrefix: '/contacts', roles: ['Admin', 'Sales', 'Support'] },
   { key: '/deals', label: 'Deals', icon: 'handshake', matchPrefix: '/deals', roles: ['Admin', 'Sales'] },
   { key: '/activities', label: 'Activities', icon: 'event_note', matchPrefix: '/activities', roles: ['Admin', 'Sales', 'Support', 'Operations'] },

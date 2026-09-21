@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { reportsAPI } from '../services/apiService';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import { usePermissions } from '../hooks/usePermissions';
 
 // AdventureWorks dataset reference (server-side data source id).
 // Used for auto-attaching a default shared dataset when the user clicks
@@ -27,20 +28,14 @@ export default function Designer() {
     const [isEdit, setIsEdit] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
-    // currentUser (email used for defaulting category in Save-As)
-    const currentUser = useMemo(() => {
-        try { return authService.getUser()?.user || authService.getUser() || null; }
-        catch { return null; }
-    }, []);
-    const canEdit = useMemo(() => {
-        return ['admin', 'operations'].includes(currentUser?.role?.toLowerCase());
-    }, [currentUser]);
+    const { currentUser, canEditReports, canCopyReports } = usePermissions();
+    const canAccess = canEditReports || canCopyReports;
 
     useEffect(() => {
-        if (currentUser && !canEdit) {
+        if (currentUser && !canAccess) {
             navigate('/reports');
         }
-    }, [currentUser, canEdit, navigate]);
+    }, [currentUser, canAccess, navigate]);
 
     const permissionForDs = useMemo(() => {
         return getPermissionForRole(currentUser?.role);
@@ -66,6 +61,9 @@ export default function Designer() {
         // getViewerSettings from DataContext has stable identity per state,
         // but to avoid re-firing on every render we only depend on mount.
 
+        return () => {
+            window.currentItem = null;
+        };
     }, []);
 
     const isClone = useMemo(() => {
@@ -78,22 +76,34 @@ export default function Designer() {
         const urlName = q.get('name');
         const urlCategory = q.get('category');
         const urlDesc = q.get('desc');
+        const isCloning = q.get('mode') === 'clone' || q.get('mode') === 'copy' || q.get('isCopy') === 'true';
 
-        const name = urlName || (window.currentItem && window.currentItem.Name);
-        const category = urlCategory || (window.currentItem && window.currentItem.CategoryName);
-        const description = urlDesc || (window.currentItem && window.currentItem.Description) || 'New report';
+        // When creating a new report, clear window.currentItem and return null
+        if (!urlName && !urlCategory && !isCloning) {
+            window.currentItem = null;
+            return null;
+        }
 
-        if (!name && !category) return null;
-        return { Name: name || 'Untitled', CategoryName: category || '', Description: description };
+        return { 
+            Name: urlName || '', 
+            displayName: urlName || '', 
+            CategoryName: urlCategory || 'Analytics Reports', 
+            Description: urlDesc || '' 
+        };
     }, []);
 
     useEffect(() => {
-        if (currentItem) {
-            window.currentItem = currentItem;
-            setIsEdit(!!currentItem.Name);
-        } else if (window.currentItem) {
-            setIsEdit(!!window.currentItem.Name);
+        const q = new URLSearchParams(window.location.search);
+        const hasName = !!q.get('name');
+        const isCloning = q.get('mode') === 'clone' || q.get('mode') === 'copy' || q.get('isCopy') === 'true';
+
+        if (isCloning) {
+            setIsEdit(false);
+        } else if (hasName) {
+            setIsEdit(true);
         } else {
+            // Brand new report!
+            window.currentItem = null;
             setIsEdit(false);
         }
     }, [currentItem]);
@@ -186,23 +196,47 @@ export default function Designer() {
         }
 
         const q = new URLSearchParams(window.location.search);
-        const urlName = q.get('name') || (window.currentItem && window.currentItem.Name);
-        const urlCategory = q.get('category') || (window.currentItem && window.currentItem.CategoryName) || '';
+        const sourceName = q.get('source');
+        const urlName = q.get('name');
+        const urlCategory = q.get('category') || '';
 
-        if (urlName) {
+        if (isClone && sourceName) {
+            setIsEdit(false);
+            openServerReport(sourceName, urlCategory);
+            if (urlName) {
+                window.currentItem = {
+                    ...(window.currentItem || {}),
+                    Name: urlName,
+                    displayName: urlName,
+                    CategoryName: 'Analytics Reports',
+                    Description: q.get('description') || '',
+                };
+            }
+        } else if (urlName) {
             setIsEdit(true);
             openServerReport(urlName, urlCategory);
         } else {
+            // BRAND NEW REPORT - clear any stale data and create untitled canvas
+            window.currentItem = null;
             setIsEdit(false);
             newUntitledReport();
         }
     };
 
     const reportOpened = (args) => {
-        setIsEdit(true);
+        setIsEdit(!isClone);
+        const q = new URLSearchParams(window.location.search);
+        const customName = q.get('name');
         if (args?.reportName) {
             const cleanName = String(args.reportName).replace('.rdl', '');
-            document.title = isClone ? `Copy of ${cleanName}` : cleanName;
+            document.title = (isClone && customName) ? customName : cleanName;
+            if (isClone && customName) {
+                window.currentItem = {
+                    ...(window.currentItem || {}),
+                    Name: customName,
+                    CategoryName: 'Analytics Reports',
+                };
+            }
         }
     };
 
@@ -259,7 +293,26 @@ export default function Designer() {
         setIsEdit(true);
         setIsSaving(false);
         setHasChanges(false);
-        try { notifyReportSaved(); } catch (e) { }
+        try {
+            if (window.currentItem?.Name) {
+                const tenantName = currentUser?.tenantName || currentUser?.tenant || '';
+                const rawName = window.currentItem.displayName || window.currentItem.Name;
+                const cleanName = (tenantName && rawName.startsWith(`${tenantName}_`))
+                    ? rawName.substring(tenantName.length + 1)
+                    : rawName;
+                const serverName = (tenantName && !window.currentItem.Name.startsWith(`${tenantName}_`))
+                    ? `${tenantName}_${window.currentItem.Name}`
+                    : window.currentItem.Name;
+
+                reportsAPI.registerReport({
+                    reportName: cleanName,
+                    serverReportName: serverName,
+                    category: window.currentItem.CategoryName || 'Analytics Reports',
+                    description: window.currentItem.Description || '',
+                }).catch(err => console.warn('Failed to register report to tenant DB on reportSaved:', err));
+            }
+            notifyReportSaved();
+        } catch (e) { }
     };
 
     const notifyReportSaved = () => {
@@ -288,13 +341,44 @@ export default function Designer() {
         const designer = getDesigner();
         if (!designer) return;
         const targetCategory = 'Analytics Reports';
+        let desc = (window.currentItem && window.currentItem.Description) || '';
+        const userEmail = currentUser?.email || '';
+        const tenantName = currentUser?.tenantName || currentUser?.tenant || '';
+
+        // Clean user-facing display name
+        const cleanName = (tenantName && name.startsWith(`${tenantName}_`))
+            ? name.substring(tenantName.length + 1)
+            : name;
+
+        // Scoped name on Bold Reports Server so tenants never overwrite each other
+        const serverReportName = (tenantName && !name.startsWith(`${tenantName}_`))
+            ? `${tenantName}_${name}`
+            : name;
+
+        // Inject domain and user ownership tags
+        if (tenantName && !desc.includes('[Tenant:')) {
+            desc = `[Tenant: ${tenantName}] ${desc}`.trim();
+        }
+        if (userEmail && !desc.includes('[Owner:')) {
+            desc = `[Owner: ${userEmail}] ${desc}`.trim();
+        }
+
         window.currentItem = {
             ...(window.currentItem || {}),
-            Name: name,
+            Name: serverReportName,
+            displayName: cleanName,
             CategoryName: targetCategory,
-            Description: (window.currentItem && window.currentItem.Description) || 'no desc',
+            Description: desc,
         };
-        designer.saveReport(`${targetCategory}/${name}`);
+        designer.saveReport(`${targetCategory}/${serverReportName}`);
+
+        // Register report in tenant PostgreSQL database
+        reportsAPI.registerReport({
+            reportName: cleanName,
+            serverReportName: serverReportName,
+            category: targetCategory,
+            description: desc,
+        }).catch(err => console.warn('Failed to register report to tenant DB:', err));
     };
 
     const openServerReport = (name, category) => {
@@ -422,13 +506,12 @@ export default function Designer() {
     const [dialogMode, setDialogMode] = useState('publish'); // 'publish' | 'publishAs'
 
     const openSaveDialog = (mode = 'publish') => {
-        // Reset dialog state with sensible defaults
-        let seedName = window.currentItem?.Name || '';
-        if (isClone && seedName && !seedName.startsWith('Copy of ')) {
-            seedName = `Copy of ${seedName}`;
-        }
+        // Reset dialog state with custom name if in clone mode
+        const q = new URLSearchParams(window.location.search);
+        const customName = q.get('name');
+        let seedName = (isClone && customName) ? customName : (!isEdit ? '' : (window.currentItem?.displayName || window.currentItem?.Name || ''));
         setPendingName(seedName || '');
-        setPendingDescription(window.currentItem?.Description || '');
+        setPendingDescription((!isEdit && !isClone) ? '' : (window.currentItem?.Description || q.get('description') || ''));
         setDialogMode(mode);
         setShowDialog(true);
     };
@@ -443,15 +526,28 @@ export default function Designer() {
         const designer = getDesigner();
         if (!designer) return;
 
-        // Persist the new description + tags back onto window.currentItem
-        // so the next ajaxBeforeSend picks them up. This mirrors the
-        // publishDialog args.name/category/description call in MVC's
-        // saveAsServer.
+        let finalDesc = pendingDescription || (window.currentItem?.Description ?? '');
+        const userEmail = currentUser?.email || '';
+        const tenantName = currentUser?.tenantName || currentUser?.tenant || '';
+
+        // Inject domain and user ownership tags
+        if (tenantName && !finalDesc.includes('[Tenant:')) {
+            finalDesc = `[Tenant: ${tenantName}] ${finalDesc}`.trim();
+        }
+        if (userEmail && !finalDesc.includes('[Owner:')) {
+            finalDesc = `[Owner: ${userEmail}] ${finalDesc}`.trim();
+        }
+
+        const serverReportName = (tenantName && !name.startsWith(`${tenantName}_`))
+            ? `${tenantName}_${name}`
+            : name;
+
         window.currentItem = {
             ...(window.currentItem || {}),
-            Name: name,
+            Name: serverReportName,
+            displayName: name,
             CategoryName: category,
-            Description: pendingDescription || (window.currentItem?.Description ?? 'no desc'),
+            Description: finalDesc,
         };
 
         if (isSaving) return;
@@ -494,7 +590,7 @@ export default function Designer() {
                     <span className="text-xs font-semibold text-slate-400">Reports /</span>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                         {isClone
-                            ? (window.currentItem?.Name ? `Copy of ${window.currentItem.Name}` : 'Cloned Report')
+                            ? (new URLSearchParams(window.location.search).get('name') || window.currentItem?.Name || 'Cloned Report')
                             : isEdit
                             ? (window.currentItem?.Name || 'Edit Report')
                             : 'New Report'}

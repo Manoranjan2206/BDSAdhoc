@@ -178,6 +178,17 @@ export const reportsAPI = {
     const res = await apiRequest('/reports/Delete', { method: 'POST', body: JSON.stringify(payload) });
     return unwrapResponse(res);
   },
+  /**
+   * Register a report to the caller's tenant in PostgreSQL
+   * @param {{ reportName: string, category?: string, description?: string }} data
+   */
+  registerReport: async (data) => {
+    const res = await apiRequest('/reports/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return unwrapResponse(res);
+  },
 };
 
 /**
