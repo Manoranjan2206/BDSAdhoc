@@ -137,7 +137,7 @@ BR_ReportRootUrl=https://adhoc.boldreports.com/reporting
 BR_SiteIdentifier=site11
 BR_AdminUser=manoranjan.rajendran@syncfusion.com
 BR_AdminPassword=Admin@123
-BR_EmbedSecret=0Ff8yJ8lr7zB9VrBAyUHSDolm19ja1A
+BR_EmbedSecret=8uwFixlKG2GtFqVFFRWZsKpGSuTru4m
 
 # ---- Bold BI (site12) ----
 BBI_ServerUrl=https://adhoc.boldreports.com/bi
@@ -152,7 +152,7 @@ BBI_Environment=onpremise
 ### Important rules
 
 1. **The two `*_EmbedSecret` values MUST be different.**
-   - BR_EmbedSecret = `0Ff8yJ8lr7zB9VrBAyUHSDolm19ja1A` (Reports / site11)
+   - BR_EmbedSecret = `8uwFixlKG2GtFqVFFRWZsKpGSuTru4m` (Reports / site11)
    - BBI_EmbedSecret = `e0jXV3jpdNDoEtsEfHQdR1dzxV6zGaCw` (BI / site12)
 2. The `.NET` build also reads `BoldAdhocEmbed.Server/appsettings.Production.json`.
    Values in `.env` **must match** the JSON file. Changing only one side will

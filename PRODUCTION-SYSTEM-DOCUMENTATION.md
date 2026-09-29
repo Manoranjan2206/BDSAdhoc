@@ -222,7 +222,7 @@ BR_ReportRootUrl=https://adhoc.boldreports.com/reporting
 BR_SiteIdentifier=site11
 BR_AdminUser=manoranjan.rajendran@syncfusion.com
 BR_AdminPassword=Admin@123
-BR_EmbedSecret=0Ff8yJ8lr7zB9VrBAyUHSDolm19ja1A
+BR_EmbedSecret=8uwFixlKG2GtFqVFFRWZsKpGSuTru4m
 
 # ---- Bold BI (site12) ----
 BBI_ServerUrl=https://adhoc.boldreports.com/bi
