@@ -246,14 +246,19 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 var cacheKey = $"report_tree_{tenantName}_{userEmail}";
 
-                // We only ever surface the "Analytics Reports" category from server.
-                var analyticsReports = reports.Where(r => string.Equals(r.CategoryName, "Analytics Reports", StringComparison.OrdinalIgnoreCase)).ToList();
-
                 // Standard template reports
-                var standardReports = analyticsReports.Where(r => StandardReportNames.Contains(r.Name?.Trim() ?? "")).ToList();
+                var standardReports = reports.Where(r =>
+                    string.Equals(r.CategoryName, "Analytics Reports", StringComparison.OrdinalIgnoreCase) &&
+                    StandardReportNames.Contains(r.Name?.Trim() ?? "")
+                ).ToList();
+
+                var sanitizedUser = BoldReportsService.SanitizeCategoryName(userEmail);
 
                 // Custom / User-copied reports: any report not in the standard set
-                var customReports = analyticsReports.Where(r => !StandardReportNames.Contains(r.Name?.Trim() ?? "")).ToList();
+                var customReports = reports.Where(r =>
+                    !(string.Equals(r.CategoryName, "Analytics Reports", StringComparison.OrdinalIgnoreCase) &&
+                      StandardReportNames.Contains(r.Name?.Trim() ?? ""))
+                ).ToList();
 
                 // Fetch registered custom reports for the caller's tenant from PostgreSQL
                 List<CustomReportDto> dbCustomReports = new();
@@ -296,6 +301,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 {
                     var name = r.Name?.Trim() ?? "";
                     var desc = r.Description ?? "";
+                    var cat = r.CategoryName?.Trim() ?? "";
 
                     // CRITICAL RULE 1: If explicitly tagged for a DIFFERENT tenant, strictly exclude!
                     if (!string.IsNullOrEmpty(desc) && desc.Contains("[Tenant:", StringComparison.OrdinalIgnoreCase))
@@ -313,6 +319,19 @@ namespace BoldAdhocEmbed.Server.Controllers
                         {
                             return false;
                         }
+                    }
+
+                    // Rule 0: Matched by nested category (e.g. CategoryName is tenantName, sanitizedUser, or tenantName/sanitizedUser)
+                    if (!string.IsNullOrEmpty(tenantName) && (
+                        string.Equals(cat, tenantName, StringComparison.OrdinalIgnoreCase) ||
+                        cat.StartsWith($"{tenantName}/", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(cat, sanitizedUser, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (dbByName.TryGetValue(name, out var matchedCatName))
+                        {
+                            serverToDbMap[name] = matchedCatName;
+                        }
+                        return true;
                     }
 
                     // 1. Matched by ServerReportName (e.g. AlphaCorp_test)
@@ -368,61 +387,18 @@ namespace BoldAdhocEmbed.Server.Controllers
                     (r.Description == null || !r.Description.Contains("[Owner:"))
                 ).ToList();
 
-                // Split standard reports into distinct groups:
-                // 1. Sales Analytics: Product Sales Breakdown, Deal Products Pipeline Analysis Report, Sales Reps Performance Report
-                var salesReports = standardReports.Where(r => 
-                    r.Name.Contains("Sales", StringComparison.OrdinalIgnoreCase) || 
-                    r.Name.Contains("Deal", StringComparison.OrdinalIgnoreCase) || 
-                    r.Name.Contains("Pipeline", StringComparison.OrdinalIgnoreCase)
-                ).ToList();
-
-                // 2. Marketing & Finance Analytics: Campaign Performance Report, Monthly Revenue Report
-                var financeMarketingReports = standardReports.Where(r => 
-                    r.Name.Contains("Revenue", StringComparison.OrdinalIgnoreCase) || 
-                    r.Name.Contains("Campaign", StringComparison.OrdinalIgnoreCase) ||
-                    r.Name.Contains("Finance", StringComparison.OrdinalIgnoreCase) ||
-                    r.Name.Contains("Financial", StringComparison.OrdinalIgnoreCase) ||
-                    r.Name.Contains("Marketing", StringComparison.OrdinalIgnoreCase)
-                ).ToList();
-
-                // 3. System & Operational Reports: Audit Trail Report, Contact Details Report
-                var systemOperationalReports = standardReports.Where(r => 
-                    r.Name.Contains("Audit", StringComparison.OrdinalIgnoreCase) || 
-                    r.Name.Contains("Contact", StringComparison.OrdinalIgnoreCase)
-                ).ToList();
-
                 var restructured = new List<(string Id, string Name, IEnumerable<BoldAdhocEmbed.Server.Services.BoldReport> Reports)>();
 
-                // Prominently add "My Reports" at the top if any exist for this user/tenant
+                // 1. Prominently add "My Reports" at the top if any exist for this user/tenant
                 if (myReports.Any())
                 {
                     restructured.Add(("my-reports", "My Reports", myReports));
                 }
 
-                if (isAdmin)
+                // 2. Consolidate ALL standard reports into "System Reports"
+                if (standardReports.Any())
                 {
-                    // Admin sees all groups with all reports
-                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
-                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
-                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
-                }
-                else if (string.Equals(userRole, "Sales", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
-                }
-                else if (string.Equals(userRole, "Finance", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
-                }
-                else if (string.Equals(userRole, "Operations", StringComparison.OrdinalIgnoreCase) || string.Equals(userRole, "Support", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
-                }
-                else
-                {
-                    if (salesReports.Any()) restructured.Add(("sales-analytics", "Sales Analytics", salesReports));
-                    if (financeMarketingReports.Any()) restructured.Add(("marketing-finance-analytics", "Marketing & Finance Analytics", financeMarketingReports));
-                    if (systemOperationalReports.Any()) restructured.Add(("system-operational-reports", "System & Operational Reports", systemOperationalReports));
+                    restructured.Add(("system-reports", "System Reports", standardReports));
                 }
 
                 object tree = restructured.Select(g => new
@@ -433,12 +409,14 @@ namespace BoldAdhocEmbed.Server.Controllers
                     {
                         string displayName = r.Name;
                         string serverReportName = r.Name;
+                        string serverCategory = r.CategoryName ?? "Analytics Reports";
                         string desc;
 
                         if (serverToDbMap.TryGetValue(r.Name, out var dbItem))
                         {
                             displayName = !string.IsNullOrWhiteSpace(dbItem.ReportName) ? dbItem.ReportName : displayName;
                             serverReportName = !string.IsNullOrWhiteSpace(dbItem.ServerReportName) ? dbItem.ServerReportName : r.Name;
+                            serverCategory = !string.IsNullOrWhiteSpace(dbItem.CategoryName) ? dbItem.CategoryName : serverCategory;
                             desc = CleanDescription(!string.IsNullOrWhiteSpace(dbItem.Description) ? dbItem.Description : r.Description);
                         }
                         else
@@ -450,11 +428,29 @@ namespace BoldAdhocEmbed.Server.Controllers
                             desc = CleanDescription(r.Description);
                         }
 
+                        // For standard reports in System Reports, ensure server category is Analytics Reports
+                        if (string.Equals(g.Name, "System Reports", StringComparison.OrdinalIgnoreCase))
+                        {
+                            serverCategory = "Analytics Reports";
+                        }
+                        else if (!string.IsNullOrEmpty(tenantName) && 
+                                 !string.Equals(serverCategory, "Analytics Reports", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!serverCategory.StartsWith($"{tenantName}/", StringComparison.OrdinalIgnoreCase) &&
+                                !string.Equals(serverCategory, tenantName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                serverCategory = $"{tenantName}/{serverCategory}";
+                            }
+                        }
+
                         return new
                         {
                             r.Id,
+                            ReportId = r.Id,
+                            ReportPath = r.Id,
                             Name = displayName,
                             ServerReportName = serverReportName,
+                            ServerCategory = serverCategory,
                             Description = desc,
                             CategoryName = g.Name,
                             r.CanRead,
@@ -587,6 +583,107 @@ namespace BoldAdhocEmbed.Server.Controllers
         }
 
         /// <summary>
+        /// Get parameter definitions for a report using Bold Reports v5.0 API
+        /// </summary>
+        [HttpGet("{id}/parameters")]
+        public async Task<IActionResult> GetReportParameters(string id)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse("Report ID is required"));
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var parameters = await _boldReportsService.GetReportParametersAsync(token, id.Trim());
+                return Ok(ApiResponse<dynamic>.SuccessResponse(parameters, "Parameters retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error retrieving parameters for report {ReportId}", id);
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to retrieve parameters"));
+            }
+        }
+
+        /// <summary>
+        /// Get cascading parameter values using Bold Reports v5.0 API
+        /// </summary>
+        [HttpGet("{id}/cascading-parameters")]
+        public async Task<IActionResult> GetCascadingReportParameters(string id, [FromQuery] string filterParameters)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse("Report ID is required"));
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var cascading = await _boldReportsService.GetCascadingReportParametersAsync(token, id.Trim(), filterParameters ?? "{}");
+                return Ok(ApiResponse<dynamic>.SuccessResponse(cascading, "Cascading parameters retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error retrieving cascading parameters for report {ReportId}", id);
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to retrieve cascading parameters"));
+            }
+        }
+
+        /// <summary>
+        /// Export report using Bold Reports v5.0 API with parameters support (Items_ExportReportV3)
+        /// </summary>
+        [HttpPost("export-v3")]
+        public async Task<IActionResult> ExportReportV3([FromBody] ExportReportV3Request request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.ReportId))
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse("ReportId is required"));
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var (fileContent, contentType, fileName) = await _boldReportsService.ExportReportV3Async(
+                    token,
+                    request.ReportId.Trim(),
+                    request.ServerPath,
+                    request.ExportType ?? "PDF",
+                    request.FilterParameters,
+                    request.ReportName
+                );
+
+                if (fileContent == null || fileContent.Length == 0)
+                {
+                    return StatusCode(502, ApiResponse<dynamic>.ErrorResponse("Export failed or returned empty content from Bold Reports server"));
+                }
+
+                Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+                return File(fileContent, contentType, fileName);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error exporting report v3 for {ReportId}", request?.ReportId);
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to export report"));
+            }
+        }
+
+        /// <summary>
         /// Delete a report by name and optional category
         /// </summary>
         [HttpPost("Delete")]
@@ -701,6 +798,48 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return StatusCode(500, ApiResponse<bool>.ErrorResponse(ex.Message, "Failed to register report"));
             }
         }
+
+        /// <summary>
+        /// Ensures that the parent Tenant category and the nested User subcategory
+        /// exist in Bold Reports, returning the full category path (e.g. "AlphaCorp/alpha1alphacorpcom").
+        /// </summary>
+        [HttpPost("ensure-category")]
+        public async Task<IActionResult> EnsureCategory()
+        {
+            try
+            {
+                var authUser = _auth.GetAuthContext();
+                if (authUser == null || string.IsNullOrWhiteSpace(authUser.Email))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var tenantName = !string.IsNullOrWhiteSpace(authUser.TenantName) ? authUser.TenantName : "AlphaCorp";
+                var (ok, path, tenantCatId, userCatId, err) = await _boldReportsService.EnsureNestedUserCategoryAsync(token, tenantName, authUser.Email);
+
+                var sanitizedUser = BoldReportsService.SanitizeCategoryName(authUser.Email);
+
+                return Ok(ApiResponse<dynamic>.SuccessResponse(new
+                {
+                    categoryPath = path,
+                    tenantCategory = tenantName,
+                    userSubcategory = sanitizedUser,
+                    tenantCategoryId = tenantCatId,
+                    userCategoryId = userCatId
+                }, "Nested category verified"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error ensuring nested category");
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to ensure category"));
+            }
+        }
     }
 
     /// <summary>
@@ -728,6 +867,18 @@ namespace BoldAdhocEmbed.Server.Controllers
         /// Export format (PDF, EXCEL, CSV)
         /// </summary>
         public string? ExportType { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for v5.0 export report with parameters (Items_ExportReportV3)
+    /// </summary>
+    public class ExportReportV3Request
+    {
+        public string ReportId { get; set; } = string.Empty;
+        public string? ReportName { get; set; }
+        public string? ServerPath { get; set; }
+        public string ExportType { get; set; } = "PDF";
+        public Dictionary<string, List<string>>? FilterParameters { get; set; }
     }
 
     /// <summary>

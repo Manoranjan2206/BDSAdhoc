@@ -40,6 +40,12 @@ namespace BoldAdhocEmbed.Server.Services
         Task<(bool success, int statusCode, string responseBody)> UpdateScheduleAsync(string token, string scheduleId, object schedulePayload);
         Task<bool> DeleteScheduleAsync(string token, string scheduleIdOrName);
         Task<byte[]> ExportReportAsync(string token, string reportId, string exportType = "PDF");
+        Task<object?> GetReportParametersAsync(string token, string reportId);
+        Task<object?> GetCascadingReportParametersAsync(string token, string reportId, string filterParamsJson);
+        Task<(byte[]? FileContent, string ContentType, string FileName)> ExportReportV3Async(string token, string reportId, string? serverPath, string exportType = "PDF", Dictionary<string, List<string>>? filterParameters = null, string? reportName = null);
+        Task<List<BoldCategory>> GetCategoriesAsync(string token);
+        Task<(bool success, string? categoryId, string? error)> CreateCategoryAsync(string token, string name, string? parentId = null, string? description = null);
+        Task<(bool success, string categoryPath, string? tenantCatId, string? userCatId, string? error)> EnsureNestedUserCategoryAsync(string token, string tenantName, string userEmail);
     }
 
     public class BoldReportsService : IBoldReportsService
@@ -64,6 +70,9 @@ namespace BoldAdhocEmbed.Server.Services
 
         private string GetApiUrl(string endpoint) =>
             $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/v1.0{endpoint}";
+
+        private string GetV3ApiUrl(string endpoint) =>
+            $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/v3.0{endpoint}";
 
         private string GetV5ApiUrl(string endpoint) =>
             $"{_settings.ReportRootUrl}/api/site/{_settings.ReportsSiteIdentifier}/v5.0{endpoint}";
@@ -785,9 +794,392 @@ namespace BoldAdhocEmbed.Server.Services
                 return null;
             }
         }
+
+        public async Task<object?> GetReportParametersAsync(string token, string reportId)
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, GetV5ApiUrl($"/reports/parameters/{Uri.EscapeDataString(reportId)}"));
+                req.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var response = await _httpClient.SendAsync(req);
+                if (!response.IsSuccessStatusCode)
+                {
+                    using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, GetApiUrl($"/reports/parameters/{Uri.EscapeDataString(reportId)}"));
+                    fallbackReq.Headers.Add("Authorization", NormalizeAuthHeader(token));
+                    response = await _httpClient.SendAsync(fallbackReq);
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    return JsonConvert.DeserializeObject<object>(content);
+                }
+
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("GetReportParametersAsync returned {Status}: {Err}", response.StatusCode, err);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetReportParametersAsync failed for {ReportId}", reportId);
+                return null;
+            }
+        }
+
+        public async Task<object?> GetCascadingReportParametersAsync(string token, string reportId, string filterParamsJson)
+        {
+            try
+            {
+                var url = GetV5ApiUrl($"/reports/parameters/{Uri.EscapeDataString(reportId)}/parameters-filter?FilterParameters={Uri.EscapeDataString(filterParamsJson)}");
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var response = await _httpClient.SendAsync(req);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var fallbackUrl = GetApiUrl($"/reports/parameters/{Uri.EscapeDataString(reportId)}/parameters-filter?FilterParameters={Uri.EscapeDataString(filterParamsJson)}");
+                    using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, fallbackUrl);
+                    fallbackReq.Headers.Add("Authorization", NormalizeAuthHeader(token));
+                    response = await _httpClient.SendAsync(fallbackReq);
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    return JsonConvert.DeserializeObject<object>(content);
+                }
+
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("GetCascadingReportParametersAsync returned {Status}: {Err}", response.StatusCode, err);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetCascadingReportParametersAsync failed for {ReportId}", reportId);
+                return null;
+            }
+        }
+
+        public async Task<(byte[]? FileContent, string ContentType, string FileName)> ExportReportV3Async(
+            string token, string reportId, string? serverPath, string exportType = "PDF", Dictionary<string, List<string>>? filterParameters = null, string? reportName = null)
+        {
+            try
+            {
+                var normExportType = (exportType ?? "PDF").Trim().ToUpperInvariant() switch
+                {
+                    "EXCEL" or "XLSX" => "Excel",
+                    "CSV" => "CSV",
+                    "WORD" or "DOCX" => "Word",
+                    "HTML" => "Html",
+                    "PPT" or "PPTX" => "PPT",
+                    _ => "Pdf"
+                };
+
+                var cleanReportName = !string.IsNullOrWhiteSpace(reportName)
+                    ? System.Text.RegularExpressions.Regex.Replace(reportName.Trim(), @"[^\w\s\-\.]", "").Trim()
+                    : null;
+
+                var fallbackName = !string.IsNullOrWhiteSpace(cleanReportName)
+                    ? cleanReportName
+                    : $"report-{reportId}";
+
+                var paramsDict = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                if (filterParameters != null)
+                {
+                    foreach (var (k, v) in filterParameters)
+                    {
+                        if (v != null && v.Count > 0)
+                        {
+                            paramsDict[k] = v;
+                        }
+                    }
+                }
+
+                // Ensure dynamic multi-tenant execution parameters if not explicitly passed
+                if (!paramsDict.ContainsKey("Region"))
+                {
+                    paramsDict["Region"] = new List<string> { "North America" };
+                }
+                if (!paramsDict.ContainsKey("image"))
+                {
+                    paramsDict["image"] = new List<string> { "alpha" };
+                }
+
+                // Format as single-quoted JSON string: "{'Region':['North America'],'image':['alpha']}"
+                var pairs = paramsDict.Select(kv => $"'{kv.Key}':[{string.Join(",", kv.Value.Select(v => $"'{v}'"))}]");
+                var filterParamsStr = "{" + string.Join(",", pairs) + "}";
+
+                var v3Url = GetV3ApiUrl("/reports/export");
+                var payload = new Dictionary<string, object>
+                {
+                    ["ReportId"] = reportId,
+                    ["ExportType"] = normExportType,
+                    ["FilterParameters"] = filterParamsStr
+                };
+
+                var v3PayloadJson = JsonConvert.SerializeObject(payload);
+                _logger.LogInformation("ExportReportV3Async sending POST to {Url} with payload: {Payload}", v3Url, v3PayloadJson);
+
+                using var v3Req = new HttpRequestMessage(HttpMethod.Post, v3Url)
+                {
+                    Content = new StringContent(v3PayloadJson, Encoding.UTF8, "application/json")
+                };
+                v3Req.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var response = await _httpClient.SendAsync(v3Req);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var v3Err = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("v3.0 Export API failed for caller token (Status={Status} Response={Resp}). Retrying with site admin token for user {AdminUser}.", response.StatusCode, v3Err, _settings.AdminUser);
+
+                    // Acquire site admin token for headless RDL execution permission
+                    var adminToken = await GetTokenAsync(_settings.AdminUser, _settings.AdminPassword);
+                    if (!string.IsNullOrEmpty(adminToken))
+                    {
+                        using var adminV3Req = new HttpRequestMessage(HttpMethod.Post, v3Url)
+                        {
+                            Content = new StringContent(v3PayloadJson, Encoding.UTF8, "application/json")
+                        };
+                        adminV3Req.Headers.Add("Authorization", NormalizeAuthHeader(adminToken));
+
+                        var adminResp = await _httpClient.SendAsync(adminV3Req);
+                        if (adminResp.IsSuccessStatusCode)
+                        {
+                            response = adminResp;
+                        }
+                    }
+                }
+
+                var ext = normExportType.ToLowerInvariant() switch
+                {
+                    "excel" => "xlsx",
+                    "csv" => "csv",
+                    "word" => "docx",
+                    "html" => "html",
+                    "ppt" => "pptx",
+                    _ => "pdf"
+                };
+                var mime = normExportType.ToLowerInvariant() switch
+                {
+                    "excel" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "csv" => "text/csv",
+                    "word" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "html" => "text/html",
+                    "ppt" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    _ => "application/pdf"
+                };
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var mediaType = response.Content.Headers.ContentType?.MediaType?.ToLowerInvariant() ?? "";
+
+                    if (mediaType.Contains("json"))
+                    {
+                        var respStr = await response.Content.ReadAsStringAsync();
+                        var jObj = Newtonsoft.Json.Linq.JObject.Parse(respStr);
+
+                        var fileContentToken = jObj["FileContent"] ?? jObj["fileContent"];
+                        byte[]? bytes = null;
+                        if (fileContentToken != null)
+                        {
+                            if (fileContentToken.Type == Newtonsoft.Json.Linq.JTokenType.Bytes)
+                            {
+                                bytes = (byte[]?)fileContentToken;
+                            }
+                            else if (fileContentToken.Type == Newtonsoft.Json.Linq.JTokenType.String)
+                            {
+                                var b64 = (string?)fileContentToken;
+                                if (!string.IsNullOrWhiteSpace(b64))
+                                {
+                                    bytes = Convert.FromBase64String(b64);
+                                }
+                            }
+                        }
+
+                        if (bytes != null && bytes.Length > 0)
+                        {
+                            var itemName = (string?)jObj["ItemName"] ?? (string?)jObj["itemName"];
+                            var baseName = (!string.IsNullOrWhiteSpace(itemName) && !itemName.StartsWith("report-", StringComparison.OrdinalIgnoreCase)) ? itemName : fallbackName;
+                            var fileName = $"{baseName}.{ext}";
+                            return (bytes, mime, fileName);
+                        }
+                    }
+                    else
+                    {
+                        var bytes = await response.Content.ReadAsByteArrayAsync();
+                        if (bytes != null && bytes.Length > 0)
+                        {
+                            return (bytes, mime, $"{fallbackName}.{ext}");
+                        }
+                    }
+                }
+                else
+                {
+                    var err = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Bold Reports export failed: Status={Status} Response={Resp}", response.StatusCode, err);
+                }
+
+                return (null, mime, $"{fallbackName}.{ext}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportReportV3Async failed for {ReportId}", reportId);
+                return (null, "application/octet-stream", $"{reportName ?? reportId}.pdf");
+            }
+        }
+
+        public static string SanitizeCategoryName(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return "user";
+            var lower = email.Trim().ToLowerInvariant();
+            var sb = new StringBuilder();
+            foreach (var ch in lower)
+            {
+                if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+            }
+            return sb.Length > 0 ? sb.ToString() : "user";
+        }
+
+        public async Task<List<BoldCategory>> GetCategoriesAsync(string token)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, GetV5ApiUrl("/items?itemType=Category"));
+                request.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var response = await _httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, GetApiUrl("/items?itemType=Category"));
+                    fallbackReq.Headers.Add("Authorization", NormalizeAuthHeader(token));
+                    response = await _httpClient.SendAsync(fallbackReq);
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    return JsonConvert.DeserializeObject<List<BoldCategory>>(content) ?? new List<BoldCategory>();
+                }
+                return new List<BoldCategory>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get categories");
+                return new List<BoldCategory>();
+            }
+        }
+
+        public async Task<(bool success, string? categoryId, string? error)> CreateCategoryAsync(string token, string name, string? parentId = null, string? description = null)
+        {
+            try
+            {
+                var payload = new Dictionary<string, object?>
+                {
+                    ["Name"] = name.Trim(),
+                    ["Description"] = description ?? (parentId == null ? $"{name} Category" : $"Subcategory {name}")
+                };
+                if (!string.IsNullOrWhiteSpace(parentId))
+                {
+                    payload["ParentId"] = parentId.Trim();
+                }
+
+                var json = JsonConvert.SerializeObject(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, GetV5ApiUrl("/categories"))
+                {
+                    Content = content
+                };
+                request.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var response = await _httpClient.SendAsync(request);
+                var respContent = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string? catId = null;
+                    try
+                    {
+                        var parsed = JsonConvert.DeserializeObject<dynamic>(respContent);
+                        catId = parsed?.Data?.Id?.ToString() ?? parsed?.Id?.ToString();
+                    }
+                    catch { }
+                    return (true, catId, null);
+                }
+
+                if ((int)response.StatusCode == 409)
+                {
+                    return (true, null, "Category already exists");
+                }
+
+                _logger.LogWarning("Failed to create category {Name} (ParentId={ParentId}): {StatusCode} {Body}", name, parentId, response.StatusCode, respContent);
+                return (false, null, respContent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CreateCategoryAsync failed for {Name}", name);
+                return (false, null, ex.Message);
+            }
+        }
+
+        public async Task<(bool success, string categoryPath, string? tenantCatId, string? userCatId, string? error)> EnsureNestedUserCategoryAsync(string token, string tenantName, string userEmail)
+        {
+            try
+            {
+                var sanitizedEmail = SanitizeCategoryName(userEmail);
+                var expectedPath = $"{tenantName.Trim()}/{sanitizedEmail}";
+
+                var categories = await GetCategoriesAsync(token);
+
+                // 1. Find or create Parent Tenant category
+                var tenantCat = categories.FirstOrDefault(c => string.Equals(c.Name, tenantName.Trim(), StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(c.ParentId));
+                string? tenantCatId = tenantCat?.Id;
+
+                if (tenantCatId == null)
+                {
+                    var (created, newTenantId, err) = await CreateCategoryAsync(token, tenantName.Trim(), null, $"Tenant category for {tenantName}");
+                    categories = await GetCategoriesAsync(token);
+                    tenantCat = categories.FirstOrDefault(c => string.Equals(c.Name, tenantName.Trim(), StringComparison.OrdinalIgnoreCase));
+                    tenantCatId = tenantCat?.Id ?? newTenantId;
+                }
+
+                // 2. Find or create Subcategory for User
+                var userCat = categories.FirstOrDefault(c =>
+                    string.Equals(c.Name, sanitizedEmail, StringComparison.OrdinalIgnoreCase) &&
+                    (tenantCatId == null || string.Equals(c.ParentId, tenantCatId, StringComparison.OrdinalIgnoreCase)));
+                string? userCatId = userCat?.Id;
+
+                if (userCatId == null && !string.IsNullOrEmpty(tenantCatId))
+                {
+                    var (subCreated, newSubId, subErr) = await CreateCategoryAsync(token, sanitizedEmail, tenantCatId, $"User category for {userEmail}");
+                    categories = await GetCategoriesAsync(token);
+                    userCat = categories.FirstOrDefault(c =>
+                        string.Equals(c.Name, sanitizedEmail, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(c.ParentId, tenantCatId, StringComparison.OrdinalIgnoreCase));
+                    userCatId = userCat?.Id ?? newSubId;
+                }
+
+                return (true, expectedPath, tenantCatId, userCatId, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "EnsureNestedUserCategoryAsync failed for tenant {Tenant}, user {User}", tenantName, userEmail);
+                return (false, $"{tenantName}/{SanitizeCategoryName(userEmail)}", null, null, ex.Message);
+            }
+        }
     }
 
     // Models
+    public class BoldCategory
+    {
+        [JsonProperty("Id")] public string? Id { get; set; }
+        [JsonProperty("Name")] public string? Name { get; set; }
+        [JsonProperty("Description")] public string? Description { get; set; }
+        [JsonProperty("ParentId")] public string? ParentId { get; set; }
+        [JsonProperty("ItemType")] public string? ItemType { get; set; }
+    }
     public class BoldReportsSettings
     {
         public string ReportRootUrl { get; set; }

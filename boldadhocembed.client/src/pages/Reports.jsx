@@ -11,6 +11,8 @@ import {
   Squares2X2Icon,
   ListBulletIcon,
   ArrowPathIcon,
+  ClockIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -19,6 +21,7 @@ import { useData } from '../context/DataContext';
 import { authService } from '../services/authService';
 import { usePermissions } from '../hooks/usePermissions';
 import { motion } from 'framer-motion';
+import ReportScheduleDrawer from '../components/ReportScheduleDrawer';
 import '../styles/reports.css';
 
 // Cohesive vibrant color palettes for categories
@@ -100,6 +103,16 @@ const getCategoryPalette = (categoryName) => {
       dot: 'bg-indigo-500',
     };
   }
+  if (categoryName === 'System Reports') {
+    return {
+      bg: 'bg-sky-50 dark:bg-sky-950/40',
+      text: 'text-sky-700 dark:text-sky-400 font-semibold',
+      border: 'border-sky-200 dark:border-sky-800/40',
+      iconBg: 'bg-sky-100/70 dark:bg-sky-900/40',
+      iconColor: 'text-sky-600 dark:text-sky-400',
+      dot: 'bg-sky-500',
+    };
+  }
   if (!categoryName) return COLOR_PALETTES[0];
   let hash = 0;
   for (let i = 0; i < categoryName.length; i++) {
@@ -130,6 +143,19 @@ export default function Reports() {
   const [copyTargetName, setCopyTargetName] = useState('');
   const [copyTargetDescription, setCopyTargetDescription] = useState('');
   const [copyError, setCopyError] = useState('');
+
+  // Report-Centric Scheduling & Export Action Drawer (matching Davis reference)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerReport, setDrawerReport] = useState(null);
+
+  const handleOpenDrawer = (report, category, e) => {
+    e?.stopPropagation();
+    setDrawerReport({
+      ...report,
+      categoryName: category || report?.categoryName || 'Reports',
+    });
+    setDrawerOpen(true);
+  };
   
   // Filtering & View state
   const [activeScope, setActiveScope] = useState('all'); // 'all' | 'favorites'
@@ -221,6 +247,8 @@ export default function Reports() {
           id: r.Id || r.id,
           name: r.Name || r.name,
           categoryName: catName,
+          serverCategory: r.ServerCategory || r.serverCategory || r.CategoryName || 'Analytics Reports',
+          serverReportName: r.ServerReportName || r.serverReportName || r.Name || r.name,
           description: r.Description || r.description || '',
           modifiedDate: r.ModifiedDate || r.modifiedDate || r.ModifiedDateString || r.CreatedDate || r.createdDate || null,
           createdById: r.CreatedById || r.createdById,
@@ -382,7 +410,7 @@ export default function Reports() {
     setCopySourceReport({
       name,
       serverReportName: report?.serverReportName || report?.ServerReportName || name,
-      category: category || report?.categoryName || 'Analytics Reports',
+      category: report?.serverCategory || category || 'Analytics Reports',
       description: report?.description || report?.Description || '',
     });
     setCopyTargetName('');
@@ -406,7 +434,7 @@ export default function Reports() {
     const params = new URLSearchParams();
     params.set('source', copySourceReport.serverReportName || copySourceReport.name);
     params.set('name', trimmed);
-    params.set('category', 'Analytics Reports');
+    params.set('category', copySourceReport.category || 'Analytics Reports');
     params.set('appCategory', 'My Reports');
     if (copyTargetDescription) params.set('description', copyTargetDescription);
     params.set('mode', 'clone');
@@ -467,13 +495,31 @@ export default function Reports() {
     'Other Analytics',
     'My Reports'
   ];
-  const serverCategory = (!categoryName || CUSTOM_GROUPS.includes(categoryName.trim()))
-    ? 'Analytics Reports'
-    : categoryName.trim();
+  const serverCategory = selectedReport?.serverCategory || selectedReport?.ServerCategory ||
+    ((!categoryName || CUSTOM_GROUPS.includes(categoryName.trim()))
+      ? 'Analytics Reports'
+      : categoryName.trim());
 
-  const reportPath = serverReportName
-    ? `/${serverCategory}/${serverReportName.trim()}`.replace(/\/{2,}/g, '/')
-    : null;
+  // Report Path: Prioritize Report ID (GUID) as recommended by user and official Bold Reports docs,
+  // which loads the report directly and uniquely without any path or category hierarchy issues.
+  // If no GUID, fall back to path with tenant name properly included.
+  const reportPath = useMemo(() => {
+    const reportGuid = selectedReport?.id || selectedReport?.Id || selectedReport?.ReportId;
+    if (reportGuid && typeof reportGuid === 'string' && reportGuid.length > 20 && !reportGuid.includes('/')) {
+      return String(reportGuid).trim();
+    }
+
+    if (serverReportName) {
+      let cat = serverCategory;
+      const user = authService.getUser()?.user || authService.getUser();
+      const tenant = user?.tenantName || user?.TenantName || '';
+      if (tenant && cat !== 'Analytics Reports' && !cat.toLowerCase().startsWith(tenant.toLowerCase())) {
+        cat = `${tenant}/${cat}`;
+      }
+      return `/${cat}/${serverReportName.trim()}`.replace(/\/{2,}/g, '/');
+    }
+    return null;
+  }, [selectedReport, serverCategory, serverReportName]);
 
   // The viewer-settings endpoint returns:
   //   { token, serviceUrl, serverUrl, reportRootUrl }
@@ -496,15 +542,38 @@ export default function Reports() {
     s ? String(s).replace(/^Bearer\s+/i, '').trim() : s;
   const embedToken = rawToken ? stripBearer(rawToken) : null;
 
+  const selectedReportRef = useRef(selectedReport);
+  useEffect(() => {
+    selectedReportRef.current = selectedReport;
+  }, [selectedReport]);
+
   const toolbarSettings = useMemo(() => {
     return {
       showToolbar: true,
       items: window.ej?.ReportViewer?.ToolbarItems?.All & ~window.ej?.ReportViewer?.ToolbarItems?.Print,
-      customItems: [],
+      customItems: [
+        {
+          groupIndex: 1,
+          itemIndex: 1,
+          type: 'Button',
+          cssClass: 'e-icon e-clock',
+          id: 'Schedule',
+          tooltip: { content: 'Schedule Report' },
+          text: 'Schedule',
+        }
+      ],
     };
   }, []);
 
-  const onToolBarItemClick = () => {};
+  const onToolBarItemClick = (args) => {
+    const value = args?.value || args?.id || args?.target?.id;
+    if (value === 'Schedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
+      if (selectedReportRef.current) {
+        setDrawerReport(selectedReportRef.current);
+        setDrawerOpen(true);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!reportPath || !viewerDivRef.current) return;
@@ -536,6 +605,7 @@ export default function Reports() {
         embedToken,
         toolbarSettings,
         toolBarItemClick: onToolBarItemClick,
+        toolbarClick: onToolBarItemClick,
         ajaxBeforeLoad: (args) => {
           const currentUser = authService.getUser()?.user || authService.getUser();
           if (currentUser && currentUser.email) {
@@ -671,6 +741,17 @@ export default function Reports() {
                     </button>
                   )}
                   <button
+                    onClick={() => {
+                      setDrawerReport(selectedReport);
+                      setDrawerOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-[#FF4800] hover:text-[#FF4800] transition-colors shadow-2xs"
+                    title="Schedule Report"
+                  >
+                    <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
+                    <span>Schedule</span>
+                  </button>
+                  <button
                     onClick={() => setViewerKey(prev => prev + 1)}
                     className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors"
                     title="Reload report"
@@ -799,6 +880,7 @@ export default function Reports() {
                     {filteredReports.map(report => {
                       const isStarred = starredReports.includes(report.id);
                       const palette = getCategoryPalette(report.categoryName);
+                      const isDrawerActive = drawerOpen && drawerReport?.id === report.id;
                       return (
                         <motion.div
                           key={report.id}
@@ -806,7 +888,11 @@ export default function Reports() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2 }}
                           onClick={() => handleSelectReport(report, report.categoryName)}
-                          className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group relative hover:-translate-y-0.5"
+                          className={`bg-white dark:bg-[#181c2c] rounded-2xl border p-4 transition-all cursor-pointer flex flex-col justify-between group relative ${
+                            isDrawerActive
+                              ? 'border-[#183955] dark:border-[#FF4800] ring-2 ring-[#183955]/30 dark:ring-[#FF4800]/40 shadow-xl -translate-y-1 bg-slate-50/60 dark:bg-slate-800/40'
+                              : 'border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                          }`}
                         >
                           <div className="space-y-2">
                             {/* Top row with Title and Star/Menu actions */}
@@ -851,10 +937,12 @@ export default function Reports() {
 
                             {/* Category & Description */}
                             <div>
-                              <span className={`inline-block px-2.5 py-0.5 text-[10px] font-semibold rounded-md ${palette.bg} ${palette.text} border ${palette.border} truncate max-w-full whitespace-nowrap`}>
-                                {report.categoryName}
-                              </span>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1.5 leading-relaxed">
+                              {selectedCategoryFilter === 'all' && (
+                                <span className={`inline-block px-2.5 py-0.5 text-[10px] font-semibold rounded-md ${palette.bg} ${palette.text} border ${palette.border} truncate max-w-full whitespace-nowrap mb-1.5`}>
+                                  {report.categoryName}
+                                </span>
+                              )}
+                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                                 {report.description}
                               </p>
                             </div>
@@ -862,7 +950,24 @@ export default function Reports() {
 
                           <div className="mt-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
                             <span>{getFormattedDateString(report.modifiedDate)}</span>
-                            <span className="font-semibold text-[#FF4800] group-hover:underline">Open</span>
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => handleOpenDrawer(report, report.categoryName, e)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
+                                title="Schedule & Export Report"
+                              >
+                                <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
+                                <span>Schedule</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectReport(report, report.categoryName)}
+                                className="font-semibold text-[#FF4800] hover:underline cursor-pointer"
+                              >
+                                View
+                              </button>
+                            </div>
                           </div>
                         </motion.div>
                       );
@@ -874,7 +979,7 @@ export default function Reports() {
                     <table className="w-full text-left border-collapse table-fixed">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60 dark:bg-slate-900/60 select-none">
-                          <th className="py-3 px-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[32%]" onClick={() => handleSort('name')}>
+                          <th className={`py-3 px-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors ${selectedCategoryFilter === 'all' ? 'w-[32%]' : 'w-[42%]'}`} onClick={() => handleSort('name')}>
                             <div className="flex items-center gap-1">
                               <span>Report Name</span>
                               {sortColumn === 'name' ? (
@@ -884,17 +989,19 @@ export default function Reports() {
                               )}
                             </div>
                           </th>
-                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[18%]" onClick={() => handleSort('categoryName')}>
-                            <div className="flex items-center gap-1">
-                              <span>Collection</span>
-                              {sortColumn === 'categoryName' ? (
-                                <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-                              ) : (
-                                <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
-                              )}
-                            </div>
-                          </th>
-                          <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[24%]" onClick={() => handleSort('description')}>
+                          {selectedCategoryFilter === 'all' && (
+                            <th className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-[18%]" onClick={() => handleSort('categoryName')}>
+                              <div className="flex items-center gap-1">
+                                <span>Collection</span>
+                                {sortColumn === 'categoryName' ? (
+                                  <span className="text-[#FF4800]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                                ) : (
+                                  <span className="text-slate-300 dark:text-slate-600 font-normal">↕</span>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          <th className={`py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors ${selectedCategoryFilter === 'all' ? 'w-[24%]' : 'w-[32%]'}`} onClick={() => handleSort('description')}>
                             <div className="flex items-center gap-1">
                               <span>Description</span>
                               {sortColumn === 'description' ? (
@@ -921,11 +1028,16 @@ export default function Reports() {
                         {filteredReports.map(report => {
                           const isStarred = starredReports.includes(report.id);
                           const palette = getCategoryPalette(report.categoryName);
+                          const isDrawerActive = drawerOpen && drawerReport?.id === report.id;
                           return (
                             <tr
                               key={report.id}
                               onClick={() => handleSelectReport(report, report.categoryName)}
-                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+                              className={`transition-colors cursor-pointer group ${
+                                isDrawerActive
+                                  ? 'bg-slate-100/90 dark:bg-slate-800/80 font-medium'
+                                  : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                              }`}
                             >
                               <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white overflow-hidden">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -933,11 +1045,13 @@ export default function Reports() {
                                   <span className="truncate block" title={report.name}>{report.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-3 overflow-hidden">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-full shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`} title={report.categoryName}>
-                                  <span className="truncate">{report.categoryName}</span>
-                                </span>
-                              </td>
+                              {selectedCategoryFilter === 'all' && (
+                                <td className="py-3 px-3 overflow-hidden">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-full shadow-2xs ${palette.bg} ${palette.text} border ${palette.border}`} title={report.categoryName}>
+                                    <span className="truncate">{report.categoryName}</span>
+                                  </span>
+                                </td>
+                              )}
                               <td className="py-3 px-3 text-slate-500 overflow-hidden align-middle">
                                 {report.description ? (
                                   <span
@@ -960,6 +1074,13 @@ export default function Reports() {
                               </td>
                               <td className="py-3 px-3 text-right whitespace-nowrap align-middle">
                                 <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={(e) => handleOpenDrawer(report, report.categoryName, e)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Schedule & Export Report"
+                                  >
+                                    <ClockIcon className="w-3.5 h-3.5" />
+                                  </button>
                                   <button
                                     onClick={(e) => toggleStar(report.id, e)}
                                     className="p-1 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -1075,6 +1196,18 @@ export default function Reports() {
           </div>
         </div>
       )}
+
+      {/* Report-Centric Scheduling Action Drawer */}
+      <ReportScheduleDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        report={drawerReport}
+        isViewerOpen={!!selectedReport}
+        onViewReport={(r) => {
+          setDrawerOpen(false);
+          handleSelectReport(r, r.categoryName);
+        }}
+      />
     </div>
   );
 }

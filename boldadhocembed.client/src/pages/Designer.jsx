@@ -337,23 +337,36 @@ export default function Designer() {
         'Other Analytics'
     ];
 
-    const saveAsServer = (name, category) => {
+    const sanitizeEmail = (email) => {
+        if (!email) return 'user';
+        return String(email).toLowerCase().replace(/[^a-z0-9]/g, '');
+    };
+
+    const saveAsServer = async (name, category) => {
         const designer = getDesigner();
         if (!designer) return;
-        const targetCategory = 'Analytics Reports';
         let desc = (window.currentItem && window.currentItem.Description) || '';
         const userEmail = currentUser?.email || '';
-        const tenantName = currentUser?.tenantName || currentUser?.tenant || '';
+        const tenantName = currentUser?.tenantName || currentUser?.tenant || 'AlphaCorp';
+        const sanitizedEmail = sanitizeEmail(userEmail);
+
+        let targetCategory = `${tenantName}/${sanitizedEmail}`;
+        try {
+            const catRes = await reportsAPI.ensureCategory();
+            if (catRes?.categoryPath) {
+                targetCategory = catRes.categoryPath;
+            }
+        } catch (e) {
+            console.warn('ensureCategory failed, using default nested path:', e);
+        }
 
         // Clean user-facing display name
         const cleanName = (tenantName && name.startsWith(`${tenantName}_`))
             ? name.substring(tenantName.length + 1)
             : name;
 
-        // Scoped name on Bold Reports Server so tenants never overwrite each other
-        const serverReportName = (tenantName && !name.startsWith(`${tenantName}_`))
-            ? `${tenantName}_${name}`
-            : name;
+        // Scoped name inside the nested category is clean
+        const serverReportName = cleanName;
 
         // Inject domain and user ownership tags
         if (tenantName && !desc.includes('[Tenant:')) {
@@ -384,7 +397,12 @@ export default function Designer() {
     const openServerReport = (name, category) => {
         const designer = getDesigner();
         if (!designer || !name) return;
-        const serverCat = (!category || CUSTOM_GROUPS.includes(category.trim())) ? 'Analytics Reports' : category.trim();
+        let serverCat = category ? category.trim() : 'Analytics Reports';
+        const user = authService.getUser()?.user || authService.getUser();
+        const tenant = user?.tenantName || user?.TenantName || '';
+        if (tenant && serverCat !== 'Analytics Reports' && !serverCat.toLowerCase().startsWith(tenant.toLowerCase())) {
+            serverCat = `${tenant}/${serverCat}`;
+        }
         window.currentItem = {
             ...(window.currentItem || {}),
             Name: name,

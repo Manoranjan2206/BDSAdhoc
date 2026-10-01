@@ -189,6 +189,80 @@ export const reportsAPI = {
     });
     return unwrapResponse(res);
   },
+  /**
+   * Ensure parent tenant category and nested user subcategory exist in Bold Reports
+   */
+  ensureCategory: async () => {
+    const res = await apiRequest('/reports/ensure-category', { method: 'POST' });
+    return unwrapResponse(res);
+  },
+
+  /**
+   * Get report parameter definitions using Bold Reports v5.0 API (Get_ReportParameters)
+   * @param {string} reportId
+   */
+  getParameters: async (reportId) => {
+    const res = await apiRequest(`/reports/${encodeURIComponent(reportId)}/parameters`);
+    return unwrapResponse(res);
+  },
+
+  /**
+   * Get cascading parameter values using Bold Reports v5.0 API (Get_CascadingReportParameters)
+   * @param {string} reportId
+   * @param {object} filterParams
+   */
+  getCascadingParameters: async (reportId, filterParams = {}) => {
+    const query = encodeURIComponent(JSON.stringify(filterParams));
+    const res = await apiRequest(`/reports/${encodeURIComponent(reportId)}/cascading-parameters?filterParameters=${query}`);
+    return unwrapResponse(res);
+  },
+
+  /**
+   * Export report using v5.0 API with parameters (Items_ExportReportV3)
+   * @param {{ reportId: string, reportName?: string, serverPath?: string, exportType?: string, filterParameters?: object }} options
+   */
+  exportReportV3: async ({ reportId, reportName, serverPath, exportType = 'PDF', filterParameters = {} }) => {
+    const url = buildApiUrl('/reports/export-v3');
+    const token = authService.getToken();
+    if (!token) throw new Error('Not authenticated');
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        reportId,
+        reportName,
+        serverPath,
+        exportType,
+        filterParameters,
+      }),
+    });
+
+    if (response.status === 401) {
+      await authService.logout();
+      throw new Error('Unauthorized - Please login again');
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Export failed: ${response.status} ${errText || response.statusText}`);
+    }
+
+    // Try reading suggested filename from header
+    const cleanName = reportName ? String(reportName).replace(/[^\w\s\-\.]/g, '').trim() : null;
+    let filename = cleanName ? `${cleanName}.${exportType.toLowerCase()}` : `report-${reportId}.${exportType.toLowerCase()}`;
+    const disposition = response.headers.get('content-disposition');
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      if (match && match[1]) filename = match[1];
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  },
 };
 
 /**
@@ -264,6 +338,11 @@ export const schedulesAPI = {
    * Get specific schedule details
    */
   getSchedule: async (scheduleId) => unwrapResponse(await apiRequest(`/schedules/GetSchedule/${scheduleId}`)),
+
+  /**
+   * Get active schedule for a specific report
+   */
+  getScheduleByReport: async (reportId) => unwrapResponse(await apiRequest(`/schedules/by-report/${encodeURIComponent(reportId)}`)),
   
   /**
    * Run schedule immediately (uses query GET: /schedules/run?scheduleId=...)

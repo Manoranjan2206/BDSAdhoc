@@ -74,6 +74,30 @@ namespace BoldAdhocEmbed.Server.Controllers
             return cleaned.Trim();
         }
 
+        private static string NormalizeScheduleExportType(string? rawExportType)
+        {
+            if (string.IsNullOrWhiteSpace(rawExportType)) return "Pdf";
+            var s = rawExportType.Trim();
+            var lower = s.ToLowerInvariant();
+            if (lower == "pdf") return "Pdf";
+            if (lower == "excel" || lower == "xlsx") return "Excel";
+            if (lower == "word" || lower == "docx") return "Word";
+            if (lower == "csv") return "Csv";
+            if (lower == "html") return "Html";
+            if (lower == "ppt" || lower == "pptx") return "Ppt";
+            if (lower == "image") return "Image";
+            if (lower == "xml") return "Xml";
+
+            var codeMap = new Dictionary<string, string>
+            {
+                { "1", "Excel" }, { "2", "Html" }, { "3", "Pdf" }, { "4", "Word" },
+                { "5", "Image" }, { "6", "Ppt" }, { "7", "Csv" }, { "8", "Xml" }
+            };
+            if (codeMap.TryGetValue(s, out var mapped)) return mapped;
+
+            return char.ToUpperInvariant(s[0]) + (s.Length > 1 ? s.Substring(1).ToLowerInvariant() : "");
+        }
+
         [HttpGet]
         [HttpGet("GetSchedules")]
         public async Task<ActionResult<ApiResponse<dynamic>>> GetSchedules()
@@ -397,6 +421,49 @@ namespace BoldAdhocEmbed.Server.Controllers
         }
 
         /// <summary>
+        /// Get active schedule for a specific report by reportId or reportName
+        /// </summary>
+        [HttpGet("by-report/{reportId}")]
+        public async Task<IActionResult> GetScheduleByReport(string reportId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(reportId))
+                {
+                    return Ok(ApiResponse<dynamic>.SuccessResponse(new { exists = false, schedule = (object?)null }, "No schedule found"));
+                }
+
+                var schedulesRes = await GetSchedules();
+                dynamic? resultObj = schedulesRes.Result is OkObjectResult okObj ? okObj.Value : schedulesRes.Value;
+                if (resultObj != null)
+                {
+                    var data = resultObj.Data;
+                    if (data is IEnumerable<dynamic> list)
+                    {
+                        foreach (var s in list)
+                        {
+                            string sItemId = (string)(s.itemId ?? "");
+                            string sReportName = (string)(s.reportName ?? "");
+                            string sName = (string)(s.name ?? "");
+                            if (string.Equals(sItemId, reportId, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(sReportName, reportId, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(sName, reportId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return Ok(ApiResponse<dynamic>.SuccessResponse(new { exists = true, schedule = s }, "Schedule found"));
+                            }
+                        }
+                    }
+                }
+                return Ok(ApiResponse<dynamic>.SuccessResponse(new { exists = false, schedule = (object?)null }, "No schedule found"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking schedule for report {ReportId}", reportId);
+                return Ok(ApiResponse<dynamic>.SuccessResponse(new { exists = false, schedule = (object?)null }, "Error checking schedule"));
+            }
+        }
+
+        /// <summary>
         /// Create schedule using v5.0 API with tenant isolation
         /// </summary>
         [HttpPost("Create")]
@@ -455,7 +522,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                 bool isDashboard = string.Equals(itemType, "Dashboard", StringComparison.OrdinalIgnoreCase);
 
                 string? itemId = dict.TryGetValue("ItemId", out var idVal) ? idVal?.ToString() : null;
-                string? exportType = dict.TryGetValue("ExportType", out var expVal) ? expVal?.ToString() : "Pdf";
+                string? rawExportType = dict.TryGetValue("ExportType", out var expVal) ? expVal?.ToString() : "Pdf";
+                string exportType = NormalizeScheduleExportType(rawExportType);
+                dict["ExportType"] = exportType;
                 string? scheduleType = dict.TryGetValue("ScheduleType", out var stVal) ? stVal?.ToString() : "Daily";
                 bool isEnabled = true;
                 if (dict.TryGetValue("Enabled", out var enVal) && enVal is bool b) isEnabled = b;
@@ -494,9 +563,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                     else if (glVal is System.Collections.ICollection glColl && glColl.Count == 0) dict.Remove("GroupList");
                 }
 
-                // Format recurrence schedule sub-object according to ScheduleType
+                // Format recurrence schedule sub-object according to ScheduleType and normalize ScheduleType for Bold Reports Server API
                 if (string.Equals(scheduleType, "Weekly", StringComparison.OrdinalIgnoreCase))
                 {
+                    dict["ScheduleType"] = "Weekly";
                     dict.Remove("HourlySchedule");
                     dict.Remove("DailySchedule");
                     dict.Remove("MonthlySchedule");
@@ -512,6 +582,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
                 else if (string.Equals(scheduleType, "Hourly", StringComparison.OrdinalIgnoreCase))
                 {
+                    dict["ScheduleType"] = "Hourly";
                     dict.Remove("DailySchedule");
                     dict.Remove("WeeklySchedule");
                     dict.Remove("MonthlySchedule");
@@ -526,6 +597,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 }
                 else if (string.Equals(scheduleType, "Monthly", StringComparison.OrdinalIgnoreCase))
                 {
+                    dict["ScheduleType"] = "Monthly";
                     dict.Remove("HourlySchedule");
                     dict.Remove("DailySchedule");
                     dict.Remove("WeeklySchedule");
@@ -543,8 +615,28 @@ namespace BoldAdhocEmbed.Server.Controllers
                         };
                     }
                 }
+                else if (string.Equals(scheduleType, "Daily (weekdays)", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scheduleType, "DailyWeekdays", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scheduleType, "Weekday", StringComparison.OrdinalIgnoreCase))
+                {
+                    dict["ScheduleType"] = "Daily";
+                    dict.Remove("HourlySchedule");
+                    dict.Remove("WeeklySchedule");
+                    dict.Remove("MonthlySchedule");
+                    dict.Remove("YearlySchedule");
+                    if (!dict.ContainsKey("DailySchedule") || dict["DailySchedule"] == null)
+                    {
+                        dict["DailySchedule"] = new Dictionary<string, object>
+                        {
+                            ["RecurrenceType"] = "EveryWeekday",
+                            ["EveryNdays"] = 1,
+                            ["EveryWeekday"] = true
+                        };
+                    }
+                }
                 else // Daily default
                 {
+                    dict["ScheduleType"] = "Daily";
                     dict.Remove("HourlySchedule");
                     dict.Remove("WeeklySchedule");
                     dict.Remove("MonthlySchedule");
@@ -700,7 +792,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                 bool isDashboard = string.Equals(itemType, "Dashboard", StringComparison.OrdinalIgnoreCase);
 
                 string? itemId = dict.TryGetValue("ItemId", out var idVal) ? idVal?.ToString() : null;
-                string? exportType = dict.TryGetValue("ExportType", out var expVal) ? expVal?.ToString() : "Pdf";
+                string? rawExportType = dict.TryGetValue("ExportType", out var expVal) ? expVal?.ToString() : "Pdf";
+                string exportType = NormalizeScheduleExportType(rawExportType);
+                dict["ExportType"] = exportType;
                 string? scheduleType = dict.TryGetValue("ScheduleType", out var stVal) ? stVal?.ToString() : "Daily";
                 bool isEnabled = true;
                 if (dict.TryGetValue("Enabled", out var enVal) && enVal is bool b) isEnabled = b;
