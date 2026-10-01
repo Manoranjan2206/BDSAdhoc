@@ -6,3 +6,7 @@
 **/node_modules
 **/dist
 **/publish
+*.tar
+*.tar.gz
+*.zip
+.data
