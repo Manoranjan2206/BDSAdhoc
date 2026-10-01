@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BoldAdhocEmbed.Server.Services;
 using BoldAdhocEmbed.Server.Models;
@@ -68,6 +68,10 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Ok(ApiResponse<dynamic>.SuccessResponse(cachedUsers, "Retrieved users"));
                 }
 
+                var authCtx = _auth.GetAuthContext();
+                var currentTenantName = authCtx?.TenantName;
+                var currentTenantId = authCtx?.TenantId ?? 0;
+
                 // Prefer v5.0 users endpoint, fallback to legacy if needed.
                 var users = await _boldReportsService.GetUsersV5Async(token);
                 if (users == null || users.Count == 0)
@@ -75,16 +79,63 @@ namespace BoldAdhocEmbed.Server.Controllers
                     users = await _boldReportsService.GetUsersAsync(token);
                 }
 
-                var userList = users.Select(u => new
+                // Scope Bold Reports users to current tenant
+                var userList = (users ?? new List<BoldUser>())
+                    .Where(u => {
+                        var local = _userStore.Get(u.Email);
+                        if (local != null)
+                        {
+                            return (!string.IsNullOrEmpty(currentTenantName) && string.Equals(local.TenantName, currentTenantName, StringComparison.OrdinalIgnoreCase))
+                                || (currentTenantId > 0 && local.TenantId == currentTenantId);
+                        }
+                        if (!string.IsNullOrEmpty(currentTenantName))
+                        {
+                            var prefix = currentTenantName.ToLower().Replace("corp", "").Replace("solutions", "").Replace("industries", "").Replace("enterprises", "");
+                            return u.Email != null && u.Email.Contains(prefix, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return true;
+                    })
+                    .Select(u => {
+                        var local = _userStore.Get(u.Email);
+                        return new
+                        {
+                            u.Id,
+                            u.Email,
+                            u.FirstName,
+                            u.LastName,
+                            u.FullName,
+                            Role = local?.Role ?? "Admin",
+                            TenantName = local?.TenantName ?? currentTenantName,
+                            u.IsActive,
+                            Status = u.IsActive ? "Active" : "Inactive"
+                        };
+                    }).ToList();
+
+                // Merge seeded tenant users so full tenant team is visible
+                var tenantUsers = _userStore.GetAll()
+                    .Where(u => (!string.IsNullOrEmpty(currentTenantName) && string.Equals(u.TenantName, currentTenantName, StringComparison.OrdinalIgnoreCase))
+                             || (currentTenantId > 0 && u.TenantId == currentTenantId))
+                    .ToList();
+
+                var existingEmails = new HashSet<string>(userList.Select(u => u.Email), StringComparer.OrdinalIgnoreCase);
+                foreach (var tu in tenantUsers)
                 {
-                    u.Id,
-                    u.Email,
-                    u.FirstName,
-                    u.LastName,
-                    u.FullName,
-                    u.IsActive,
-                    Status = u.IsActive ? "Active" : "Inactive"
-                }).ToList();
+                    if (!existingEmails.Contains(tu.Email))
+                    {
+                        userList.Add(new
+                        {
+                            Id = tu.Id,
+                            Email = tu.Email,
+                            FirstName = tu.FirstName ?? tu.Name?.Split(' ').FirstOrDefault() ?? "",
+                            LastName = tu.LastName ?? tu.Name?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+                            FullName = tu.Name ?? $"{tu.FirstName} {tu.LastName}".Trim(),
+                            Role = tu.Role ?? "User",
+                            TenantName = tu.TenantName,
+                            IsActive = tu.IsActive,
+                            Status = tu.IsActive ? "Active" : "Inactive"
+                        });
+                    }
+                }
 
                 await _cacheService.SetAsync(cacheKey, (dynamic)userList, TimeSpan.FromMinutes(5));
                 _logger.LogInformation("Retrieved {UserCount} users for authenticated user", userList.Count);

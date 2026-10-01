@@ -412,7 +412,7 @@ export default function ReportScheduleDrawer({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+      <div className="fixed inset-0 z-[100000] overflow-hidden flex justify-end">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}

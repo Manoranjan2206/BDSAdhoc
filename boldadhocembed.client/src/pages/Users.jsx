@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../context/DataContext';
 import { usersAPI } from '../services/apiService';
-import { UserIcon, PencilIcon, TrashIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useCurrentUser } from '../hooks/useCurrentUser';
+import { inferTenantFromEmail } from '../constants/tenants';
+import { UserIcon, PencilIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 
 export default function Users() {
   const { getUsers } = useData();
+  const { tenantName } = useCurrentUser();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -23,6 +26,7 @@ export default function Users() {
     firstName: '',
     lastName: '',
     email: '',
+    role: 'User',
     password: '',
     status: 'Active',
   });
@@ -52,24 +56,36 @@ export default function Users() {
     loadUsers();
   }, [getUsers]);
 
+  // Filter users strictly to current tenant
+  const tenantFilteredUsers = useMemo(() => {
+    if (!tenantName) return users;
+    const targetTenant = tenantName.toLowerCase();
+    return users.filter(u => {
+      const uTenant = (u.tenantName || inferTenantFromEmail(u.email) || '').toLowerCase();
+      return uTenant === targetTenant;
+    });
+  }, [users, tenantName]);
+
   const onExportCsv = () => {
-    const headers = ['ID', 'First Name', 'Last Name', 'Full Name', 'Email', 'Status'];
-    const rows = filtered.map(u => [u.id, u.firstName, u.lastName, u.fullName, u.email, u.status]);
+    const headers = ['ID', 'First Name', 'Last Name', 'Full Name', 'Email', 'Role', 'Tenant', 'Status'];
+    const rows = filtered.map(u => [u.id, u.firstName, u.lastName, u.fullName, u.email, u.role, u.tenantName, u.status]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'users.csv';
+    a.download = `${tenantName || 'tenant'}-users.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleOpenCreate = () => {
+    const domain = (tenantName || 'company').toLowerCase();
     setFormData({
       firstName: '',
       lastName: '',
-      email: '',
+      email: `@${domain}.com`,
+      role: 'User',
       password: '',
       status: 'Active',
     });
@@ -81,6 +97,7 @@ export default function Users() {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       email: user.email || '',
+      role: user.role || 'User',
       password: '',
       status: user.status || 'Active',
     });
@@ -93,8 +110,8 @@ export default function Users() {
 
   const handleSaveUser = async (e) => {
     e.preventDefault();
-    if (!formData.email) {
-      showNotification('Email is required', 'error');
+    if (!formData.email || formData.email.startsWith('@')) {
+      showNotification('A valid email address is required', 'error');
       return;
     }
 
@@ -116,6 +133,8 @@ export default function Users() {
             email: payload.email,
             firstName: payload.firstName,
             lastName: payload.lastName,
+            role: formData.role,
+            tenantName: tenantName,
             isActive: formData.status === 'Active',
           }),
           ...prev,
@@ -136,6 +155,7 @@ export default function Users() {
                   firstName: payload.firstName,
                   lastName: payload.lastName,
                   fullName: `${payload.firstName} ${payload.lastName}`.trim(),
+                  role: formData.role,
                 }
               : u
           )
@@ -147,20 +167,6 @@ export default function Users() {
       showNotification(`Failed to save user: ${err.message || 'Unknown error'}`, 'error');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteUser = async (user) => {
-    const confirmed = window.confirm(`Are you sure you want to delete user ${user.fullName} (${user.email})?`);
-    if (!confirmed) return;
-
-    try {
-      await usersAPI.deleteUser(user.email);
-      setUsers(prev => prev.filter(u => u.email !== user.email));
-      showNotification(`User ${user.email} deleted successfully`);
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      showNotification(`Failed to delete user: ${err.message || 'Unknown error'}`, 'error');
     }
   };
 
@@ -179,7 +185,23 @@ export default function Users() {
     );
   };
 
-  const { filtered, paged } = useDerived(users, search, sort, page, pageSize);
+  const roleBadge = (role) => {
+    const r = (role || 'User').toLowerCase();
+    const color =
+      r === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800' :
+      r === 'sales' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800' :
+      r === 'finance' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
+      r === 'support' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
+      'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${color}`}>
+        {role || 'User'}
+      </span>
+    );
+  };
+
+  const { filtered, paged } = useDerived(tenantFilteredUsers, search, sort, page, pageSize);
 
   return (
     <div className="reports-page font-inter bg-slate-50 dark:bg-[#0b0f19] min-h-screen text-slate-800 dark:text-slate-200">
@@ -197,8 +219,15 @@ export default function Users() {
       {/* Consistent Topbar */}
       <div className="reports-topbar p-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-[#111827]/80 backdrop-blur-md flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users &amp; Permissions</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Manage user accounts and identity access</p>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users &amp; Permissions</h1>
+            <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              {tenantName}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage team accounts and role permissions for {tenantName}
+          </p>
         </div>
         <button
           onClick={handleOpenCreate}
@@ -213,14 +242,14 @@ export default function Users() {
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Loading users...</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Loading {tenantName} users...</p>
           </div>
-        ) : users.length === 0 ? (
+        ) : tenantFilteredUsers.length === 0 ? (
           <div className="h-72 flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-xs">
             <UserIcon className="w-16 h-16 text-slate-400 mb-4" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">No Users Found</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">No Users Found for {tenantName}</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-              There are no user accounts registered for your organization.
+              There are no user accounts registered for {tenantName} yet.
             </p>
             <button
               onClick={handleOpenCreate}
@@ -237,7 +266,7 @@ export default function Users() {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full sm:w-80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Search users by name, email, or role..."
+                placeholder={`Search ${tenantName} users...`}
               />
               <div className="flex gap-2">
                 <button
@@ -254,13 +283,11 @@ export default function Users() {
                 <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-semibold text-xs">
                   <tr>
                     {[
-                      { key: 'id', title: 'ID', width: 90 },
-                      { key: 'firstName', title: 'First Name', width: 130 },
-                      { key: 'lastName', title: 'Last Name', width: 130 },
-                      { key: 'fullName', title: 'Full Name', width: 180 },
-                      { key: 'email', title: 'Email', width: 220 },
+                      { key: 'fullName', title: 'User / Name', width: 200 },
+                      { key: 'email', title: 'Email Address', width: 230 },
+                      { key: 'role', title: 'Role', width: 120 },
                       { key: 'status', title: 'Status', width: 100 },
-                      { key: 'actions', title: 'Actions', width: 100 },
+                      { key: 'actions', title: 'Actions', width: 80 },
                     ].map(col => (
                       <th
                         key={col.key}
@@ -293,29 +320,28 @@ export default function Users() {
                       key={u.id || u.email}
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate max-w-[90px]">{u.id}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{u.firstName}</td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{u.lastName}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{u.fullName}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            {u.firstName ? u.firstName.charAt(0) : u.fullName.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">{u.fullName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{u.id}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-medium">{u.email}</td>
+                      <td className="px-4 py-3">{roleBadge(u.role)}</td>
                       <td className="px-4 py-3">{statusBadge(u.status)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleOpenEdit(u)}
-                            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition"
-                            title="Edit User"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(u)}
-                            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-red-600 dark:text-red-400 transition"
-                            title="Delete User"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleOpenEdit(u)}
+                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition"
+                          title="Edit User"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -325,7 +351,7 @@ export default function Users() {
 
             <div className="flex items-center justify-between mt-4 text-xs">
               <span className="text-slate-500 dark:text-slate-400">
-                Page {page} of {Math.max(1, Math.ceil(filtered.length / pageSize))} ({filtered.length} total)
+                Page {page} of {Math.max(1, Math.ceil(filtered.length / pageSize))} ({filtered.length} total {tenantName} users)
               </span>
               <div className="flex gap-2">
                 <button
@@ -355,10 +381,10 @@ export default function Users() {
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 flex justify-between items-center">
               <div>
                 <h3 className="text-base font-bold">
-                  {modalState.mode === 'create' ? 'Create User Account' : 'Edit User Profile'}
+                  {modalState.mode === 'create' ? `Add User (${tenantName})` : `Edit User – ${modalState.user?.fullName}`}
                 </h3>
                 <p className="text-xs text-indigo-100 mt-0.5">
-                  {modalState.mode === 'create' ? 'Add a new member to the tenant workspace' : `Updating ${modalState.user?.email}`}
+                  {modalState.mode === 'create' ? `Add a new member to ${tenantName}` : `Updating ${modalState.user?.email}`}
                 </p>
               </div>
               <button
@@ -410,8 +436,41 @@ export default function Users() {
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="jane.doe@company.com"
+                  placeholder={`jane@${(tenantName || 'company').toLowerCase()}.com`}
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Admin">Admin</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Support">Support</option>
+                    <option value="Operations">Operations</option>
+                    <option value="User">User</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
               {modalState.mode === 'create' && (
@@ -459,12 +518,18 @@ const normalize = (u) => {
   const first = String(u.firstName ?? u.FirstName ?? '').trim();
   const last = String(u.lastName ?? u.LastName ?? '').trim();
   const full = String(u.fullName ?? u.FullName ?? `${first} ${last}`.trim()).trim();
+  const email = String(u.email ?? u.Email ?? '—');
+  const tenant = String(u.tenantName ?? u.TenantName ?? inferTenantFromEmail(email));
+  const role = String(u.role ?? u.Role ?? 'User');
+
   return {
     id: String(u.id ?? u.Id ?? ''),
     firstName: first,
     lastName: last,
     fullName: full || '—',
-    email: String(u.email ?? u.Email ?? '—'),
+    email,
+    role,
+    tenantName: tenant,
     status: String(
       u.status ??
       u.Status ??
@@ -478,7 +543,7 @@ function useDerived(users, search, sort, page, pageSize) {
     const q = search.toLowerCase().trim();
     if (!q) return users;
     return users.filter(u =>
-      [u.id, u.firstName, u.lastName, u.fullName, u.email, u.status]
+      [u.id, u.firstName, u.lastName, u.fullName, u.email, u.role, u.tenantName, u.status]
         .some(v => String(v || '').toLowerCase().includes(q))
     );
   }, [users, search]);

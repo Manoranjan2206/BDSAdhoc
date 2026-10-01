@@ -183,7 +183,7 @@ export default function ScheduleModal({ schedule, onClose, onSaved, categories =
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100000] p-4">
       <div className="bg-white dark:bg-[#181c2c] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-[#FF4800] text-white p-6 flex justify-between items-center rounded-t-2xl">
