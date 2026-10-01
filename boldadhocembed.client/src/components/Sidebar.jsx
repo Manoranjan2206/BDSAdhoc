@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { authService } from '../services/authService';
@@ -35,9 +35,11 @@ export default function Sidebar({ onWidthChange }) {
   );
 
   const width = collapsed ? 56 : 180;
-  if (typeof onWidthChange === 'function') {
-    onWidthChange(width);
-  }
+  useEffect(() => {
+    if (typeof onWidthChange === 'function') {
+      onWidthChange(width);
+    }
+  }, [width, onWidthChange]);
 
   const isItemActive = (item) => {
     if (item.exact) return location.pathname === item.key;

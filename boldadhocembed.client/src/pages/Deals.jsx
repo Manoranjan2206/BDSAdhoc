@@ -58,6 +58,40 @@ export default function Deals() {
   const [viewMode, setViewMode] = useState('kanban'); // kanban | list
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDeal, setNewDeal] = useState({ name: '', company: '', amount: '', stage: 'Prospecting', closeDate: '', region: userRegion });
+  const [dragOverStage, setDragOverStage] = useState(null);
+
+  const handleDragStart = (e, dealId) => {
+    e.dataTransfer.setData('text/plain', String(dealId));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, stageId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverStage !== stageId) {
+      setDragOverStage(stageId);
+    }
+  };
+
+  const handleDragLeave = (e, stageId) => {
+    if (dragOverStage === stageId) {
+      setDragOverStage(null);
+    }
+  };
+
+  const handleDrop = (e, stageId) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const dealId = e.dataTransfer.getData('text/plain');
+    if (!dealId) return;
+    setDeals(prevDeals =>
+      prevDeals.map(d =>
+        String(d.id) === String(dealId)
+          ? { ...d, stage: stageId, prob: parseInt(STAGES.find(s => s.id === stageId)?.prob || '0') }
+          : d
+      )
+    );
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -228,7 +262,17 @@ export default function Deals() {
             const stageTotal = stageDeals.reduce((sum, d) => sum + Number(d.amount), 0);
 
             return (
-              <div key={stage.id} className="glass-card rounded-xl p-3 flex flex-col w-[260px] flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/50 border border-glass-border">
+              <div
+                key={stage.id}
+                onDragOver={(e) => handleDragOver(e, stage.id)}
+                onDragLeave={(e) => handleDragLeave(e, stage.id)}
+                onDrop={(e) => handleDrop(e, stage.id)}
+                className={`glass-card rounded-xl p-3 flex flex-col w-[260px] flex-shrink-0 transition-all border ${
+                  dragOverStage === stage.id
+                    ? 'bg-primary/10 border-primary shadow-lg ring-2 ring-primary/30'
+                    : 'bg-slate-50/50 dark:bg-slate-900/50 border-glass-border'
+                }`}
+              >
                 <div className="flex items-center justify-between pb-2 border-b border-glass-border mb-3">
                   <div>
                     <h4 className="text-xs font-bold text-on-surface">{stage.label}</h4>
@@ -247,7 +291,9 @@ export default function Deals() {
                   {stageDeals.map((deal) => (
                     <div
                       key={deal.id}
-                      className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-glass-border hover-lift shadow-sm cursor-pointer space-y-2"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, deal.id)}
+                      className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-glass-border hover-lift shadow-sm cursor-grab active:cursor-grabbing space-y-2 select-none"
                     >
                       <h5 className="text-xs font-semibold text-on-surface line-clamp-2">{deal.name}</h5>
                       <p className="text-[11px] text-on-surface-variant truncate">{deal.company}</p>

@@ -60,7 +60,7 @@ export default function Contacts() {
             company: c.companyName || c.company || 'Enterprise Account',
             jobTitle: c.title || c.jobTitle || 'Representative',
             region: c.region || userRegion,
-            leadSource: c.leadScore ? `Score: ${c.leadScore}` : 'Website Inbound',
+            leadSource: c.leadSource || (c.leadScore ? (Number(c.leadScore) >= 80 ? 'Partner Referral' : Number(c.leadScore) >= 50 ? 'Website Inbound' : 'Outbound Outreach') : 'Website Inbound'),
             status: 'Active',
             owner: currentUser.name || 'Account Executive'
           })));
