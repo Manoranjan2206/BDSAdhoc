@@ -117,7 +117,7 @@ const getRoleHomeData = (role, tenantName, region, userName) => {
         quickActions: [
           { label: 'New Deal', icon: 'handshake', route: '/deals', shortcut: '⌘D', colorClass: 'text-blue-500' },
           { label: 'Add Lead', icon: 'person_add', route: '/contacts', shortcut: '⌘L', colorClass: 'text-purple-500' },
-          { label: 'Log Activity', icon: 'event_note', route: '/activities', shortcut: '⌘A', colorClass: 'text-teal-500' },
+          { label: 'Executive BI', icon: 'pie_chart', route: '/dashboards', shortcut: '⌘B', colorClass: 'text-teal-500' },
           { label: 'Sales Reports', icon: 'bar_chart', route: '/reports', shortcut: '⌘R', colorClass: 'text-emerald-500' },
         ],
         tasks: [
@@ -564,6 +564,28 @@ export default function Home() {
     };
   }, [effectiveRole, tenantName, userRegion, userName, pgSummary]);
 
+  const totalPipelineAmount = useMemo(() => {
+    if (pgSummary?.totalActivePipeline > 0) {
+      return (pgSummary.totalActivePipeline / 1000000);
+    }
+    const tenant = TENANT_DATA[tenantName] || TENANT_DATA.AlphaCorp;
+    return parseFloat(tenant.baseRevenue || '4.85');
+  }, [pgSummary, tenantName]);
+
+  const dynamicPipelineStages = useMemo(() => {
+    const total = totalPipelineAmount;
+    const stages = [
+      { name: 'Qualification', count: 18, pct: 28, color: 'bg-blue-500', barBg: 'bg-blue-100 dark:bg-blue-950/60' },
+      { name: 'Proposal / Quote', count: 24, pct: 36, color: 'bg-indigo-500', barBg: 'bg-indigo-100 dark:bg-indigo-950/60' },
+      { name: 'Negotiation', count: 14, pct: 22, color: 'bg-amber-500', barBg: 'bg-amber-100 dark:bg-amber-950/60' },
+      { name: 'Closed Won', count: 12, pct: 14, color: 'bg-emerald-500', barBg: 'bg-emerald-100 dark:bg-emerald-950/60' },
+    ];
+    return stages.map(s => ({
+      ...s,
+      amount: `$${(total * (s.pct / 100)).toFixed(2)}M`
+    }));
+  }, [totalPipelineAmount]);
+
   // Sync tasks state when role/data changes
   useEffect(() => {
     if (homeData?.tasks) {
@@ -736,7 +758,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Total Scoped:</span>
             <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
-              $5.12M
+              ${totalPipelineAmount.toFixed(2)}M
             </span>
             <Link to="/deals" className="text-xs font-semibold text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center gap-0.5">
               View Kanban <span className="material-symbols-outlined text-[14px]">chevron_right</span>
@@ -746,7 +768,7 @@ export default function Home() {
 
         {/* Visual Stage Bars */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {PIPELINE_STAGES.map((stage, idx) => (
+          {dynamicPipelineStages.map((stage, idx) => (
             <div key={idx} className="bg-slate-50/80 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-200/60 dark:border-slate-700/60 pipeline-stage-bar">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">

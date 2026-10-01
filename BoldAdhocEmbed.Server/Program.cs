@@ -30,6 +30,11 @@ var effectiveSigningKey = string.IsNullOrWhiteSpace(jwtSigningKey)
     ? "local-development-signing-key-change-before-production-2026"
     : jwtSigningKey;
 
+if (!builder.Environment.IsDevelopment() && effectiveSigningKey == "local-development-signing-key-change-before-production-2026")
+{
+    throw new InvalidOperationException("FATAL: Default JWT signing key detected in non-development environment. Configure 'Jwt:Key' or 'Jwt:SigningKey' securely.");
+}
+
 builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

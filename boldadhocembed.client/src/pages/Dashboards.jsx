@@ -23,67 +23,7 @@ import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles/reports.css';
 
-// Cohesive vibrant color palettes for categories
-const COLOR_PALETTES = [
-  {
-    bg: 'bg-blue-50 dark:bg-blue-950/40',
-    text: 'text-blue-700 dark:text-blue-400',
-    border: 'border-blue-200 dark:border-blue-800/40',
-    iconBg: 'bg-blue-100/70 dark:bg-blue-900/40',
-    iconColor: 'text-blue-600 dark:text-blue-400',
-    dot: 'bg-blue-500',
-  },
-  {
-    bg: 'bg-purple-50 dark:bg-purple-950/40',
-    text: 'text-purple-700 dark:text-purple-400',
-    border: 'border-purple-200 dark:border-purple-800/40',
-    iconBg: 'bg-purple-100/70 dark:bg-purple-900/40',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    dot: 'bg-purple-500',
-  },
-  {
-    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    text: 'text-emerald-700 dark:text-emerald-400',
-    border: 'border-emerald-200 dark:border-emerald-800/40',
-    iconBg: 'bg-emerald-100/70 dark:bg-emerald-900/40',
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  {
-    bg: 'bg-amber-50 dark:bg-amber-950/40',
-    text: 'text-amber-700 dark:text-amber-400',
-    border: 'border-amber-200 dark:border-amber-800/40',
-    iconBg: 'bg-amber-100/70 dark:bg-amber-900/40',
-    iconColor: 'text-amber-600 dark:text-amber-400',
-    dot: 'bg-amber-500',
-  },
-  {
-    bg: 'bg-rose-50 dark:bg-rose-950/40',
-    text: 'text-rose-700 dark:text-rose-400',
-    border: 'border-rose-200 dark:border-rose-800/40',
-    iconBg: 'bg-rose-100/70 dark:bg-rose-900/40',
-    iconColor: 'text-rose-600 dark:text-rose-400',
-    dot: 'bg-rose-500',
-  },
-  {
-    bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-    text: 'text-indigo-700 dark:text-indigo-400',
-    border: 'border-indigo-200 dark:border-indigo-800/40',
-    iconBg: 'bg-indigo-100/70 dark:bg-indigo-900/40',
-    iconColor: 'text-indigo-600 dark:text-indigo-400',
-    dot: 'bg-indigo-500',
-  },
-];
-
-const getCategoryPalette = (categoryName) => {
-  if (!categoryName) return COLOR_PALETTES[0];
-  let hash = 0;
-  for (let i = 0; i < categoryName.length; i++) {
-    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % COLOR_PALETTES.length;
-  return COLOR_PALETTES[index];
-};
+import { getCategoryPalette } from '../utils/palette';
 
 const Dashboards = () => {
   const navigate = useNavigate();

@@ -10,12 +10,9 @@ const ALL_NAV_ITEMS = [
   { key: '/schedules', label: 'Schedules', icon: 'schedule', matchPrefix: '/schedules', roles: ['Admin', 'Sales', 'Finance', 'Support', 'Operations'] },
   { key: '/contacts', label: 'Contacts', icon: 'contacts', matchPrefix: '/contacts', roles: ['Admin', 'Sales', 'Support'] },
   { key: '/deals', label: 'Deals', icon: 'handshake', matchPrefix: '/deals', roles: ['Admin', 'Sales'] },
-  { key: '/activities', label: 'Activities', icon: 'event_note', matchPrefix: '/activities', roles: ['Admin', 'Sales', 'Support', 'Operations'] },
   { key: '/tickets', label: 'Tickets', icon: 'confirmation_number', matchPrefix: '/tickets', roles: ['Admin', 'Support'] },
-  { key: '/invoices', label: 'Invoices', icon: 'receipt', matchPrefix: '/invoices', roles: ['Admin', 'Finance'] },
-  { key: '/campaigns', label: 'Campaigns', icon: 'campaign', matchPrefix: '/campaigns', roles: ['Admin', 'Operations', 'Sales'] },
-  { key: '/tasks', label: 'Tasks', icon: 'assignment', matchPrefix: '/tasks', roles: ['Admin', 'Sales', 'Support', 'Operations'] },
-  { key: '/audit-log', label: 'Audit Log', icon: 'history', matchPrefix: '/audit-log', roles: ['Admin'] },
+  { key: '/operations', label: 'Operations', icon: 'monitoring', matchPrefix: '/operations', roles: ['Admin', 'Operations', 'Sales'] },
+  { key: '/users', label: 'Users', icon: 'group', matchPrefix: '/users', roles: ['Admin'] },
 ];
 
 export default function Sidebar({ onWidthChange }) {

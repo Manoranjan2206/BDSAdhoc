@@ -24,105 +24,19 @@ import { motion } from 'framer-motion';
 import ReportScheduleDrawer from '../components/ReportScheduleDrawer';
 import '../styles/reports.css';
 
-// Cohesive vibrant color palettes for categories
-const COLOR_PALETTES = [
-  {
-    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    text: 'text-emerald-700 dark:text-emerald-400',
-    border: 'border-emerald-200 dark:border-emerald-800/40',
-    iconBg: 'bg-emerald-100/70 dark:bg-emerald-900/40',
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  {
-    bg: 'bg-purple-50 dark:bg-purple-950/40',
-    text: 'text-purple-700 dark:text-purple-400',
-    border: 'border-purple-200 dark:border-purple-800/40',
-    iconBg: 'bg-purple-100/70 dark:bg-purple-900/40',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    dot: 'bg-purple-500',
-  },
-  {
-    bg: 'bg-sky-50 dark:bg-sky-950/40',
-    text: 'text-sky-700 dark:text-sky-400',
-    border: 'border-sky-200 dark:border-sky-800/40',
-    iconBg: 'bg-sky-100/70 dark:bg-sky-900/40',
-    iconColor: 'text-sky-600 dark:text-sky-400',
-    dot: 'bg-sky-500',
-  },
-  {
-    bg: 'bg-amber-50 dark:bg-amber-950/40',
-    text: 'text-amber-700 dark:text-amber-400',
-    border: 'border-amber-200 dark:border-amber-800/40',
-    iconBg: 'bg-amber-100/70 dark:bg-amber-900/40',
-    iconColor: 'text-amber-600 dark:text-amber-400',
-    dot: 'bg-amber-500',
-  },
-  {
-    bg: 'bg-rose-50 dark:bg-rose-950/40',
-    text: 'text-rose-700 dark:text-rose-400',
-    border: 'border-rose-200 dark:border-rose-800/40',
-    iconBg: 'bg-rose-100/70 dark:bg-rose-900/40',
-    iconColor: 'text-rose-600 dark:text-rose-400',
-    dot: 'bg-rose-500',
-  },
-  {
-    bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-    text: 'text-indigo-700 dark:text-indigo-400',
-    border: 'border-indigo-200 dark:border-indigo-800/40',
-    iconBg: 'bg-indigo-100/70 dark:bg-indigo-900/40',
-    iconColor: 'text-indigo-600 dark:text-indigo-400',
-    dot: 'bg-indigo-500',
-  },
-  {
-    bg: 'bg-teal-50 dark:bg-teal-950/40',
-    text: 'text-teal-700 dark:text-teal-400',
-    border: 'border-teal-200 dark:border-teal-800/40',
-    iconBg: 'bg-teal-100/70 dark:bg-teal-900/40',
-    iconColor: 'text-teal-600 dark:text-teal-400',
-    dot: 'bg-teal-500',
-  },
-  {
-    bg: 'bg-orange-50 dark:bg-orange-950/40',
-    text: 'text-orange-700 dark:text-orange-400',
-    border: 'border-orange-200 dark:border-orange-800/40',
-    iconBg: 'bg-orange-100/70 dark:bg-orange-900/40',
-    iconColor: 'text-orange-600 dark:text-orange-400',
-    dot: 'bg-orange-500',
-  },
+import { getCategoryPalette } from '../utils/palette';
+import { COLOR_PALETTES } from '../constants/colorPalettes';
+
+const CUSTOM_GROUPS = [
+  'Sales Analytics',
+  'Marketing & Finance Analytics',
+  'Finance Analytics',
+  'Marketing Analytics',
+  'System & Operational Reports',
+  'System Reports',
+  'Other Analytics',
+  'My Reports'
 ];
-
-const getCategoryPalette = (categoryName) => {
-  if (categoryName === 'My Reports') {
-    return {
-      bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-      text: 'text-indigo-700 dark:text-indigo-400 font-semibold',
-      border: 'border-indigo-200 dark:border-indigo-800/40',
-      iconBg: 'bg-indigo-100/70 dark:bg-indigo-900/40',
-      iconColor: 'text-indigo-600 dark:text-indigo-400',
-      dot: 'bg-indigo-500',
-    };
-  }
-  if (categoryName === 'System Reports') {
-    return {
-      bg: 'bg-sky-50 dark:bg-sky-950/40',
-      text: 'text-sky-700 dark:text-sky-400 font-semibold',
-      border: 'border-sky-200 dark:border-sky-800/40',
-      iconBg: 'bg-sky-100/70 dark:bg-sky-900/40',
-      iconColor: 'text-sky-600 dark:text-sky-400',
-      dot: 'bg-sky-500',
-    };
-  }
-  if (!categoryName) return COLOR_PALETTES[0];
-  let hash = 0;
-  for (let i = 0; i < categoryName.length; i++) {
-    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % COLOR_PALETTES.length;
-  return COLOR_PALETTES[index];
-};
-
-// No hardcoded defaults - all report data is fetched from Bold Reports API via getReports()
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -485,16 +399,6 @@ export default function Reports() {
   const serverReportName = selectedReport?.serverReportName || selectedReport?.ServerReportName || reportName;
   const categoryName = selectedReport?.CategoryName || selectedCategory || selectedReport?.categoryName || 'Analytics Reports';
 
-  const CUSTOM_GROUPS = [
-    'Sales Analytics',
-    'Marketing & Finance Analytics',
-    'Finance Analytics',
-    'Marketing Analytics',
-    'System & Operational Reports',
-    'System Reports',
-    'Other Analytics',
-    'My Reports'
-  ];
   const serverCategory = selectedReport?.serverCategory || selectedReport?.ServerCategory ||
     ((!categoryName || CUSTOM_GROUPS.includes(categoryName.trim()))
       ? 'Analytics Reports'

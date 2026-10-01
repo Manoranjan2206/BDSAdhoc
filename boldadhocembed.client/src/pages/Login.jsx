@@ -35,10 +35,11 @@ const TENANT_USERS = [
 // Sample login data shown at the bottom of the right column when the
 // "Show sample logins" checkbox is enabled.
 const SAMPLE_LOGINS_TABLE = [
-  { username: 'alpha1', password: 'alpha1', tenant: 'Alpha', access: 'All',                 filters: 'North America' },
-  { username: 'alpha2', password: 'alpha2', tenant: 'Alpha', access: 'Create, View',        filters: 'Europe' },
-  { username: 'beta3',  password: 'beta3',  tenant: 'Beta',  access: 'Create, View',        filters: 'Asia' },
-  { username: 'beta4',  password: 'beta4',  tenant: 'Beta',  access: 'Create, View, Edit',  filters: 'Oceania' },
+  { username: 'alpha1@alphacorp.com', password: 'Password123!', tenant: 'AlphaCorp', access: 'Admin / All', filters: 'North America' },
+  { username: 'alpha2@alphacorp.com', password: 'Password123!', tenant: 'AlphaCorp', access: 'Sales / Pipeline', filters: 'Europe' },
+  { username: 'beta1@betasolutions.com', password: 'Password123!', tenant: 'BetaSolutions', access: 'Admin / All', filters: 'North America' },
+  { username: 'gamma1@gammaindustries.com', password: 'Password123!', tenant: 'GammaIndustries', access: 'Admin / All', filters: 'North America' },
+  { username: 'delta1@deltaenterprises.com', password: 'Password123!', tenant: 'DeltaEnterprises', access: 'Admin / All', filters: 'North America' },
 ];
 
 export default function Login() {

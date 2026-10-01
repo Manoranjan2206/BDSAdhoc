@@ -105,7 +105,6 @@ export default function App() {
             {/* Public */}
             <Route path="/login" element={<Login />} />
             <Route path="/sso-callback" element={<SSOCallback />} />
-            <Route path="/Home/SSOCallback" element={<SSOCallback />} />
 
             {/* Protected. We collapse all the previous 11 duplicated
                 <ProtectedRoute><Layout>{Page}</Layout></ProtectedRoute>

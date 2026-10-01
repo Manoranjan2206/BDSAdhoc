@@ -36,7 +36,7 @@ export default function Tickets() {
   };
 
   const [tickets, setTickets] = useState(filterFallbackTickets);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [regionFilter, setRegionFilter] = useState(userRole === 'Admin' ? 'ALL' : userRegion);
   const [statusFilter, setStatusFilter] = useState('ALL');

@@ -1,4 +1,3 @@
-/* eslint-disable */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useData } from '../context/DataContext';
 import { reportsAPI } from '../services/apiService';
@@ -6,17 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { usePermissions } from '../hooks/usePermissions';
 
-// AdventureWorks dataset reference (server-side data source id).
-// Used for auto-attaching a default shared dataset when the user clicks
-// "New Data" — same behaviour as the MVC Design page.
-const ADVENTUREWORKS_DATASOURCE_ID = '49463a51-c475-46eb-be52-8111fc0193ca';
+// Server-side default data source configuration
+const ADVENTUREWORKS_DATASOURCE_ID = import.meta.env.VITE_BOLD_DATASOURCE_ID || '49463a51-c475-46eb-be52-8111fc0193ca';
 const ADVENTUREWORKS_NAME = 'crmdata';
 
-// Bold Reports designer permission for shared data sources.
-// Admin → "Shared", User → "Shared" (per the MVC sample's permString).
-function getPermissionForRole(role) {
-    const r = (role || '').toLowerCase();
-    return r === 'admin' ? 'Shared' : 'Shared';
+// Bold Reports designer permission for shared data sources
+function getPermissionForRole() {
+    return 'Shared';
 }
 
 export default function Designer() {
