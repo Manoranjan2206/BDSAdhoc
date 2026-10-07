@@ -61,13 +61,21 @@ export default function Reports() {
   // Report-Centric Scheduling & Export Action Drawer (matching Davis reference)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerReport, setDrawerReport] = useState(null);
+  const [drawerInitialTab, setDrawerInitialTab] = useState('view');
 
-  const handleOpenDrawer = (report, category, e) => {
-    e?.stopPropagation();
+  const handleOpenDrawer = (report, category, tab = 'schedule', e) => {
+    if (tab && typeof tab === 'object' && typeof tab.stopPropagation === 'function') {
+      tab.stopPropagation();
+      tab = 'schedule';
+    } else if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    const resolvedTab = typeof tab === 'string' ? tab : 'schedule';
     setDrawerReport({
       ...report,
       categoryName: category || report?.categoryName || 'Reports',
     });
+    setDrawerInitialTab(resolvedTab);
     setDrawerOpen(true);
   };
   
@@ -857,7 +865,7 @@ export default function Reports() {
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
-                                onClick={(e) => handleOpenDrawer(report, report.categoryName, e)}
+                                onClick={(e) => handleOpenDrawer(report, report.categoryName, 'schedule', e)}
                                 className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
                                 title="Schedule & Export Report"
                               >
@@ -1107,6 +1115,7 @@ export default function Reports() {
         onClose={() => setDrawerOpen(false)}
         report={drawerReport}
         isViewerOpen={!!selectedReport}
+        initialTab={drawerInitialTab}
         onViewReport={(r) => {
           setDrawerOpen(false);
           handleSelectReport(r, r.categoryName);

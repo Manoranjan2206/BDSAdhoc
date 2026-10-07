@@ -67,11 +67,15 @@ export default function ReportScheduleDrawer({
   report,
   onViewReport,
   isViewerOpen = false,
+  initialTab = 'view',
 }) {
   const currentUser = useMemo(() => {
     const u = authService.getUser();
     return u?.user || u;
   }, []);
+
+  // Mode tab state: 'view' | 'export' | 'schedule'
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Dynamic Parameter states
   const [paramValues, setParamValues] = useState({});
@@ -107,6 +111,13 @@ export default function ReportScheduleDrawer({
 
   const reportId = report?.id || report?.Id || report?.ReportId;
   const reportName = report?.name || report?.Name || 'Report';
+
+  // Update active tab when drawer opens or initialTab changes
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab || 'view');
+    }
+  }, [isOpen, initialTab]);
 
   // Initialize drawer data when opened or report changes
   useEffect(() => {
@@ -410,6 +421,82 @@ export default function ReportScheduleDrawer({
 
   if (!isOpen || !report) return null;
 
+  // Render Parameters UI block
+  const renderParametersBlock = () => (
+    <div className="space-y-3 pt-1">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-[#FF4800]" />
+          Filter Parameters
+        </label>
+        {paramsLoading && (
+          <span className="text-[11px] text-slate-400 flex items-center gap-1">
+            <ArrowPathIcon className="w-3 h-3 animate-spin" /> Loading...
+          </span>
+        )}
+      </div>
+
+      {reportParams && reportParams.length > 0 ? (
+        <div className="space-y-3">
+          {reportParams.map((param) => {
+            const options = (param.ValidValues || param.Values || param.AvailableValues || []).map((v) =>
+              typeof v === 'object' ? { label: v.Label || v.Name || v.Value, value: v.Value } : { label: String(v), value: v }
+            );
+
+            return (
+              <div key={param.Name} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                    {param.Prompt || param.Name}
+                  </label>
+                  {param.Nullable && (
+                    <span className="text-[10px] text-slate-400">Optional</span>
+                  )}
+                </div>
+
+                {options.length > 0 ? (
+                  <select
+                    value={paramValues[param.Name] ?? ''}
+                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                  >
+                    {param.Nullable && <option value="">-- None --</option>}
+                    {options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : param.DataType === 'DateTime' || param.Type === 'DateTime' ? (
+                  <input
+                    type="date"
+                    value={paramValues[param.Name] ?? ''}
+                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={paramValues[param.Name] ?? ''}
+                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
+                    placeholder={`Enter ${param.Prompt || param.Name}`}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-3 bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-xl text-center">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Standard report dataset filters applied automatically.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[100000] overflow-hidden flex justify-end">
@@ -457,8 +544,50 @@ export default function ReportScheduleDrawer({
             </button>
           </div>
 
-          {/* Drawer Body - Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 divide-y divide-slate-100 dark:divide-slate-800/60">
+          {/* Mode Selector Tabs (View | Export | Schedule) */}
+          <div className="px-5 py-2.5 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/70 dark:bg-slate-800/90 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('view')}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'view'
+                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <EyeIcon className="w-3.5 h-3.5" />
+                <span>View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('export')}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'export'
+                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                <span>Export</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('schedule')}
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'schedule'
+                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <ClockIcon className="w-3.5 h-3.5" />
+                <span>Schedule</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Drawer Body - Scrollable content according to activeTab */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
             {/* Status notifications */}
             {scheduleMessage && (
               <motion.div
@@ -479,475 +608,411 @@ export default function ReportScheduleDrawer({
               </motion.div>
             )}
 
-            {/* SECTION 1: Report Parameters */}
-            <div className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-[#FF4800]" />
-                  Filter Parameters
-                </label>
-                {paramsLoading && (
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                    <ArrowPathIcon className="w-3 h-3 animate-spin" /> Loading...
-                  </span>
-                )}
-              </div>
-
-              {reportParams && reportParams.length > 0 ? (
-                <div className="space-y-3">
-                  {reportParams.map((param) => {
-                    const options = (param.ValidValues || param.Values || param.AvailableValues || []).map((v) =>
-                      typeof v === 'object' ? { label: v.Label || v.Name || v.Value, value: v.Value } : { label: String(v), value: v }
-                    );
-
-                    return (
-                      <div key={param.Name} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                            {param.Prompt || param.Name}
-                          </label>
-                          {param.Nullable && (
-                            <span className="text-[10px] text-slate-400">Optional</span>
-                          )}
-                        </div>
-
-                        {options.length > 0 ? (
-                          <select
-                            value={paramValues[param.Name] ?? ''}
-                            onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                            className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                          >
-                            {param.Nullable && <option value="">-- None --</option>}
-                            {options.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : param.DataType === 'DateTime' || param.Type === 'DateTime' ? (
-                          <input
-                            type="date"
-                            value={paramValues[param.Name] ?? ''}
-                            onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                            className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={paramValues[param.Name] ?? ''}
-                            onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                            placeholder={`Enter ${param.Prompt || param.Name}`}
-                            className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-xl text-center">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Standard report dataset filters applied automatically.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* SECTION 2: Schedule Configuration (Full parity with Schedules.jsx) */}
-            <div className="space-y-4 pt-4">
-              <div className="flex items-center justify-between">
+            {/* TAB 1: VIEW */}
+            {activeTab === 'view' && (
+              <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-800 dark:text-white">
-                    Schedule Report
-                  </label>
-                  <p className="text-[11px] text-slate-400">
-                    Configure automated email deliveries
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+                    Report Parameters & Filters
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Configure parameter options before launching report view.
                   </p>
                 </div>
-                {/* Modern iOS-style Toggle Switch */}
-                <button
-                  type="button"
-                  onClick={() => setIsScheduled(!isScheduled)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    isScheduled ? 'bg-[#183955]' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                  role="switch"
-                  aria-checked={isScheduled}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      isScheduled ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                {renderParametersBlock()}
               </div>
+            )}
 
-              {/* Collapsible full schedule settings */}
-              <AnimatePresence>
-                {isScheduled && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-3.5 pt-2"
-                  >
-                    {/* Schedule Name */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Schedule Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={scheduleName}
-                        onChange={(e) => setScheduleName(e.target.value)}
-                        placeholder="e.g. Weekly Executive Performance Email"
-                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                      />
-                    </div>
-
-                    {/* Frequency Dropdown */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Frequency
-                      </label>
-                      <select
-                        value={scheduleType}
-                        onChange={(e) => setScheduleType(e.target.value)}
-                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                      >
-                        {RECURRENCE_OPTIONS.map((rec) => (
-                          <option key={rec.id} value={rec.id}>
-                            {rec.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Hourly Interval sub-option */}
-                    {scheduleType === 'Hourly' && (
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                          Hourly Interval
-                        </label>
-                        <select
-                          value={hourlyInterval}
-                          onChange={(e) => setHourlyInterval(e.target.value)}
-                          className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                        >
-                          <option value="00:15">Every 15 minutes</option>
-                          <option value="00:30">Every 30 minutes</option>
-                          <option value="01:00">Every 1 hour</option>
-                          <option value="02:00">Every 2 hours</option>
-                          <option value="04:00">Every 4 hours</option>
-                          <option value="08:00">Every 8 hours</option>
-                          <option value="12:00">Every 12 hours</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Weekly Days sub-option */}
-                    {scheduleType === 'Weekly' && (
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                          Recurrence Days
-                        </label>
-                        <div className="flex flex-wrap gap-1.5 pt-0.5">
-                          {WEEKDAYS_LIST.map((day) => {
-                            const active = weeklyDays.includes(day);
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => {
-                                  setWeeklyDays((prev) =>
-                                    active ? prev.filter((d) => d !== day) : [...prev, day]
-                                  );
-                                }}
-                                className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
-                                  active
-                                    ? 'bg-[#183955] text-white'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                                }`}
-                              >
-                                {day.slice(0, 3)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Start Date & Time */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Start Date & Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={startsOn}
-                        onChange={(e) => setStartsOn(e.target.value)}
-                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                      />
-                    </div>
-
-                    {/* End Condition */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Ends Condition
-                      </label>
-                      <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg text-center">
-                        <button
-                          type="button"
-                          onClick={() => setEndsMode('never')}
-                          className={`py-1 text-[11px] font-semibold rounded-md transition ${
-                            endsMode === 'never'
-                              ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
-                              : 'text-slate-600 dark:text-slate-400'
-                          }`}
-                        >
-                          Never
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEndsMode('after')}
-                          className={`py-1 text-[11px] font-semibold rounded-md transition ${
-                            endsMode === 'after'
-                              ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
-                              : 'text-slate-600 dark:text-slate-400'
-                          }`}
-                        >
-                          After Occurrences
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEndsMode('on')}
-                          className={`py-1 text-[11px] font-semibold rounded-md transition ${
-                            endsMode === 'on'
-                              ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
-                              : 'text-slate-600 dark:text-slate-400'
-                          }`}
-                        >
-                          End Date
-                        </button>
-                      </div>
-                      {endsMode === 'after' && (
-                        <div className="pt-1 flex items-center gap-2">
-                          <span className="text-[11px] text-slate-500">End after</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="999"
-                            value={afterOccurrences}
-                            onChange={(e) => setAfterOccurrences(e.target.value)}
-                            className="w-20 text-xs px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-center focus:ring-1 focus:ring-[#FF4800] outline-none"
-                          />
-                          <span className="text-[11px] text-slate-500">occurrences</span>
-                        </div>
-                      )}
-                      {endsMode === 'on' && (
-                        <div className="pt-1">
-                          <input
-                            type="datetime-local"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Email Subject */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Email Subject
-                      </label>
-                      <input
-                        type="text"
-                        value={emailSubject}
-                        onChange={(e) => setEmailSubject(e.target.value)}
-                        placeholder="Report Email Subject"
-                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                      />
-                    </div>
-
-                    {/* Addresses */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                        Recipients (Comma or Newline Separated)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={recipients}
-                        onChange={(e) => setRecipients(e.target.value)}
-                        placeholder="admin@company.com, analytics@company.com"
-                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none resize-none"
-                      />
-                    </div>
-
-                    {/* Delivery Options Checkboxes */}
-                    <div className="flex flex-col gap-2 pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isEmailAttachment}
-                          onChange={(e) => setIsEmailAttachment(e.target.checked)}
-                          className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
-                        />
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Attach Exported File to Email</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={(e) => setIsEnabled(e.target.checked)}
-                          className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
-                        />
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Enable Schedule Active Delivery</span>
-                      </label>
-                    </div>
-
-                    {/* Schedule action toolbar */}
-                    <div className="flex items-center gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleSaveSchedule}
-                        disabled={savingSchedule}
-                        className="flex-1 py-2.5 px-3 text-xs font-semibold text-white bg-[#183955] hover:bg-[#122b40] rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
-                      >
-                        {savingSchedule ? (
-                          <>
-                            <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CalendarDaysIcon className="w-3.5 h-3.5" />
-                            <span>{existingSchedule ? 'Update Schedule' : 'Save Schedule'}</span>
-                          </>
-                        )}
-                      </button>
-
-                      {existingSchedule && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleRunNow}
-                            disabled={runningNow}
-                            className="p-2.5 text-slate-600 dark:text-slate-300 hover:text-emerald-600 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 transition-colors"
-                            title="Run Schedule Now"
-                          >
-                            <PlayIcon className={`w-3.5 h-3.5 ${runningNow ? 'animate-spin' : ''}`} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDeleteSchedule}
-                            disabled={deletingSchedule}
-                            className="p-2.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 transition-colors"
-                            title="Delete Schedule"
-                          >
-                            <TrashIcon className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* SECTION 3: REPORT OPTIONS / Export (Hidden when viewer is already open) */}
-            {!isViewerOpen && (
-              <div className="space-y-3 pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    REPORT OPTIONS
-                  </span>
-                  <span className="text-[10px] text-slate-400">Bold Reports v5.0 Export</span>
+            {/* TAB 2: EXPORT */}
+            {activeTab === 'export' && (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+                    Report Export Options
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Choose export format and filter parameters to download.
+                  </p>
                 </div>
 
-                {/* Format pills */}
-                <div className="grid grid-cols-6 gap-1">
-                  {EXPORT_FORMATS.map((fmt) => (
-                    <button
-                      key={fmt.id}
-                      type="button"
-                      onClick={() => setExportType(fmt.id)}
-                      className={`py-2 px-1 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 ${
-                        exportType === fmt.id
-                          ? 'bg-orange-50 dark:bg-orange-950/40 border-[#FF4800] text-[#FF4800] font-bold shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="text-sm">{fmt.icon}</span>
-                      <span className="text-[10px]">{fmt.label}</span>
-                    </button>
-                  ))}
+                {/* Export Format selection pills */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Export Format
+                  </span>
+                  <div className="grid grid-cols-6 gap-1">
+                    {EXPORT_FORMATS.map((fmt) => (
+                      <button
+                        key={fmt.id}
+                        type="button"
+                        onClick={() => setExportType(fmt.id)}
+                        className={`py-2 px-1 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
+                          exportType === fmt.id
+                            ? 'bg-orange-50 dark:bg-orange-950/40 border-[#FF4800] text-[#FF4800] font-bold shadow-sm'
+                            : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="text-sm">{fmt.icon}</span>
+                        <span className="text-[10px]">{fmt.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {exportError && (
                   <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-600 dark:text-rose-300 space-y-2">
                     <div className="font-medium">{exportError}</div>
-                    {onViewReport && (
-                      <button
-                        type="button"
-                        onClick={() => onViewReport(report)}
-                        className="w-full py-1.5 px-3 text-xs font-semibold bg-[#FF4800] hover:bg-[#e03f00] text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                      >
-                        <EyeIcon className="w-3.5 h-3.5" />
-                        <span>Open in Report Viewer to Export</span>
-                      </button>
-                    )}
                   </div>
                 )}
 
-                {/* Export button */}
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  disabled={exporting}
-                  className="w-full py-2.5 px-4 text-xs font-bold text-slate-800 dark:text-slate-100 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 disabled:opacity-50"
-                >
-                  {exporting ? (
-                    <>
-                      <ArrowPathIcon className="w-4 h-4 animate-spin text-[#FF4800]" />
-                      <span>Generating {exportType} export...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowDownTrayIcon className="w-4 h-4 text-[#FF4800]" />
-                      <span>Export {exportType}</span>
-                    </>
+                {renderParametersBlock()}
+              </div>
+            )}
+
+            {/* TAB 3: SCHEDULE */}
+            {activeTab === 'schedule' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+                      Schedule Report
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Configure automated email deliveries
+                    </p>
+                  </div>
+                  {/* Modern iOS-style Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduled(!isScheduled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isScheduled ? 'bg-[#183955]' : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                    role="switch"
+                    aria-checked={isScheduled}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        isScheduled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Full schedule options */}
+                <div className="space-y-3.5 pt-1">
+                  {/* Schedule Name */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Schedule Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleName}
+                      onChange={(e) => setScheduleName(e.target.value)}
+                      placeholder="e.g. Weekly Executive Performance Email"
+                      className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                    />
+                  </div>
+
+                  {/* Frequency Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Frequency
+                    </label>
+                    <select
+                      value={scheduleType}
+                      onChange={(e) => setScheduleType(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                    >
+                      {RECURRENCE_OPTIONS.map((rec) => (
+                        <option key={rec.id} value={rec.id}>
+                          {rec.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Hourly Interval sub-option */}
+                  {scheduleType === 'Hourly' && (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Hourly Interval
+                      </label>
+                      <select
+                        value={hourlyInterval}
+                        onChange={(e) => setHourlyInterval(e.target.value)}
+                        className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                      >
+                        <option value="00:15">Every 15 minutes</option>
+                        <option value="00:30">Every 30 minutes</option>
+                        <option value="01:00">Every 1 hour</option>
+                        <option value="02:00">Every 2 hours</option>
+                        <option value="04:00">Every 4 hours</option>
+                        <option value="08:00">Every 8 hours</option>
+                        <option value="12:00">Every 12 hours</option>
+                      </select>
+                    </div>
                   )}
-                </button>
+
+                  {/* Weekly Days sub-option */}
+                  {scheduleType === 'Weekly' && (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Recurrence Days
+                      </label>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {WEEKDAYS_LIST.map((day) => {
+                          const active = weeklyDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                setWeeklyDays((prev) =>
+                                  active ? prev.filter((d) => d !== day) : [...prev, day]
+                                );
+                              }}
+                              className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                                active
+                                  ? 'bg-[#183955] text-white'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Start Date & Time */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Start Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={startsOn}
+                      onChange={(e) => setStartsOn(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                    />
+                  </div>
+
+                  {/* End Condition */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Ends Condition
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg text-center">
+                      <button
+                        type="button"
+                        onClick={() => setEndsMode('never')}
+                        className={`py-1 text-[11px] font-semibold rounded-md transition ${
+                          endsMode === 'never'
+                            ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Never
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEndsMode('after')}
+                        className={`py-1 text-[11px] font-semibold rounded-md transition ${
+                          endsMode === 'after'
+                            ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        After Occurrences
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEndsMode('on')}
+                        className={`py-1 text-[11px] font-semibold rounded-md transition ${
+                          endsMode === 'on'
+                            ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        End Date
+                      </button>
+                    </div>
+                    {endsMode === 'after' && (
+                      <div className="pt-1 flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500">End after</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={afterOccurrences}
+                          onChange={(e) => setAfterOccurrences(e.target.value)}
+                          className="w-20 text-xs px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-center focus:ring-1 focus:ring-[#FF4800] outline-none"
+                        />
+                        <span className="text-[11px] text-slate-500">occurrences</span>
+                      </div>
+                    )}
+                    {endsMode === 'on' && (
+                      <div className="pt-1">
+                        <input
+                          type="datetime-local"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Email Subject */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Email Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder="Report Email Subject"
+                      className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
+                    />
+                  </div>
+
+                  {/* Addresses */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Recipients (Comma or Newline Separated)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={recipients}
+                      onChange={(e) => setRecipients(e.target.value)}
+                      placeholder="admin@company.com, analytics@company.com"
+                      className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Delivery Options Checkboxes */}
+                  <div className="flex flex-col gap-2 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isEmailAttachment}
+                        onChange={(e) => setIsEmailAttachment(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
+                      />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Attach Exported File to Email</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={(e) => setIsEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
+                      />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Enable Schedule Active Delivery</span>
+                    </label>
+                  </div>
+
+                  {/* Schedule quick actions if existing */}
+                  {existingSchedule && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-xs font-medium text-slate-500">Quick Actions:</span>
+                      <button
+                        type="button"
+                        onClick={handleRunNow}
+                        disabled={runningNow}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5"
+                        title="Run Schedule Now"
+                      >
+                        <PlayIcon className={`w-3.5 h-3.5 text-emerald-500 ${runningNow ? 'animate-spin' : ''}`} />
+                        <span>Run Now</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteSchedule}
+                        disabled={deletingSchedule}
+                        className="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 rounded-lg transition-colors flex items-center gap-1.5"
+                        title="Delete Schedule"
+                      >
+                        <TrashIcon className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {renderParametersBlock()}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Drawer Footer Actions */}
+          {/* Drawer Footer Actions - Custom per activeTab per CEO request */}
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className={`py-2.5 px-4 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shadow-2xs ${
-                isViewerOpen ? 'w-full' : ''
-              }`}
+              className="py-2.5 px-4 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shadow-2xs cursor-pointer"
             >
-              Close
+              Cancel
             </button>
 
-            {!isViewerOpen && onViewReport && (
+            {activeTab === 'view' && (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
-                  onViewReport(report);
+                  if (onViewReport) onViewReport(report, paramValues);
                 }}
-                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-gradient-to-r from-[#FF4800] to-[#E03E00] hover:brightness-105 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-gradient-to-r from-[#FF4800] to-[#E03E00] hover:brightness-105 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <EyeIcon className="w-4 h-4" />
-                <span>View Full Report</span>
+                <span>View Report</span>
+              </button>
+            )}
+
+            {activeTab === 'export' && (
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-gradient-to-r from-[#FF4800] to-[#E03E00] hover:brightness-105 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {exporting ? (
+                  <>
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <span>Generating {exportType}...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownTrayIcon className="w-4 h-4" />
+                    <span>Export Report</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {activeTab === 'schedule' && (
+              <button
+                type="button"
+                onClick={handleSaveSchedule}
+                disabled={savingSchedule}
+                className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-gradient-to-r from-[#FF4800] to-[#E03E00] hover:brightness-105 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {savingSchedule ? (
+                  <>
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <span>Saving Schedule...</span>
+                  </>
+                ) : (
+                  <>
+                    <ClockIcon className="w-4 h-4" />
+                    <span>{existingSchedule ? 'Update Schedule' : 'Schedule Report'}</span>
+                  </>
+                )}
               </button>
             )}
           </div>
