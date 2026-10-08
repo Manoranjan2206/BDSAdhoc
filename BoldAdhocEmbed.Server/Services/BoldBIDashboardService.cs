@@ -169,7 +169,8 @@ namespace BoldAdhocEmbed.Server.Services
                             });
 
                             _logger.LogInformation("Attempting Bold BI token request (embed_secret form, user={User}) to {Url}", userEmail, tokenUrl);
-                            var formResponse = await _httpClient.PostAsync(tokenUrl, formContent);
+                            using var ctsForm = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            var formResponse = await _httpClient.PostAsync(tokenUrl, formContent, ctsForm.Token);
                             if (formResponse.IsSuccessStatusCode)
                             {
                                 var responseContent = await formResponse.Content.ReadAsStringAsync();
@@ -190,7 +191,8 @@ namespace BoldAdhocEmbed.Server.Services
                             };
                             var jsonContent = new StringContent(JsonConvert.SerializeObject(payloadObj), Encoding.UTF8, "application/json");
 
-                            var response = await _httpClient.PostAsync(tokenUrl, jsonContent);
+                            using var ctsJson = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            var response = await _httpClient.PostAsync(tokenUrl, jsonContent, ctsJson.Token);
                             if (response.IsSuccessStatusCode)
                             {
                                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -224,7 +226,8 @@ namespace BoldAdhocEmbed.Server.Services
                         try
                         {
                             _logger.LogInformation("Attempting Bold BI token request (password grant, user={User}) to {Url}", _settings.AdminUser, tokenUrl);
-                            var response = await _httpClient.PostAsync(tokenUrl, passFormContent);
+                            using var ctsPass = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            var response = await _httpClient.PostAsync(tokenUrl, passFormContent, ctsPass.Token);
                             if (response.IsSuccessStatusCode)
                             {
                                 var responseContent = await response.Content.ReadAsStringAsync();

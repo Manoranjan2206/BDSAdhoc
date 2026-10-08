@@ -21,7 +21,6 @@ try {
         'bdsadhoc-app.tar',
         'docker-compose.yml',
         'docker-compose.prod.yml',
-        '.env',
         '.env.example',
         '.dockerignore',
         'deploy.sh',
