@@ -13,6 +13,8 @@ import {
   ChevronRightIcon,
   FolderIcon,
   UserGroupIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { schedulesAPI } from '../services/apiService';
 import { useData } from '../context/DataContext';
@@ -34,6 +36,16 @@ export default function Schedules() {
   const [categories, setCategories] = useState([]);
   const [reportsByCategory, setReportsByCategory] = useState({});
   const [runningId, setRunningId] = useState(null);
+  const [successToast, setSuccessToast] = useState(null);
+
+  const handleSaved = async (savedPayload) => {
+    await reloadSchedules();
+    setSuccessToast({
+      title: editingSchedule ? 'Schedule Updated Successfully' : 'Schedule Created Successfully',
+      name: savedPayload?.Name || 'Schedule',
+    });
+    setTimeout(() => setSuccessToast(null), 5000);
+  };
 
   // Filtering State
   const [activeScope, setActiveScope] = useState('all'); // 'all' | 'active' | 'paused'
@@ -182,7 +194,7 @@ export default function Schedules() {
         <ScheduleModal
           schedule={editingSchedule}
           onClose={() => { setShowModal(false); setEditingSchedule(null); }}
-          onSaved={reloadSchedules}
+          onSaved={handleSaved}
           categories={categories}
           reportsByCategory={reportsByCategory}
         />
@@ -583,6 +595,22 @@ export default function Schedules() {
           </div>
         </div>
       </div>
+
+      {/* Success Notification Popup */}
+      {successToast && (
+        <div className="fixed bottom-6 right-6 z-[100001] max-w-md bg-white dark:bg-[#181c2c] border border-emerald-500/30 rounded-2xl shadow-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-4">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircleIcon className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">{successToast.title}</h4>
+            <p className="text-[11px] text-[#FF4800] font-semibold truncate mt-0.5">{successToast.name}</p>
+          </div>
+          <button onClick={() => setSuccessToast(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer">
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

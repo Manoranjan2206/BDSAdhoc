@@ -14,6 +14,8 @@ import {
   ClockIcon,
   ArrowDownTrayIcon,
   EyeIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -62,7 +64,18 @@ export default function Reports() {
   // Report-Centric Scheduling & Export Action Drawer (matching Davis reference)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerReport, setDrawerReport] = useState(null);
-  const [drawerInitialTab, setDrawerInitialTab] = useState('view');
+  const [drawerInitialTab, setDrawerInitialTab] = useState('schedule');
+  const [successToast, setSuccessToast] = useState(null);
+
+  const handleScheduleSaved = (data) => {
+    setSuccessToast({
+      title: data?.isEdit ? 'Schedule Updated Successfully' : 'Schedule Created Successfully',
+      name: data?.name,
+      reportName: data?.reportName,
+      summary: data?.summary,
+    });
+    setTimeout(() => setSuccessToast(null), 5000);
+  };
 
   const handleOpenDrawer = (report, category, tab = 'schedule', e) => {
     if (tab && typeof tab === 'object' && typeof tab.stopPropagation === 'function') {
@@ -467,20 +480,19 @@ export default function Reports() {
       customItems: [
         {
           groupIndex: 1,
-          itemIndex: 1,
-          type: 'Button',
-          cssClass: 'e-icon e-clock',
+          index: 1,
+          type: 'Default',
+          cssClass: 'e-icon e-clock e-reportviewer-icon CustomSchedule',
           id: 'Schedule',
-          tooltip: { content: 'Schedule Report' },
-          text: 'Schedule',
+          tooltip: { header: 'Schedule', content: 'Schedule Report' },
         }
       ],
     };
   }, []);
 
   const onToolBarItemClick = (args) => {
-    const value = args?.value || args?.id || args?.target?.id;
-    if (value === 'Schedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
+    const value = args?.value || args?.id || args?.target?.id || args?.name;
+    if (value === 'Schedule' || value === 'CustomSchedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
       if (selectedReportRef.current) {
         handleOpenDrawer(selectedReportRef.current, selectedReportRef.current.categoryName || '', 'schedule');
       }
@@ -644,17 +656,30 @@ export default function Reports() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (selectedReport) {
+                        handleOpenDrawer(selectedReport, selectedCategory || selectedReport.categoryName || '', 'schedule');
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-[#FF4800] hover:text-[#FF4800] transition-colors shadow-2xs cursor-pointer"
+                    title="Schedule Report"
+                  >
+                    <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
+                    <span>Schedule</span>
+                  </button>
                   {canCopyReports && (
                     <button
                       onClick={() => handleOpenCopyModal({ name: reportName, description: '' }, categoryName)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors cursor-pointer"
                     >
                       <DocumentDuplicateIcon className="w-3.5 h-3.5" /> Copy
                     </button>
                   )}
                   <button
                     onClick={() => setViewerKey(prev => prev + 1)}
-                    className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors"
+                    className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer"
                     title="Reload report"
                   >
                     <ArrowPathIcon className="w-4 h-4" />
@@ -1125,13 +1150,29 @@ export default function Reports() {
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         report={drawerReport}
-        isViewerOpen={!!selectedReport}
-        initialTab={drawerInitialTab}
-        onViewReport={(r) => {
-          setDrawerOpen(false);
-          handleSelectReport(r, r.categoryName);
-        }}
+        onScheduleSaved={handleScheduleSaved}
       />
+
+      {/* Success Notification Popup */}
+      {successToast && (
+        <div className="fixed bottom-6 right-6 z-[100001] max-w-md bg-white dark:bg-[#181c2c] border border-emerald-500/30 rounded-2xl shadow-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-4">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircleIcon className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">{successToast.title}</h4>
+            <p className="text-[11px] text-[#FF4800] font-semibold truncate mt-0.5">{successToast.name}</p>
+            {successToast.summary && (
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                {successToast.summary}
+              </p>
+            )}
+          </div>
+          <button onClick={() => setSuccessToast(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer">
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

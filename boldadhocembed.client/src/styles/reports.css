@@ -43,3 +43,15 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Bold Report Viewer Custom Toolbar Button */
+.CustomSchedule {
+  cursor: pointer !important;
+}
+
+.CustomSchedule:before {
+  content: "\e753" !important;
+  font-family: "e-reportviewer-icon", "e-icons", sans-serif !important;
+  font-size: 14px;
+}
+
