@@ -653,17 +653,6 @@ export default function Reports() {
                     </button>
                   )}
                   <button
-                    onClick={() => {
-                      setDrawerReport(selectedReport);
-                      setDrawerOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-[#FF4800] hover:text-[#FF4800] transition-colors shadow-2xs"
-                    title="Schedule Report"
-                  >
-                    <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
-                    <span>Schedule</span>
-                  </button>
-                  <button
                     onClick={() => setViewerKey(prev => prev + 1)}
                     className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors"
                     title="Reload report"
