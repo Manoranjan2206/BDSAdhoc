@@ -45,27 +45,45 @@
 }
 
 /* Bold Report Viewer Custom Toolbar Buttons */
-.CustomSchedule,
-.CustomCopy {
-  cursor: pointer !important;
+.e-reportviewer-toolbar li:has(.CustomSchedule),
+.e-reportviewer-toolbar li:has(.CustomCopy),
+.e-reportviewer-toolbar .e-tooltxt:has(.CustomSchedule),
+.e-reportviewer-toolbar .e-tooltxt:has(.CustomCopy) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  text-align: center !important;
+}
+
+.CustomSchedule,
+.CustomCopy {
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  position: relative !important;
 }
 
 .CustomSchedule:before,
 .CustomCopy:before {
   content: "" !important;
-  display: inline-block !important;
+  display: block !important;
   width: 16px !important;
   height: 16px !important;
+  margin: auto !important;
   background-color: #555555 !important;
-  -webkit-mask-size: contain !important;
-  mask-size: contain !important;
+  -webkit-mask-size: 16px 16px !important;
+  mask-size: 16px 16px !important;
   -webkit-mask-repeat: no-repeat !important;
   mask-repeat: no-repeat !important;
-  -webkit-mask-position: center !important;
-  mask-position: center !important;
+  -webkit-mask-position: center center !important;
+  mask-position: center center !important;
   vertical-align: middle !important;
   transition: background-color 0.15s ease !important;
 }
@@ -97,5 +115,6 @@
 .CustomCopy:hover:before {
   background-color: #8B5CF6 !important;
 }
+
 
 
