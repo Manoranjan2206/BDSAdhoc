@@ -249,7 +249,10 @@ export default function ReportScheduleDrawer({
       }
 
       setScheduleMessage({ type: 'success', text: existingSchedule ? 'Schedule updated successfully!' : 'Schedule saved successfully!' });
-      setTimeout(() => setScheduleMessage(null), 4000);
+      setTimeout(() => {
+        setScheduleMessage(null);
+        onClose();
+      }, 2000);
 
       // Refresh schedule status
       const res = await schedulesAPI.getScheduleByReport(reportId);

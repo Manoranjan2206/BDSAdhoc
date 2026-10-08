@@ -482,8 +482,7 @@ export default function Reports() {
     const value = args?.value || args?.id || args?.target?.id;
     if (value === 'Schedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
       if (selectedReportRef.current) {
-        setDrawerReport(selectedReportRef.current);
-        setDrawerOpen(true);
+        handleOpenDrawer(selectedReportRef.current, selectedReportRef.current.categoryName || '', 'schedule');
       }
     }
   };
