@@ -44,21 +44,58 @@
   overflow: hidden;
 }
 
-/* Bold Report Viewer Custom Toolbar Button */
+/* Bold Report Viewer Custom Toolbar Buttons */
 .CustomSchedule,
 .CustomCopy {
   cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.CustomSchedule:before {
-  content: "\e753" !important;
-  font-family: "e-reportviewer-icon", "e-icons", sans-serif !important;
-  font-size: 14px;
-}
-
+.CustomSchedule:before,
 .CustomCopy:before {
-  content: "\e743" !important;
-  font-family: "e-reportviewer-icon", "e-icons", sans-serif !important;
-  font-size: 14px;
+  content: "" !important;
+  display: inline-block !important;
+  width: 16px !important;
+  height: 16px !important;
+  background-color: #555555 !important;
+  -webkit-mask-size: contain !important;
+  mask-size: contain !important;
+  -webkit-mask-repeat: no-repeat !important;
+  mask-repeat: no-repeat !important;
+  -webkit-mask-position: center !important;
+  mask-position: center !important;
+  vertical-align: middle !important;
+  transition: background-color 0.15s ease !important;
 }
+
+.dark .CustomSchedule:before,
+.dark .CustomCopy:before {
+  background-color: #CBD5E1 !important;
+}
+
+/* Schedule Clock Icon */
+.CustomSchedule:before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E") !important;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E") !important;
+}
+
+/* Copy Report Icon */
+.CustomCopy:before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='13' height='13' x='9' y='9' rx='2' ry='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") !important;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='13' height='13' x='9' y='9' rx='2' ry='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") !important;
+}
+
+/* Hover highlights */
+.e-reportviewer-toolbar li:hover .CustomSchedule:before,
+.CustomSchedule:hover:before {
+  background-color: #FF4800 !important;
+}
+
+.e-reportviewer-toolbar li:hover .CustomCopy:before,
+.CustomCopy:hover:before {
+  background-color: #8B5CF6 !important;
+}
+
 
