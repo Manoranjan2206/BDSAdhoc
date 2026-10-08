@@ -77,10 +77,7 @@ export default function ReportScheduleDrawer({
   // Mode tab state: 'view' | 'export' | 'schedule'
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Dynamic Parameter states
-  const [paramValues, setParamValues] = useState({});
-  const [reportParams, setReportParams] = useState([]);
-  const [paramsLoading, setParamsLoading] = useState(false);
+
 
   // Full Schedule configuration states
   const [isScheduled, setIsScheduled] = useState(false);
@@ -180,71 +177,10 @@ export default function ReportScheduleDrawer({
       }
     };
 
-    // Fetch dynamic report parameters via v5.0 API
-    const loadParameters = async () => {
-      setParamsLoading(true);
-      try {
-        const data = await reportsAPI.getParameters(reportId);
-        if (Array.isArray(data)) {
-          setReportParams(data);
-          const initialVals = {};
-          data.forEach((p) => {
-            const val = p.DefaultValue ?? p.Values?.[0] ?? p.Value ?? '';
-            initialVals[p.Name] = val;
-          });
-          setParamValues(initialVals);
-        } else if (data && typeof data === 'object' && Array.isArray(data.Parameters)) {
-          setReportParams(data.Parameters);
-          const initialVals = {};
-          data.Parameters.forEach((p) => {
-            const val = p.DefaultValue ?? p.Values?.[0] ?? p.Value ?? '';
-            initialVals[p.Name] = val;
-          });
-          setParamValues(initialVals);
-        } else {
-          setReportParams([]);
-        }
-      } catch (err) {
-        console.warn('Parameters API call note:', err.message);
-        setReportParams([]);
-      } finally {
-        setParamsLoading(false);
-      }
-    };
-
     checkSchedule();
-    loadParameters();
   }, [isOpen, reportId, reportName, currentUser]);
 
-  // Handle cascading parameter change
-  const handleParamChange = async (name, value) => {
-    const updated = { ...paramValues, [name]: value };
-    setParamValues(updated);
 
-    // Check if this parameter cascades
-    const paramMeta = reportParams.find((p) => p.Name === name);
-    if (paramMeta?.IsCascading || paramMeta?.HasCascadingDependency) {
-      try {
-        const filterPayload = {};
-        Object.entries(updated).forEach(([k, v]) => {
-          if (v !== '' && v !== null && v !== undefined) {
-            filterPayload[k] = Array.isArray(v) ? v : [String(v)];
-          }
-        });
-        const cascadeResult = await reportsAPI.getCascadingParameters(reportId, filterPayload);
-        if (cascadeResult && Array.isArray(cascadeResult)) {
-          setReportParams((prev) =>
-            prev.map((p) => {
-              const matched = cascadeResult.find((c) => c.Name === p.Name);
-              return matched ? { ...p, ...matched } : p;
-            })
-          );
-        }
-      } catch (e) {
-        console.warn('Cascading parameter update failed:', e);
-      }
-    }
-  };
 
   // Schedule save / update
   const handleSaveSchedule = async () => {
@@ -372,11 +308,6 @@ export default function ReportScheduleDrawer({
 
     try {
       const filterParameters = {};
-      Object.entries(paramValues).forEach(([k, v]) => {
-        if (v !== '' && v !== null && v !== undefined) {
-          filterParameters[k] = Array.isArray(v) ? v.map(String) : [String(v)];
-        }
-      });
 
       const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId);
       let resolvedServerPath = undefined;
@@ -421,83 +352,30 @@ export default function ReportScheduleDrawer({
 
   if (!isOpen || !report) return null;
 
-  // Render Parameters UI block
-  const renderParametersBlock = () => (
-    <div className="space-y-3 pt-1">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-          <AdjustmentsHorizontalIcon className="w-3.5 h-3.5 text-[#FF4800]" />
-          Filter Parameters
-        </label>
-        {paramsLoading && (
-          <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            <ArrowPathIcon className="w-3 h-3 animate-spin" /> Loading...
-          </span>
-        )}
+  const renderExportFormatSelection = () => (
+    <div className="space-y-2">
+      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+        Export Format
+      </span>
+      <div className="grid grid-cols-6 gap-1">
+        {EXPORT_FORMATS.map((fmt) => (
+          <button
+            key={fmt.id}
+            type="button"
+            onClick={() => setExportType(fmt.id)}
+            className={`py-2 px-1 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
+              exportType === fmt.id
+                ? 'bg-orange-50 dark:bg-orange-950/40 border-[#FF4800] text-[#FF4800] font-bold shadow-sm'
+                : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+            }`}
+          >
+            <span className="text-sm">{fmt.icon}</span>
+            <span className="text-[10px]">{fmt.label}</span>
+          </button>
+        ))}
       </div>
-
-      {reportParams && reportParams.length > 0 ? (
-        <div className="space-y-3">
-          {reportParams.map((param) => {
-            const options = (param.ValidValues || param.Values || param.AvailableValues || []).map((v) =>
-              typeof v === 'object' ? { label: v.Label || v.Name || v.Value, value: v.Value } : { label: String(v), value: v }
-            );
-
-            return (
-              <div key={param.Name} className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    {param.Prompt || param.Name}
-                  </label>
-                  {param.Nullable && (
-                    <span className="text-[10px] text-slate-400">Optional</span>
-                  )}
-                </div>
-
-                {options.length > 0 ? (
-                  <select
-                    value={paramValues[param.Name] ?? ''}
-                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                  >
-                    {param.Nullable && <option value="">-- None --</option>}
-                    {options.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : param.DataType === 'DateTime' || param.Type === 'DateTime' ? (
-                  <input
-                    type="date"
-                    value={paramValues[param.Name] ?? ''}
-                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={paramValues[param.Name] ?? ''}
-                    onChange={(e) => handleParamChange(param.Name, e.target.value)}
-                    placeholder={`Enter ${param.Prompt || param.Name}`}
-                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="p-3 bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-xl text-center">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Standard report dataset filters applied automatically.
-          </p>
-        </div>
-      )}
     </div>
-  );
-
-  return (
+  );  return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[100000] overflow-hidden flex justify-end">
         {/* Backdrop */}
@@ -544,47 +422,7 @@ export default function ReportScheduleDrawer({
             </button>
           </div>
 
-          {/* Mode Selector Tabs (View | Export | Schedule) */}
-          <div className="px-5 py-2.5 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 shrink-0">
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/70 dark:bg-slate-800/90 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setActiveTab('view')}
-                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'view'
-                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <EyeIcon className="w-3.5 h-3.5" />
-                <span>View</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('export')}
-                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'export'
-                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('schedule')}
-                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'schedule'
-                    ? 'bg-white dark:bg-slate-700 text-[#FF4800] shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <ClockIcon className="w-3.5 h-3.5" />
-                <span>Schedule</span>
-              </button>
-            </div>
-          </div>
+
 
           {/* Drawer Body - Scrollable content according to activeTab */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
@@ -608,20 +446,7 @@ export default function ReportScheduleDrawer({
               </motion.div>
             )}
 
-            {/* TAB 1: VIEW */}
-            {activeTab === 'view' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
-                    Report Parameters & Filters
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Configure parameter options before launching report view.
-                  </p>
-                </div>
-                {renderParametersBlock()}
-              </div>
-            )}
+
 
             {/* TAB 2: EXPORT */}
             {activeTab === 'export' && (
@@ -631,41 +456,17 @@ export default function ReportScheduleDrawer({
                     Report Export Options
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Choose export format and filter parameters to download.
+                    Choose export format to download.
                   </p>
                 </div>
 
-                {/* Export Format selection pills */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Export Format
-                  </span>
-                  <div className="grid grid-cols-6 gap-1">
-                    {EXPORT_FORMATS.map((fmt) => (
-                      <button
-                        key={fmt.id}
-                        type="button"
-                        onClick={() => setExportType(fmt.id)}
-                        className={`py-2 px-1 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
-                          exportType === fmt.id
-                            ? 'bg-orange-50 dark:bg-orange-950/40 border-[#FF4800] text-[#FF4800] font-bold shadow-sm'
-                            : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                        }`}
-                      >
-                        <span className="text-sm">{fmt.icon}</span>
-                        <span className="text-[10px]">{fmt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {renderExportFormatSelection()}
 
                 {exportError && (
                   <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-600 dark:text-rose-300 space-y-2">
                     <div className="font-medium">{exportError}</div>
                   </div>
                 )}
-
-                {renderParametersBlock()}
               </div>
             )}
 
@@ -681,24 +482,8 @@ export default function ReportScheduleDrawer({
                       Configure automated email deliveries
                     </p>
                   </div>
-                  {/* Modern iOS-style Toggle Switch */}
-                  <button
-                    type="button"
-                    onClick={() => setIsScheduled(!isScheduled)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isScheduled ? 'bg-[#183955]' : 'bg-slate-200 dark:bg-slate-700'
-                    }`}
-                    role="switch"
-                    aria-checked={isScheduled}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isScheduled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
                 </div>
+
 
                 {/* Full schedule options */}
                 <div className="space-y-3.5 pt-1">
@@ -894,28 +679,10 @@ export default function ReportScheduleDrawer({
                       className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] focus:border-[#FF4800] outline-none resize-none"
                     />
                   </div>
+                  
+                  {renderExportFormatSelection()}
 
-                  {/* Delivery Options Checkboxes */}
-                  <div className="flex flex-col gap-2 pt-1">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isEmailAttachment}
-                        onChange={(e) => setIsEmailAttachment(e.target.checked)}
-                        className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
-                      />
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Attach Exported File to Email</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isEnabled}
-                        onChange={(e) => setIsEnabled(e.target.checked)}
-                        className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]"
-                      />
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Enable Schedule Active Delivery</span>
-                    </label>
-                  </div>
+
 
                   {/* Schedule quick actions if existing */}
                   {existingSchedule && (
@@ -943,8 +710,6 @@ export default function ReportScheduleDrawer({
                       </button>
                     </div>
                   )}
-
-                  {renderParametersBlock()}
                 </div>
               </div>
             )}

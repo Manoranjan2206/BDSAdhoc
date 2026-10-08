@@ -13,6 +13,7 @@ import {
   ArrowPathIcon,
   ClockIcon,
   ArrowDownTrayIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -862,22 +863,30 @@ export default function Reports() {
 
                           <div className="mt-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
                             <span>{getFormattedDateString(report.modifiedDate)}</span>
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectReport(report, report.categoryName)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
+                                title="View Report"
+                              >
+                                <EyeIcon className="w-3.5 h-3.5 text-indigo-600" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleOpenDrawer(report, report.categoryName, 'export', e)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
+                                title="Export Report"
+                              >
+                                <ArrowDownTrayIcon className="w-3.5 h-3.5 text-green-600" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={(e) => handleOpenDrawer(report, report.categoryName, 'schedule', e)}
                                 className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
-                                title="Schedule & Export Report"
+                                title="Schedule Report"
                               >
                                 <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
-                                <span>Schedule</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSelectReport(report, report.categoryName)}
-                                className="font-semibold text-[#FF4800] hover:underline cursor-pointer"
-                              >
-                                View
                               </button>
                             </div>
                           </div>
@@ -987,9 +996,23 @@ export default function Reports() {
                               <td className="py-3 px-3 text-right whitespace-nowrap align-middle">
                                 <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                                   <button
-                                    onClick={(e) => handleOpenDrawer(report, report.categoryName, e)}
+                                    onClick={() => handleSelectReport(report, report.categoryName)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="View Report"
+                                  >
+                                    <EyeIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleOpenDrawer(report, report.categoryName, 'export', e)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Export Report"
+                                  >
+                                    <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleOpenDrawer(report, report.categoryName, 'schedule', e)}
                                     className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Schedule & Export Report"
+                                    title="Schedule Report"
                                   >
                                     <ClockIcon className="w-3.5 h-3.5" />
                                   </button>
