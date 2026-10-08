@@ -7,8 +7,9 @@ import {
   ExclamationCircleIcon,
   PlayIcon,
   TrashIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
-import { schedulesAPI } from '../services/apiService';
+import { reportsAPI, schedulesAPI, downloadFile } from '../services/apiService';
 import { authService } from '../services/authService';
 import { toLocalInputValue } from '../utils/dateUtils';
 
@@ -130,6 +131,7 @@ export default function ReportScheduleDrawer({
   isOpen,
   onClose,
   report,
+  mode = 'schedule', // 'export' | 'schedule'
   onScheduleSaved,
 }) {
   const currentUser = useMemo(() => {
@@ -137,13 +139,16 @@ export default function ReportScheduleDrawer({
     return u?.user || u;
   }, []);
 
-  // ── Export format ──
+  const isExportMode = mode === 'export';
+
+  // ── Export state ──
   const [exportType, setExportType] = useState('PDF');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   // ── Schedule meta ──
   const [existingSchedule, setExistingSchedule] = useState(null);
   const [scheduleName, setScheduleName] = useState('');
-  const [isEnabled, setIsEnabled] = useState(true);
 
   // ── Schedule type ──
   const [scheduleType, setScheduleType] = useState('Daily');
@@ -202,6 +207,7 @@ export default function ReportScheduleDrawer({
   useEffect(() => {
     if (!isOpen || !reportId) return;
     setScheduleMessage(null);
+    setExportError(null);
 
     const checkSchedule = async () => {
       try {
@@ -210,7 +216,6 @@ export default function ReportScheduleDrawer({
           const s = res.schedule;
           setExistingSchedule(s);
           setScheduleName(cleanScheduleName(s.name || s.scheduleName || `${reportName} Schedule`));
-          setIsEnabled(s.enabled !== undefined ? !!s.enabled : true);
 
           if (s.exportType) {
             setExportType(mapExportType(s.exportType));
@@ -313,7 +318,6 @@ export default function ReportScheduleDrawer({
 
   function resetForm() {
     setScheduleName(`${reportName} Schedule`);
-    setIsEnabled(true);
     setExportType('PDF');
     setScheduleType('Daily');
     setHourlyHours(1);
@@ -342,6 +346,50 @@ export default function ReportScheduleDrawer({
     setEmailSubject(`${reportName} Report`);
     setRecipients(currentUser?.email || '');
   }
+
+  // ── Handle Export ──
+  const handleExport = async () => {
+    if (!reportId) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId);
+      let resolvedServerPath;
+      if (!isGuid) {
+        resolvedServerPath = report?.serverPath || (report?.serverCategory
+          ? `/${report.serverCategory}/${report.serverReportName || report.name}` : undefined);
+      }
+      if (window.$) {
+        try {
+          const $v = window.$('[data-role="boldreportviewer"], .e-reportviewer, div[id*="report-viewer"], div[id*="viewer"]').first();
+          if ($v?.data('boldReportViewer')) {
+            const vo = $v.data('boldReportViewer');
+            if (typeof vo.exportReport === 'function') {
+              vo.exportReport(exportType);
+              setExporting(false);
+              onClose();
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Viewer export fallback:', e);
+        }
+      }
+      const { blob, filename } = await reportsAPI.exportReportV3({
+        reportId,
+        reportName,
+        serverPath: resolvedServerPath,
+        exportType,
+        filterParameters: {},
+      });
+      downloadFile(blob, filename || `${reportName}.${exportType.toLowerCase()}`);
+      onClose();
+    } catch (err) {
+      setExportError(err.message || 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ── Save / Update schedule ──
   const handleSaveSchedule = async () => {
@@ -603,12 +651,14 @@ export default function ReportScheduleDrawer({
           {/* ── Header ── */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
             <div className="min-w-0 pr-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white truncate">{reportName}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                {isExportMode ? `Export ${reportName}` : reportName}
+              </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   {report.categoryName || 'Reports'}
                 </span>
-                {existingSchedule && (
+                {!isExportMode && existingSchedule && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/40">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Scheduled
@@ -626,7 +676,7 @@ export default function ReportScheduleDrawer({
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
             {/* Error / Status banner */}
-            {scheduleMessage && (
+            {scheduleMessage && !isExportMode && (
               <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                 className={`p-3 rounded-xl text-xs flex items-center gap-2 ${scheduleMessage.type === 'success'
                   ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 border border-emerald-200 dark:border-emerald-800'
@@ -639,286 +689,327 @@ export default function ReportScheduleDrawer({
               </motion.div>
             )}
 
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Schedule Report</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Configure automated email deliveries</p>
-              </div>
-
-              <div className="space-y-3.5">
-
-                {/* Schedule Name */}
-                <div className="space-y-1">
-                  <NLabel>Schedule Name *</NLabel>
-                  <input type="text" value={scheduleName} onChange={e => setScheduleName(e.target.value)}
-                    placeholder="e.g. Weekly Executive Report"
-                    className={inputCls}
-                  />
+            {/* ════ EXPORT MODE (Only Export Type Selection) ════ */}
+            {isExportMode ? (
+              <div className="space-y-4 pt-1">
+                <div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">Choose export format to download.</p>
                 </div>
 
-                {/* Export Format (compact, inline) */}
                 <div className="space-y-1">
                   <NLabel>Export Format</NLabel>
                   <ExportFormatRow />
                 </div>
 
-                {/* ── Frequency type ── */}
-                <div className="space-y-1">
-                  <NLabel>Frequency</NLabel>
-                  <div className="flex gap-1 flex-wrap">
-                    {SCHEDULE_TYPES.map(t => (
-                      <button key={t} type="button" onClick={() => setScheduleType(t)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${scheduleType === t
-                          ? 'bg-[#FF4800] text-white border-[#FF4800]'
-                          : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#FF4800] hover:text-[#FF4800]'
-                        }`}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Hourly sub-options (Inputs) ── */}
-                {scheduleType === 'Hourly' && (
-                  <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
-                    <NLabel>Repeat Every</NLabel>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={hourlyHours}
-                        onChange={e => setHourlyHours(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
-                        className="text-xs px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none text-center w-16"
-                      />
-                      <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">hour(s)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={59}
-                        step={5}
-                        value={hourlyMinutes}
-                        onChange={e => setHourlyMinutes(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
-                        className="text-xs px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none text-center w-16"
-                      />
-                      <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">minute(s)</span>
-                    </div>
+                {exportError && (
+                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-600 dark:text-rose-300 flex items-center gap-2">
+                    <ExclamationCircleIcon className="w-4 h-4 shrink-0" />
+                    <span>{exportError}</span>
                   </div>
                 )}
-
-                {/* ── Daily sub-options ── */}
-                {scheduleType === 'Daily' && (
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2">
-                    <label className={`${rowCls} cursor-pointer`}>
-                      <input type="radio" name="dailyMode" checked={dailyMode === 'everyN'} onChange={() => setDailyMode('everyN')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">Every</span>
-                      <SmallNum value={dailyEveryN} onChange={setDailyEveryN} min={1} max={365} />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">day(s)</span>
-                    </label>
-                    <label className={`${rowCls} cursor-pointer`}>
-                      <input type="radio" name="dailyMode" checked={dailyMode === 'weekday'} onChange={() => setDailyMode('weekday')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">Every weekday (Mon – Fri)</span>
-                    </label>
-                  </div>
-                )}
-
-                {/* ── Weekly sub-options ── */}
-                {scheduleType === 'Weekly' && (
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-3">
-                    <div className={rowCls}>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">Every</span>
-                      <SmallNum value={weeklyEveryN} onChange={setWeeklyEveryN} min={1} max={52} />
-                      <span className="text-xs text-slate-600 dark:text-slate-400">week(s) on:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {WEEKDAYS.map(day => {
-                        const sel = weeklyDays.includes(day);
-                        return (
-                          <button key={day} type="button"
-                            onClick={() => setWeeklyDays(prev =>
-                              sel ? (prev.length > 1 ? prev.filter(d => d !== day) : prev) : [...prev, day]
-                            )}
-                            className={`px-2 py-1 text-[11px] rounded-md font-semibold border transition-all cursor-pointer ${sel
-                              ? 'bg-[#FF4800] text-white border-[#FF4800]'
-                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                            }`}>
-                            {day.slice(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Monthly sub-options ── */}
-                {scheduleType === 'Monthly' && (
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2.5">
-                    <label className={`${rowCls} cursor-pointer flex-wrap`}>
-                      <input type="radio" name="monthlyMode" checked={monthlyMode === 'day'} onChange={() => setMonthlyMode('day')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">Day</span>
-                      <SmallNum value={monthlyDayInterval} onChange={setMonthlyDayInterval} min={1} max={31} />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">of every</span>
-                      <SmallNum value={monthlyMonthInterval} onChange={setMonthlyMonthInterval} min={1} max={12} />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">month(s)</span>
-                    </label>
-                    <label className={`${rowCls} cursor-pointer flex-wrap`}>
-                      <input type="radio" name="monthlyMode" checked={monthlyMode === 'custom'} onChange={() => setMonthlyMode('custom')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">The</span>
-                      <SmallSelect value={monthlyCustomWeek} onChange={setMonthlyCustomWeek}>
-                        {WEEK_OF_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
-                      </SmallSelect>
-                      <SmallSelect value={monthlyCustomDay} onChange={setMonthlyCustomDay}>
-                        {DAY_OF_WEEK_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                      </SmallSelect>
-                      <span className="text-xs text-slate-700 dark:text-slate-300">of every</span>
-                      <SmallNum value={monthlyCustomMonth} onChange={setMonthlyCustomMonth} min={1} max={12} />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">month(s)</span>
-                    </label>
-                  </div>
-                )}
-
-                {/* ── Yearly sub-options ── */}
-                {scheduleType === 'Yearly' && (
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2.5">
-                    <div className={rowCls}>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">Every</span>
-                      <SmallNum value={yearlyEveryN} onChange={setYearlyEveryN} min={1} max={10} />
-                      <span className="text-xs text-slate-600 dark:text-slate-400">year(s)</span>
-                    </div>
-                    <label className={`${rowCls} cursor-pointer flex-wrap`}>
-                      <input type="radio" name="yearlyMode" checked={yearlyMode === 'month'} onChange={() => setYearlyMode('month')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">Every</span>
-                      <SmallSelect value={yearlyMonth} onChange={setYearlyMonth}>
-                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </SmallSelect>
-                      <SmallNum value={yearlyDayOfMonth} onChange={setYearlyDayOfMonth} min={1} max={31} />
-                    </label>
-                    <label className={`${rowCls} cursor-pointer flex-wrap`}>
-                      <input type="radio" name="yearlyMode" checked={yearlyMode === 'custom'} onChange={() => setYearlyMode('custom')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">The</span>
-                      <SmallSelect value={yearlyCustomWeek} onChange={setYearlyCustomWeek}>
-                        {WEEK_OF_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
-                      </SmallSelect>
-                      <SmallSelect value={yearlyCustomDay} onChange={setYearlyCustomDay}>
-                        {DAY_OF_WEEK_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                      </SmallSelect>
-                      <span className="text-xs text-slate-700 dark:text-slate-300">of</span>
-                      <SmallSelect value={yearlyCustomMonth} onChange={setYearlyCustomMonth}>
-                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </SmallSelect>
-                    </label>
-                  </div>
-                )}
-
-                {/* ── Start Date & Time ── */}
-                <div className="space-y-1">
-                  <NLabel>Start Date & Time *</NLabel>
-                  <input
-                    type="datetime-local"
-                    value={startsOn}
-                    onChange={e => setStartsOn(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-
-                {/* ── Ends ── */}
-                <div className="space-y-1.5">
-                  <NLabel>Ends</NLabel>
-                  <div className="space-y-1.5">
-                    <label className={`${rowCls} cursor-pointer`}>
-                      <input type="radio" name="endsMode" checked={endsMode === 'never'} onChange={() => setEndsMode('never')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">Never</span>
-                    </label>
-                    <label className={`${rowCls} cursor-pointer`}>
-                      <input type="radio" name="endsMode" checked={endsMode === 'after'} onChange={() => setEndsMode('after')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">After</span>
-                      <SmallNum value={afterOccurrences} onChange={setAfterOccurrences} min={1} max={999} />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">occurrence(s)</span>
-                    </label>
-                    <label className={`${rowCls} cursor-pointer`}>
-                      <input type="radio" name="endsMode" checked={endsMode === 'on'} onChange={() => setEndsMode('on')}
-                        className="accent-[#FF4800]" />
-                      <span className="text-xs text-slate-700 dark:text-slate-300">On</span>
-                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                        className={`text-xs px-2 py-1 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none ${endsMode !== 'on' ? 'opacity-50 pointer-events-none' : ''}`}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* ── Live Recurrence Summary Banner ── */}
-                {summaryText && (
-                  <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
-                    <ClockIcon className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                    <span className="font-medium">{summaryText}</span>
-                  </div>
-                )}
-
-                {/* ── Email Template ── */}
-                <div className="space-y-1">
-                  <NLabel>Subject</NLabel>
-                  <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)}
-                    placeholder={`${reportName} Report`}
-                    className={inputCls}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <NLabel>External Recipients</NLabel>
-                  <input type="text" value={recipients} onChange={e => setRecipients(e.target.value)}
-                    placeholder="alice@corp.com, bob@corp.com"
-                    className={inputCls}
-                  />
-                  <p className="text-[10px] text-slate-400">Separate multiple emails with commas</p>
-                </div>
-
               </div>
-            </div>
+            ) : (
+              /* ════ SCHEDULE MODE (Full Recurrence Configuration) ════ */
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Schedule Report</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Configure automated email deliveries</p>
+                </div>
+
+                <div className="space-y-3.5">
+
+                  {/* Schedule Name */}
+                  <div className="space-y-1">
+                    <NLabel>Schedule Name *</NLabel>
+                    <input type="text" value={scheduleName} onChange={e => setScheduleName(e.target.value)}
+                      placeholder="e.g. Weekly Executive Report"
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {/* Export Format (compact, inline) */}
+                  <div className="space-y-1">
+                    <NLabel>Export Format</NLabel>
+                    <ExportFormatRow />
+                  </div>
+
+                  {/* ── Frequency type ── */}
+                  <div className="space-y-1">
+                    <NLabel>Frequency</NLabel>
+                    <div className="flex gap-1 flex-wrap">
+                      {SCHEDULE_TYPES.map(t => (
+                        <button key={t} type="button" onClick={() => setScheduleType(t)}
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${scheduleType === t
+                            ? 'bg-[#FF4800] text-white border-[#FF4800]'
+                            : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#FF4800] hover:text-[#FF4800]'
+                          }`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Hourly sub-options (Inputs) ── */}
+                  {scheduleType === 'Hourly' && (
+                    <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700">
+                      <NLabel>Repeat Every</NLabel>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={23}
+                          value={hourlyHours}
+                          onChange={e => setHourlyHours(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+                          className="text-xs px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none text-center w-16"
+                        />
+                        <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">hour(s)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={59}
+                          step={5}
+                          value={hourlyMinutes}
+                          onChange={e => setHourlyMinutes(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
+                          className="text-xs px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none text-center w-16"
+                        />
+                        <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">minute(s)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Daily sub-options ── */}
+                  {scheduleType === 'Daily' && (
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2">
+                      <label className={`${rowCls} cursor-pointer`}>
+                        <input type="radio" name="dailyMode" checked={dailyMode === 'everyN'} onChange={() => setDailyMode('everyN')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Every</span>
+                        <SmallNum value={dailyEveryN} onChange={setDailyEveryN} min={1} max={365} />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">day(s)</span>
+                      </label>
+                      <label className={`${rowCls} cursor-pointer`}>
+                        <input type="radio" name="dailyMode" checked={dailyMode === 'weekday'} onChange={() => setDailyMode('weekday')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Every weekday (Mon – Fri)</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* ── Weekly sub-options ── */}
+                  {scheduleType === 'Weekly' && (
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-3">
+                      <div className={rowCls}>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Every</span>
+                        <SmallNum value={weeklyEveryN} onChange={setWeeklyEveryN} min={1} max={52} />
+                        <span className="text-xs text-slate-600 dark:text-slate-400">week(s) on:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {WEEKDAYS.map(day => {
+                          const sel = weeklyDays.includes(day);
+                          return (
+                            <button key={day} type="button"
+                              onClick={() => setWeeklyDays(prev =>
+                                sel ? (prev.length > 1 ? prev.filter(d => d !== day) : prev) : [...prev, day]
+                              )}
+                              className={`px-2 py-1 text-[11px] rounded-md font-semibold border transition-all cursor-pointer ${sel
+                                ? 'bg-[#FF4800] text-white border-[#FF4800]'
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                              }`}>
+                              {day.slice(0, 3)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Monthly sub-options ── */}
+                  {scheduleType === 'Monthly' && (
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                      <label className={`${rowCls} cursor-pointer flex-wrap`}>
+                        <input type="radio" name="monthlyMode" checked={monthlyMode === 'day'} onChange={() => setMonthlyMode('day')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Day</span>
+                        <SmallNum value={monthlyDayInterval} onChange={setMonthlyDayInterval} min={1} max={31} />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">of every</span>
+                        <SmallNum value={monthlyMonthInterval} onChange={setMonthlyMonthInterval} min={1} max={12} />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">month(s)</span>
+                      </label>
+                      <label className={`${rowCls} cursor-pointer flex-wrap`}>
+                        <input type="radio" name="monthlyMode" checked={monthlyMode === 'custom'} onChange={() => setMonthlyMode('custom')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">The</span>
+                        <SmallSelect value={monthlyCustomWeek} onChange={setMonthlyCustomWeek}>
+                          {WEEK_OF_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
+                        </SmallSelect>
+                        <SmallSelect value={monthlyCustomDay} onChange={setMonthlyCustomDay}>
+                          {DAY_OF_WEEK_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </SmallSelect>
+                        <span className="text-xs text-slate-700 dark:text-slate-300">of every</span>
+                        <SmallNum value={monthlyCustomMonth} onChange={setMonthlyCustomMonth} min={1} max={12} />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">month(s)</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* ── Yearly sub-options ── */}
+                  {scheduleType === 'Yearly' && (
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                      <div className={rowCls}>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Every</span>
+                        <SmallNum value={yearlyEveryN} onChange={setYearlyEveryN} min={1} max={10} />
+                        <span className="text-xs text-slate-600 dark:text-slate-400">year(s)</span>
+                      </div>
+                      <label className={`${rowCls} cursor-pointer flex-wrap`}>
+                        <input type="radio" name="yearlyMode" checked={yearlyMode === 'month'} onChange={() => setYearlyMode('month')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Every</span>
+                        <SmallSelect value={yearlyMonth} onChange={setYearlyMonth}>
+                          {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </SmallSelect>
+                        <SmallNum value={yearlyDayOfMonth} onChange={setYearlyDayOfMonth} min={1} max={31} />
+                      </label>
+                      <label className={`${rowCls} cursor-pointer flex-wrap`}>
+                        <input type="radio" name="yearlyMode" checked={yearlyMode === 'custom'} onChange={() => setYearlyMode('custom')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">The</span>
+                        <SmallSelect value={yearlyCustomWeek} onChange={setYearlyCustomWeek}>
+                          {WEEK_OF_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
+                        </SmallSelect>
+                        <SmallSelect value={yearlyCustomDay} onChange={setYearlyCustomDay}>
+                          {DAY_OF_WEEK_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </SmallSelect>
+                        <span className="text-xs text-slate-700 dark:text-slate-300">of</span>
+                        <SmallSelect value={yearlyCustomMonth} onChange={setYearlyCustomMonth}>
+                          {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </SmallSelect>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* ── Start Date & Time ── */}
+                  <div className="space-y-1">
+                    <NLabel>Start Date & Time *</NLabel>
+                    <input
+                      type="datetime-local"
+                      value={startsOn}
+                      onChange={e => setStartsOn(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {/* ── Ends ── */}
+                  <div className="space-y-1.5">
+                    <NLabel>Ends</NLabel>
+                    <div className="space-y-1.5">
+                      <label className={`${rowCls} cursor-pointer`}>
+                        <input type="radio" name="endsMode" checked={endsMode === 'never'} onChange={() => setEndsMode('never')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Never</span>
+                      </label>
+                      <label className={`${rowCls} cursor-pointer`}>
+                        <input type="radio" name="endsMode" checked={endsMode === 'after'} onChange={() => setEndsMode('after')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">After</span>
+                        <SmallNum value={afterOccurrences} onChange={setAfterOccurrences} min={1} max={999} />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">occurrence(s)</span>
+                      </label>
+                      <label className={`${rowCls} cursor-pointer`}>
+                        <input type="radio" name="endsMode" checked={endsMode === 'on'} onChange={() => setEndsMode('on')}
+                          className="accent-[#FF4800]" />
+                        <span className="text-xs text-slate-700 dark:text-slate-300">On</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                          className={`text-xs px-2 py-1 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FF4800] outline-none ${endsMode !== 'on' ? 'opacity-50 pointer-events-none' : ''}`}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* ── Live Recurrence Summary Banner ── */}
+                  {summaryText && (
+                    <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
+                      <ClockIcon className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                      <span className="font-medium">{summaryText}</span>
+                    </div>
+                  )}
+
+                  {/* ── Email Template ── */}
+                  <div className="space-y-1">
+                    <NLabel>Subject</NLabel>
+                    <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)}
+                      placeholder={`${reportName} Report`}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <NLabel>External Recipients</NLabel>
+                    <input type="text" value={recipients} onChange={e => setRecipients(e.target.value)}
+                      placeholder="alice@corp.com, bob@corp.com"
+                      className={inputCls}
+                    />
+                    <p className="text-[10px] text-slate-400">Separate multiple emails with commas</p>
+                  </div>
+
+                </div>
+              </div>
+            )}
 
           </div>
 
           {/* ── Footer ── */}
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between gap-2 shrink-0">
-            {existingSchedule ? (
-              <div className="flex items-center gap-1.5">
-                <button type="button" onClick={handleRunNow} disabled={runningNow}
-                  className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 disabled:opacity-50 cursor-pointer">
-                  <PlayIcon className="w-3.5 h-3.5" />
-                  {runningNow ? 'Running…' : 'Run Now'}
-                </button>
-                <button type="button" onClick={handleDeleteSchedule} disabled={deletingSchedule}
-                  className="p-1.5 text-xs font-semibold text-rose-500 border border-rose-200 dark:border-rose-800/40 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-50 cursor-pointer"
-                  title="Delete schedule">
-                  <TrashIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : <div />}
+            {isExportMode ? (
+              <>
+                <div />
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={onClose}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleExport} disabled={exporting}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer">
+                    <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                    {exporting ? 'Exporting…' : `Download ${exportType}`}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {existingSchedule ? (
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={handleRunNow} disabled={runningNow}
+                      className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 disabled:opacity-50 cursor-pointer">
+                      <PlayIcon className="w-3.5 h-3.5" />
+                      {runningNow ? 'Running…' : 'Run Now'}
+                    </button>
+                    <button type="button" onClick={handleDeleteSchedule} disabled={deletingSchedule}
+                      className="p-1.5 text-xs font-semibold text-rose-500 border border-rose-200 dark:border-rose-800/40 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-50 cursor-pointer"
+                      title="Delete schedule">
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : <div />}
 
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={onClose}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer">
-                Cancel
-              </button>
-              <button type="button" onClick={handleSaveSchedule} disabled={savingSchedule}
-                className="px-4 py-2 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer">
-                {savingSchedule ? (
-                  <>
-                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  existingSchedule ? 'Update Schedule' : 'Create Schedule'
-                )}
-              </button>
-            </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={onClose}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleSaveSchedule} disabled={savingSchedule}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer">
+                    {savingSchedule ? (
+                      <>
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      existingSchedule ? 'Update Schedule' : 'Create Schedule'
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
         </motion.div>

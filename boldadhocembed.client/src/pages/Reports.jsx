@@ -1143,6 +1143,7 @@ export default function Reports() {
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         report={drawerReport}
+        mode={drawerInitialTab}
         onScheduleSaved={handleScheduleSaved}
       />
 
