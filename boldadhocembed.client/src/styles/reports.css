@@ -45,12 +45,19 @@
 }
 
 /* Bold Report Viewer Custom Toolbar Button */
-.CustomSchedule {
+.CustomSchedule,
+.CustomCopy {
   cursor: pointer !important;
 }
 
 .CustomSchedule:before {
   content: "\e753" !important;
+  font-family: "e-reportviewer-icon", "e-icons", sans-serif !important;
+  font-size: 14px;
+}
+
+.CustomCopy:before {
+  content: "\e743" !important;
   font-family: "e-reportviewer-icon", "e-icons", sans-serif !important;
   font-size: 14px;
 }

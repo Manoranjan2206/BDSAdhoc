@@ -474,27 +474,51 @@ export default function Reports() {
   }, [selectedReport]);
 
   const toolbarSettings = useMemo(() => {
+    const customItems = [
+      {
+        groupIndex: 4,
+        index: 1,
+        type: 'Default',
+        cssClass: 'e-icon e-clock e-reportviewer-icon CustomSchedule',
+        id: 'Schedule',
+        tooltip: { header: 'Schedule', content: 'Schedule Report' },
+      },
+    ];
+
+    if (canCopyReports) {
+      customItems.push({
+        groupIndex: 4,
+        index: 2,
+        type: 'Default',
+        cssClass: 'e-icon e-copy e-reportviewer-icon CustomCopy',
+        id: 'CopyReport',
+        tooltip: { header: 'Copy', content: 'Copy Report' },
+      });
+    }
+
     return {
       showToolbar: true,
       items: window.ej?.ReportViewer?.ToolbarItems?.All & ~window.ej?.ReportViewer?.ToolbarItems?.Print,
-      customItems: [
-        {
-          groupIndex: 1,
-          index: 1,
-          type: 'Default',
-          cssClass: 'e-icon e-clock e-reportviewer-icon CustomSchedule',
-          id: 'Schedule',
-          tooltip: { header: 'Schedule', content: 'Schedule Report' },
-        }
-      ],
+      customItems,
     };
-  }, []);
+  }, [canCopyReports]);
 
   const onToolBarItemClick = (args) => {
     const value = args?.value || args?.id || args?.target?.id || args?.name;
     if (value === 'Schedule' || value === 'CustomSchedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
       if (selectedReportRef.current) {
         handleOpenDrawer(selectedReportRef.current, selectedReportRef.current.categoryName || '', 'schedule');
+      }
+    } else if (value === 'CopyReport' || value === 'CustomCopy' || (typeof value === 'string' && value.toLowerCase().includes('copy'))) {
+      if (selectedReportRef.current) {
+        handleOpenCopyModal(
+          {
+            name: selectedReportRef.current.name || selectedReportRef.current.Name || '',
+            serverReportName: selectedReportRef.current.serverReportName || selectedReportRef.current.ServerReportName || '',
+            description: selectedReportRef.current.description || selectedReportRef.current.Description || '',
+          },
+          selectedReportRef.current.categoryName || ''
+        );
       }
     }
   };
@@ -653,37 +677,6 @@ export default function Reports() {
                     <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">{reportName}</h2>
                     {categoryName && <p className="text-[11px] text-slate-400 truncate">{categoryName}</p>}
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (selectedReport) {
-                        handleOpenDrawer(selectedReport, selectedCategory || selectedReport.categoryName || '', 'schedule');
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-[#FF4800] hover:text-[#FF4800] transition-colors shadow-2xs cursor-pointer"
-                    title="Schedule Report"
-                  >
-                    <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
-                    <span>Schedule</span>
-                  </button>
-                  {canCopyReports && (
-                    <button
-                      onClick={() => handleOpenCopyModal({ name: reportName, description: '' }, categoryName)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors cursor-pointer"
-                    >
-                      <DocumentDuplicateIcon className="w-3.5 h-3.5" /> Copy
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setViewerKey(prev => prev + 1)}
-                    className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer"
-                    title="Reload report"
-                  >
-                    <ArrowPathIcon className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
