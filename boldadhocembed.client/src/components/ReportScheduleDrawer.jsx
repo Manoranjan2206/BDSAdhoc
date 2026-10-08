@@ -366,7 +366,7 @@ export default function ReportScheduleDrawer({
         StartTime: startsOn ? new Date(startsOn).toISOString() : new Date().toISOString(),
         NeverEnd: endsMode === 'never',
         EndAfterOccurrence: endsMode === 'after' ? Number(afterOccurrences) : 0,
-        Enabled: isEnabled,
+        Enabled: true,
         IsEmailAttachment: true,
         ExternalRecipientsList: recipientList,
         EmailTemplate: {
@@ -879,13 +879,6 @@ export default function ReportScheduleDrawer({
                   />
                   <p className="text-[10px] text-slate-400">Separate multiple emails with commas</p>
                 </div>
-
-                {/* Enable toggle */}
-                <label className="flex items-center gap-2 cursor-pointer pt-1">
-                  <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]" />
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Enable Schedule</span>
-                </label>
 
               </div>
             </div>

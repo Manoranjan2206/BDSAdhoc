@@ -355,7 +355,7 @@ export default function ScheduleModal({
       StartTime: startsOn ? new Date(startsOn).toISOString() : new Date().toISOString(),
       NeverEnd: endsMode === 'never',
       EndAfterOccurrence: endsMode === 'after' ? Number(afterOccurrences) : 0,
-      Enabled: isEnabled,
+      Enabled: true,
       IsEmailAttachment: true,
       ExternalRecipientsList: recipientList,
       ScheduleType: scheduleType,
@@ -785,14 +785,6 @@ export default function ScheduleModal({
           <div>
             <label className={labelCls}>Recipients (Comma Separated)</label>
             <input type="text" className={inputCls} value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="admin@company.com, analytics@company.com" />
-          </div>
-
-          {/* Enable Toggle */}
-          <div className="pt-1">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input type="checkbox" className="w-4 h-4 rounded text-[#FF4800] focus:ring-[#FF4800] accent-[#FF4800]" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />
-              <span className="font-medium">Enable Schedule</span>
-            </label>
           </div>
         </div>
 
