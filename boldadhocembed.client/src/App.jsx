@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import SSOCallback from './pages/SSOCallback';
 import { authService } from './services/authService';
 import { DataProvider } from './context/DataContext';
-import { applyTheme } from './themeConfig';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 // Route-level code splitting. Designer + Dashboard pages import multi-MB
 // Bold editors; lazy loading them cuts the initial bundle by ~50% for
@@ -31,43 +31,69 @@ const PageFallback = (
   </div>
 );
 
+function AppRoutes({ isAuthChecked }) {
+  const { theme, isDark, toggleDarkMode } = useTheme();
+
+  if (!isAuthChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-canvas">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center font-bold text-2xl text-white shadow-xl mx-auto mb-6">
+            A
+          </div>
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-sm font-medium text-on-surface-variant">Loading CRM Suite...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`min-h-screen ${isDark ? 'dark' : ''} transition-colors duration-200`}
+      data-theme={theme}
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
+    >
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/sso-callback" element={<SSOCallback />} />
+
+          {/* Protected. Collapsed into a single route + a single Layout. */}
+          <Route element={<ProtectedRoute />}>
+            <Route
+              element={
+                <Layout darkMode={isDark} onToggleDarkMode={toggleDarkMode}>
+                  <Suspense fallback={PageFallback} />
+                </Layout>
+              }
+            >
+              <Route path="/" element={<Suspense fallback={PageFallback}><Home /></Suspense>} />
+              <Route path="/dashboards" element={<Suspense fallback={PageFallback}><Dashboards /></Suspense>} />
+              <Route path="/dashboards/designer" element={<Suspense fallback={PageFallback}><DashboardDesigner /></Suspense>} />
+              <Route path="/reports" element={<Suspense fallback={PageFallback}><Reports /></Suspense>} />
+              <Route path="/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
+              <Route path="/reports/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
+              <Route path="/schedules" element={<Suspense fallback={PageFallback}><Schedules /></Suspense>} />
+              <Route path="/deals" element={<Suspense fallback={PageFallback}><Deals /></Suspense>} />
+              <Route path="/contacts" element={<Suspense fallback={PageFallback}><Contacts /></Suspense>} />
+              <Route path="/tickets" element={<Suspense fallback={PageFallback}><Tickets /></Suspense>} />
+              <Route path="/operations" element={<Suspense fallback={PageFallback}><Operations /></Suspense>} />
+              <Route path="/users" element={<Suspense fallback={PageFallback}><Users /></Suspense>} />
+              <Route path="/settings" element={<Suspense fallback={PageFallback}><Settings /></Suspense>} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
+  );
+}
+
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem('settings_theme');
-    if (savedTheme === 'Dark Theme') return true;
-    if (savedTheme === 'Light Theme') return false;
-    const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode !== null) return savedDarkMode === 'true';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-  const [syncfusionBaseTheme] = useState('tailwind3');
   const [isAuthChecked, setIsAuthChecked] = useState(false);
-
-  useEffect(() => {
-    const handleThemeChange = () => {
-      const savedTheme = localStorage.getItem('settings_theme');
-      if (savedTheme === 'Dark Theme') setDarkMode(true);
-      else if (savedTheme === 'Light Theme') setDarkMode(false);
-      else setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
-    };
-
-    window.addEventListener('storage', handleThemeChange);
-    window.addEventListener('theme-changed', handleThemeChange);
-    return () => {
-      window.removeEventListener('storage', handleThemeChange);
-      window.removeEventListener('theme-changed', handleThemeChange);
-    };
-  }, []);
-
-  const handleToggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const next = !prev;
-      localStorage.setItem('settings_theme', next ? 'Dark Theme' : 'Light Theme');
-      localStorage.setItem('darkMode', String(next));
-      window.dispatchEvent(new Event('theme-changed'));
-      return next;
-    });
-  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -81,62 +107,11 @@ export default function App() {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    applyTheme(`${syncfusionBaseTheme}-${darkMode ? 'dark' : 'light'}`);
-  }, [syncfusionBaseTheme, darkMode]);
-
-  if (!isAuthChecked) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-canvas">
-        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center font-bold text-2xl text-white shadow-xl mx-auto mb-6">
-          A
-        </div>
-        <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" />
-        <p className="mt-4 text-sm font-medium text-on-surface-variant">Loading CRM Suite...</p>
-      </div>
-    );
-  }
-
   return (
-    <DataProvider>
-      <div className={darkMode ? 'dark' : ''}>
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/sso-callback" element={<SSOCallback />} />
-
-            {/* Protected. We collapse all the previous 11 duplicated
-                <ProtectedRoute><Layout>{Page}</Layout></ProtectedRoute>
-                blocks into a single route + a single Layout. */}
-            <Route element={<ProtectedRoute />}>
-              <Route
-                element={
-                  <Layout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode}>
-                    <Suspense fallback={PageFallback} />
-                  </Layout>
-                }
-              >
-                <Route path="/" element={<Suspense fallback={PageFallback}><Home /></Suspense>} />
-                <Route path="/dashboards" element={<Suspense fallback={PageFallback}><Dashboards /></Suspense>} />
-                <Route path="/dashboards/designer" element={<Suspense fallback={PageFallback}><DashboardDesigner /></Suspense>} />
-                <Route path="/reports" element={<Suspense fallback={PageFallback}><Reports /></Suspense>} />
-                <Route path="/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
-                <Route path="/reports/designer" element={<Suspense fallback={PageFallback}><Designer /></Suspense>} />
-                <Route path="/schedules" element={<Suspense fallback={PageFallback}><Schedules /></Suspense>} />
-                <Route path="/deals" element={<Suspense fallback={PageFallback}><Deals /></Suspense>} />
-                <Route path="/contacts" element={<Suspense fallback={PageFallback}><Contacts /></Suspense>} />
-                <Route path="/tickets" element={<Suspense fallback={PageFallback}><Tickets /></Suspense>} />
-                <Route path="/operations" element={<Suspense fallback={PageFallback}><Operations /></Suspense>} />
-                <Route path="/users" element={<Suspense fallback={PageFallback}><Users /></Suspense>} />
-                <Route path="/settings" element={<Suspense fallback={PageFallback}><Settings /></Suspense>} />
-              </Route>
-            </Route>
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </div>
-    </DataProvider>
+    <ThemeProvider>
+      <DataProvider>
+        <AppRoutes isAuthChecked={isAuthChecked} />
+      </DataProvider>
+    </ThemeProvider>
   );
 }

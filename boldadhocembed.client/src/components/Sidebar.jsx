@@ -67,17 +67,18 @@ export default function Sidebar({ onWidthChange }) {
     <aside
       className={`fixed left-0 top-0 h-screen flex flex-col font-body-md transition-all duration-200 ease-in-out z-50 ${
         collapsed ? 'w-[56px]' : 'w-[180px]'
-      } glass-sidebar shadow-sm bg-[#f8f9ff]/90 dark:bg-[#0f172a]/95`}
+      } glass-sidebar shadow-sm`}
+      style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
     >
       {/* Brand Header */}
-      <div className="p-3 border-b border-glass-border flex items-center justify-between flex-shrink-0">
+      <div className="p-3 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
         <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-hover text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm">
             {tenantName ? tenantName.charAt(0) : 'B'}
           </div>
           {!collapsed && (
             <div className="overflow-hidden min-w-0">
-              <h1 className="font-headline-md text-xs font-bold text-primary dark:text-purple-400 leading-tight truncate">
+              <h1 className="font-headline-md text-xs font-bold text-primary leading-tight truncate">
                 {tenantName}
               </h1>
               <p className="text-[9px] text-on-surface-variant font-medium tracking-wider uppercase truncate">
@@ -101,8 +102,8 @@ export default function Sidebar({ onWidthChange }) {
                   title={item.label}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-150 relative ${
                     isActive
-                      ? 'bg-primary-container/15 text-primary font-semibold border-l-4 border-primary shadow-xs'
-                      : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                      ? 'bg-primary/15 text-primary font-semibold border-l-4 border-primary shadow-xs'
+                      : 'text-on-surface-variant hover:bg-neutral-100 hover:text-on-surface'
                   } ${collapsed ? 'justify-center px-0' : ''}`}
                 >
                   <span

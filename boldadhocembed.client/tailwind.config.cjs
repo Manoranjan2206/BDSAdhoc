@@ -8,58 +8,58 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // === Unified Design System: Purple Primary, Semantic Roles ===
+        // === Unified Design System: Dynamically Theme-Aware ===
         primary: {
-          DEFAULT: '#5b4ce6',
-          50: '#f4f2ff',
-          100: '#eae6ff',
-          200: '#d5ceff',
-          300: '#b8abff',
-          400: '#9a84ff',
-          500: '#7c5eff',
-          600: '#5b4ce6',
-          700: '#4a3bc4',
-          800: '#3b2fa0',
-          900: '#2d237d',
-          container: '#eae6ff',
+          DEFAULT: 'var(--primary, #5b4ce6)',
+          50: 'var(--brand-100, #f4f2ff)',
+          100: 'var(--brand-100, #eae6ff)',
+          200: 'var(--brand-200, #d5ceff)',
+          300: 'var(--primary-light, #b8abff)',
+          400: 'var(--primary-light, #9a84ff)',
+          500: 'var(--brand-500, #7c5eff)',
+          600: 'var(--brand-600, #5b4ce6)',
+          700: 'var(--brand-700, #4a3bc4)',
+          800: 'var(--brand-700, #3b2fa0)',
+          900: 'var(--brand-700, #2d237d)',
+          container: 'var(--primary-soft, #eae6ff)',
           'on-primary': '#ffffff',
-          'on-container': '#2d237d',
+          'on-container': 'var(--primary-dark, #2d237d)',
         },
 
         // Role Color Identifiers
-        'role-admin': '#5b4ce6',
-        'role-sales': '#3b82f6',
-        'role-finance': '#10b981',
-        'role-support': '#f97316',
-        'role-ops': '#14b8a6',
+        'role-admin': 'var(--role-admin, #5b4ce6)',
+        'role-sales': 'var(--role-sales, #3b82f6)',
+        'role-finance': 'var(--role-finance, #10b981)',
+        'role-support': 'var(--role-support, #f97316)',
+        'role-ops': 'var(--role-ops, #14b8a6)',
 
         // Glassmorphic tokens
-        'glass-bg': 'rgba(255, 255, 255, 0.7)',
-        'glass-border': 'rgba(255, 255, 255, 0.3)',
-        'glass-dark-bg': 'rgba(15, 23, 42, 0.75)',
-        'glass-dark-border': 'rgba(255, 255, 255, 0.1)',
+        'glass-bg': 'var(--glass-bg, rgba(255, 255, 255, 0.7))',
+        'glass-border': 'var(--glass-border, rgba(255, 255, 255, 0.3))',
+        'glass-dark-bg': 'var(--glass-bg, rgba(15, 23, 42, 0.75))',
+        'glass-dark-border': 'var(--glass-border, rgba(255, 255, 255, 0.1))',
 
         // Surface palette
-        surface: '#f6f8fb',
-        'surface-bright': '#f6f8fb',
-        'surface-dim': '#e2e7f0',
-        'surface-container': '#ffffff',
-        'surface-container-low': '#f9fafc',
-        'surface-container-high': '#eff2f7',
-        'surface-container-highest': '#e8ecf3',
-        'surface-variant': '#e2e7f0',
+        surface: 'var(--surface, #ffffff)',
+        'surface-bright': 'var(--surface, #ffffff)',
+        'surface-dim': 'var(--neutral-100, #e2e7f0)',
+        'surface-container': 'var(--surface, #ffffff)',
+        'surface-container-low': 'var(--neutral-50, #f9fafc)',
+        'surface-container-high': 'var(--neutral-100, #eff2f7)',
+        'surface-container-highest': 'var(--neutral-200, #e8ecf3)',
+        'surface-variant': 'var(--neutral-100, #e2e7f0)',
 
-        'on-surface': '#111827',
-        'on-surface-variant': '#526078',
-        'inverse-surface': '#1e293b',
-        'inverse-on-surface': '#f1f5f9',
+        'on-surface': 'var(--text-strong, #111827)',
+        'on-surface-variant': 'var(--text-secondary, #526078)',
+        'inverse-surface': 'var(--neutral-700, #1e293b)',
+        'inverse-on-surface': 'var(--neutral-50, #f1f5f9)',
 
-        background: '#f6f8fb',
-        'on-background': '#111827',
+        background: 'var(--background, #f6f8fb)',
+        'on-background': 'var(--text-primary, #111827)',
 
         // Outline
-        outline: '#94a3b8',
-        'outline-variant': '#dfe5ee',
+        outline: 'var(--border, #94a3b8)',
+        'outline-variant': 'var(--border, #dfe5ee)',
 
         // === Semantic Status Colors ===
         info: {

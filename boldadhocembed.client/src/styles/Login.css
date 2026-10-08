@@ -1,20 +1,5 @@
 /* Login Page Styles */
 
-:root {
-  --primary-color: #FF4800; /* var(--brand-500) */
-  --primary-dark: #cc3900;
-  --primary-light: #ff6d33;
-  --secondary-color: #f3f4f6;
-  --text-primary: #131F3B; /* var(--text-strong) */
-  --text-secondary: #7C84A1; /* var(--text-muted) */
-  --border-color: #DDE0EB; /* var(--brand-200) */
-  --error-color: #D22222;
-  --error-light: #fee2e2;
-  --success-color: #108910;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
 
 .login-container {
   min-height: 100vh;
@@ -30,9 +15,9 @@
   display: flex;
   align-items: center;
   color: white;
-  background: linear-gradient(135deg, #131F3B 0%, #283A5E 100%);
+  background: linear-gradient(135deg, var(--neutral-700, #131F3B) 0%, var(--neutral-600, #283A5E) 100%);
   border-radius: 12px 0 0 12px;
-  border: 1px solid #131F3B;
+  border: 1px solid var(--neutral-700, #131F3B);
   border-right: none;
 }
 
@@ -410,7 +395,7 @@
 
 /* right card should be a white panel with rounded right corners */
 .login-card {
-  background: white;
+  background: var(--surface, white);
   border-radius: 0 12px 12px 0;
   box-shadow: 0 10px 30px rgba(2,6,23,0.08);
   display: flex;
@@ -654,15 +639,8 @@
 }
 
 /* Dark Mode Support via active class */
-.dark {
-  --text-primary: #F3F3F7;
-  --text-secondary: #B5BACA;
-  --border-color: #424A64;
-  --secondary-color: #1F2538;
-}
-
 .dark .login-card {
-  background: #181C2C;
+  background: var(--surface, #181C2C);
   border-color: var(--border-color);
 }
 

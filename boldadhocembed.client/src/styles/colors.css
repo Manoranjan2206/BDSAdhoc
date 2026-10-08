@@ -1,65 +1,358 @@
-/* colors.css - Updated palette variables */
+/* colors.css - Master 6-Theme Design Token System */
 
+/* 1. Ocean Blue (Default Light) */
+:root,
+html[data-theme="ocean-blue"],
+[data-theme="ocean-blue"] {
+  /* Brand / Primary */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #dbeafe;
+  --primary-light: #60a5fa;
+  --primary-container: #2563eb;
+  --brand-500: #2563eb;
+  --brand-600: #1d4ed8;
+  --brand-700: #1e40af;
+  --brand-100: #eff6ff;
+  --brand-200: #bfdbfe;
+  --brand-500-rgb: 37, 99, 235;
+
+  --primary-color: #2563eb;
+  --primary-dark: #1d4ed8;
+
+  /* Surfaces & Background */
+  --surface: #ffffff;
+  --background: #f0f4f9;
+  --bg-grad-a: #e0edfd;
+  --bg-grad-b: #f0f4f9;
+
+  /* Typography */
+  --text-primary: #111827;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-strong: #0f172a;
+  --text-light: #94a3b8;
+
+  /* Borders & Neutrals */
+  --border: #dbeafe;
+  --border-color: #dbeafe;
+  --secondary-color: #f1f5f9;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(37, 99, 235, 0.15);
+  --glass-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+  --card-accent: linear-gradient(90deg, #2563eb, #3b82f6);
+}
+
+/* 2. Midnight Dark (Default Dark) */
+html[data-theme="midnight-dark"],
+[data-theme="midnight-dark"],
+.dark:not([data-theme="ocean-blue"]):not([data-theme="ember-orange"]):not([data-theme="forest-green"]):not([data-theme="royal-purple"]):not([data-theme="slate-graphite"]) {
+  /* Brand / Primary */
+  --primary: #a78bfa;
+  --primary-hover: #8b5cf6;
+  --primary-soft: #271b48;
+  --primary-light: #c4b5fd;
+  --primary-container: #8b5cf6;
+  --brand-500: #a78bfa;
+  --brand-600: #8b5cf6;
+  --brand-700: #6d28d9;
+  --brand-100: #271b48;
+  --brand-200: #4c1d95;
+  --brand-500-rgb: 167, 139, 250;
+
+  --primary-color: #a78bfa;
+  --primary-dark: #8b5cf6;
+
+  /* Surfaces & Background */
+  --surface: #11192e;
+  --background: #080d19;
+  --bg-grad-a: #101930;
+  --bg-grad-b: #080d19;
+
+  /* Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-strong: #ffffff;
+  --text-light: #cbd5e1;
+
+  /* Borders & Neutrals */
+  --border: #22304f;
+  --border-color: #22304f;
+  --secondary-color: #16203a;
+  --neutral-50: #16203a;
+  --neutral-100: #1d2b4d;
+  --neutral-200: #293c66;
+  --neutral-300: #42588b;
+  --neutral-400: #627cae;
+  --neutral-500: #8ba5d8;
+  --neutral-600: #b0c4ee;
+  --neutral-700: #dce7fb;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(17, 25, 46, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --card-accent: linear-gradient(90deg, #a78bfa, #8b5cf6);
+}
+
+/* 3. Ember Orange */
+html[data-theme="ember-orange"],
+[data-theme="ember-orange"] {
+  /* Brand / Primary */
+  --primary: #ff4800;
+  --primary-hover: #e03e00;
+  --primary-soft: #ffedd5;
+  --primary-light: #ff7b3d;
+  --primary-container: #ff4800;
+  --brand-500: #ff4800;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-100: #fff7ed;
+  --brand-200: #ffedd5;
+  --brand-500-rgb: 255, 72, 0;
+
+  --primary-color: #ff4800;
+  --primary-dark: #cc3900;
+
+  /* Surfaces & Background (Warm peach/apricot tint) */
+  --surface: #ffffff;
+  --background: #fff7ed;
+  --bg-grad-a: #ffedd5;
+  --bg-grad-b: #fff7ed;
+
+  /* Typography */
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
+  --text-strong: #0c0a09;
+  --text-light: #a8a29e;
+
+  /* Borders & Neutrals */
+  --border: #fed7aa;
+  --border-color: #fed7aa;
+  --secondary-color: #ffedd5;
+  --neutral-50: #fffaf7;
+  --neutral-100: #ffedd5;
+  --neutral-200: #fed7aa;
+  --neutral-300: #fdba74;
+  --neutral-400: #a89187;
+  --neutral-500: #78655d;
+  --neutral-600: #574841;
+  --neutral-700: #382d27;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(255, 72, 0, 0.18);
+  --glass-shadow: 0 4px 16px rgba(255, 72, 0, 0.1);
+  --card-accent: linear-gradient(90deg, #ff4800, #ff7b3d);
+}
+
+/* 4. Forest Green */
+html[data-theme="forest-green"],
+[data-theme="forest-green"] {
+  /* Brand / Primary */
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-soft: #dcfce7;
+  --primary-light: #34d399;
+  --primary-container: #059669;
+  --brand-500: #059669;
+  --brand-600: #047857;
+  --brand-700: #065f46;
+  --brand-100: #f0fdf4;
+  --brand-200: #bbf7d0;
+  --brand-500-rgb: 5, 150, 105;
+
+  --primary-color: #059669;
+  --primary-dark: #047857;
+
+  /* Surfaces & Background (Fresh crisp mint/green tint) */
+  --surface: #ffffff;
+  --background: #f0fdf4;
+  --bg-grad-a: #dcfce7;
+  --bg-grad-b: #f0fdf4;
+
+  /* Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-strong: #064e3b;
+  --text-light: #94a3b8;
+
+  /* Borders & Neutrals */
+  --border: #bbf7d0;
+  --border-color: #bbf7d0;
+  --secondary-color: #dcfce7;
+  --neutral-50: #f7fcf9;
+  --neutral-100: #dcfce7;
+  --neutral-200: #bbf7d0;
+  --neutral-300: #86efac;
+  --neutral-400: #6ee7b7;
+  --neutral-500: #10b981;
+  --neutral-600: #059669;
+  --neutral-700: #047857;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(5, 150, 105, 0.18);
+  --glass-shadow: 0 4px 16px rgba(5, 150, 105, 0.1);
+  --card-accent: linear-gradient(90deg, #059669, #10b981);
+}
+
+/* 5. Royal Purple */
+html[data-theme="royal-purple"],
+[data-theme="royal-purple"] {
+  /* Brand / Primary */
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-soft: #f3e8ff;
+  --primary-light: #a78bfa;
+  --primary-container: #7c3aed;
+  --brand-500: #7c3aed;
+  --brand-600: #6d28d9;
+  --brand-700: #5b21b6;
+  --brand-100: #faf5ff;
+  --brand-200: #e9d5ff;
+  --brand-500-rgb: 124, 58, 237;
+
+  --primary-color: #7c3aed;
+  --primary-dark: #6d28d9;
+
+  /* Surfaces & Background (Distinct lavender purple tint) */
+  --surface: #ffffff;
+  --background: #faf5ff;
+  --bg-grad-a: #f3e8ff;
+  --bg-grad-b: #faf5ff;
+
+  /* Typography */
+  --text-primary: #1e1b4b;
+  --text-secondary: #4c4682;
+  --text-muted: #7971aa;
+  --text-strong: #3b0764;
+  --text-light: #a59fc8;
+
+  /* Borders & Neutrals */
+  --border: #e9d5ff;
+  --border-color: #e9d5ff;
+  --secondary-color: #f3e8ff;
+  --neutral-50: #fbf9ff;
+  --neutral-100: #f3e8ff;
+  --neutral-200: #e9d5ff;
+  --neutral-300: #d8b4fe;
+  --neutral-400: #c084fc;
+  --neutral-500: #a855f7;
+  --neutral-600: #9333ea;
+  --neutral-700: #7e22ce;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(124, 58, 237, 0.18);
+  --glass-shadow: 0 4px 16px rgba(124, 58, 237, 0.1);
+  --card-accent: linear-gradient(90deg, #7c3aed, #a855f7);
+}
+
+/* 6. Slate Graphite */
+html[data-theme="slate-graphite"],
+[data-theme="slate-graphite"] {
+  /* Brand / Primary */
+  --primary: #475569;
+  --primary-hover: #334155;
+  --primary-soft: #e2e8f0;
+  --primary-light: #64748b;
+  --primary-container: #475569;
+  --brand-500: #475569;
+  --brand-600: #334155;
+  --brand-700: #1e293b;
+  --brand-100: #f8fafc;
+  --brand-200: #e2e8f0;
+  --brand-500-rgb: 71, 85, 105;
+
+  --primary-color: #475569;
+  --primary-dark: #334155;
+
+  /* Surfaces & Background (Cool industrial steel slate) */
+  --surface: #ffffff;
+  --background: #f1f5f9;
+  --bg-grad-a: #e2e8f0;
+  --bg-grad-b: #f1f5f9;
+
+  /* Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-strong: #0f172a;
+  --text-light: #94a3b8;
+
+  /* Borders & Neutrals */
+  --border: #cbd5e1;
+  --border-color: #cbd5e1;
+  --secondary-color: #e2e8f0;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(71, 85, 105, 0.15);
+  --glass-shadow: 0 4px 16px rgba(71, 85, 105, 0.08);
+  --card-accent: linear-gradient(90deg, #475569, #64748b);
+}
+
+/* Universal Shared Tokens */
 :root {
-  /* Brand Colors */
-  --color-brand-orange: #FF4800;
+  --primary-25: #ffffff;
+  --secondary-red: #D22222;
+  --secondary-green: #108910;
+  --secondary-blue: #006CDD;
+  --secondary-yellow: #FFAA00;
+  --secondary-cyan: #00D5FF;
+  --secondary-purple: #6C32E8;
+  --secondary-violet: #9825AE;
+  --secondary-magenta: #BE2452;
 
-  /* Primary Colors */
-  --color-primary-25: #FFFFFF;
-  --color-primary-400: #283A5E;
-  --color-primary-600: #131F3B;
+  --info: #2563eb;
+  --info-soft: #eaf2ff;
+  --success: #059669;
+  --success-soft: #e8f8f2;
+  --warning: #d97706;
+  --warning-soft: #fff5df;
+  --danger: #dc2626;
+  --danger-soft: #feeeee;
+  --error-color: #dc2626;
+  --error-light: #fee2e2;
+  --success-color: #059669;
 
-  /* Secondary Colors */
-  --color-secondary-red: #D22222;
-  --color-secondary-green: #108910;
-  --color-secondary-blue: #006CDD;
-  --color-secondary-yellow: #FFAA00;
-  --color-secondary-cyan: #00D5FF;
-  --color-secondary-purple: #6C32E8;
-  --color-secondary-violet: #9825AE;
-  --color-secondary-magenta: #BE2452;
+  --role-admin: #5b4ce6;
+  --role-sales: #3b82f6;
+  --role-finance: #10b981;
+  --role-support: #f97316;
+  --role-ops: #14b8a6;
 
-  /* Neutral Colors */
-  --color-neutral-white: #FFFFFF;
-  --color-neutral-50: #F3F3F7;
-  --color-neutral-100: #DDE0EB;
-  --color-neutral-200: #B5BACA;
-  --color-neutral-300: #7C84A1;
-  --color-neutral-400: #505875;
-  --color-neutral-500: #424A64;
-  --color-neutral-600: #30364D;
-  --color-neutral-700: #181C2C;
-  --color-neutral-black: #000000;
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --radius-panel: 20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.06);
+
+  --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-/* Usage examples remain the same, but update colors in Tailwind config if needed */
-
-/* Color Swatches for Reference */
-.color-swatch {
-  display: inline-block;
-  width: 100px;
-  height: 100px;
-  border-radius: 8px;
-  margin: 10px;
-  border: 1px solid #ddd;
-}
-
-.swatch-brand-orange { background-color: #FF4800; }
-.swatch-primary-400 { background-color: #283A5E; }
-.swatch-primary-600 { background-color: #131F3B; }
-.swatch-secondary-red { background-color: #D22222; }
-.swatch-secondary-green { background-color: #108910; }
-.swatch-secondary-blue { background-color: #006CDD; }
-.swatch-secondary-yellow { background-color: #FFAA00; }
-.swatch-secondary-cyan { background-color: #00D5FF; }
-.swatch-secondary-purple { background-color: #6C32E8; }
-.swatch-secondary-violet { background-color: #9825AE; }
-.swatch-secondary-magenta { background-color: #BE2452; }
-.swatch-neutral-50 { background-color: #F3F3F7; }
-.swatch-neutral-100 { background-color: #DDE0EB; }
-.swatch-neutral-200 { background-color: #B5BACA; }
-.swatch-neutral-300 { background-color: #7C84A1; }
-.swatch-neutral-400 { background-color: #505875; }
-.swatch-neutral-500 { background-color: #424A64; }
-.swatch-neutral-600 { background-color: #30364D; }
-.swatch-neutral-700 { background-color: #181C2C; }

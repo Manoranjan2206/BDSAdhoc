@@ -584,15 +584,22 @@ export default function Reports() {
   }, [viewerKey, reportPath, reportServiceUrl, reportServerUrl, embedToken, toolbarSettings]);
 
   return (
-    <div className="reports-page font-inter bg-slate-50 dark:bg-[#111422] h-full flex flex-col overflow-hidden">
+    <div
+      className="reports-page font-inter h-full flex flex-col overflow-hidden"
+      style={{ backgroundColor: 'var(--background)' }}
+    >
       {/* Work Area (Sidebar + Content Workspace) */}
       <div className="reports-main flex-1 flex min-h-0 relative" ref={mainRef}>
         {/* Category Sidebar */}
         <div
-          className={`bg-white dark:bg-[#181c2c] border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 z-10 ${
+          className={`border-r flex flex-col transition-all duration-200 z-10 ${
             reportsSidebarCollapsed ? 'w-0 overflow-hidden border-none' : ''
           }`}
-          style={{ width: reportsSidebarCollapsed ? 0 : sidebarWidth }}
+          style={{
+            width: reportsSidebarCollapsed ? 0 : sidebarWidth,
+            backgroundColor: 'var(--surface)',
+            borderColor: 'var(--border)',
+          }}
         >
           {!reportsSidebarCollapsed && (
             <div className="p-4 space-y-3 flex-1 overflow-y-auto">

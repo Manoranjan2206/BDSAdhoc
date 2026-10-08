@@ -1,68 +1,5 @@
 /* App.css - CRM Suite Enterprise Design System v2 */
 
-:root {
-  /* === Primary Brand === */
-  --primary: #5b4ce6;
-  --primary-soft: #eae6ff;
-  --primary-container: #5b4ce6;
-
-  /* === Semantic Colors === */
-  --info: #2563eb;
-  --info-soft: #eaf2ff;
-  --success: #059669;
-  --success-soft: #e8f8f2;
-  --warning: #d97706;
-  --warning-soft: #fff5df;
-  --danger: #dc2626;
-  --danger-soft: #feeeee;
-
-  /* === Role Colors === */
-  --role-admin: #5b4ce6;
-  --role-sales: #3b82f6;
-  --role-finance: #10b981;
-  --role-support: #f97316;
-  --role-ops: #14b8a6;
-
-  /* === Text & Surface === */
-  --text-primary: #111827;
-  --text-secondary: #526078;
-  --text-muted: #8491a7;
-  --border: #dfe5ee;
-  --surface: #ffffff;
-  --background: #f6f8fb;
-
-  /* === Glass === */
-  --glass-bg: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-
-  /* === Radii === */
-  --radius-control: 8px;
-  --radius-card: 14px;
-  --radius-panel: 20px;
-  --radius-pill: 999px;
-
-  /* === Shadows === */
-  --shadow-card: 0 4px 14px rgba(15, 23, 42, 0.06);
-}
-
-.dark {
-  --primary: #a78bfa;
-  --primary-soft: #2e1d5e;
-  --info-soft: #1e3a5f;
-  --success-soft: #0f3d2e;
-  --warning-soft: #3d2e0f;
-  --danger-soft: #3d0f0f;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border: #334155;
-  --surface: #0f172a;
-  --background: #0b1329;
-  --glass-bg: rgba(15, 23, 42, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -139,9 +76,6 @@ body {
 }
 
 .bg-canvas {
-  background-image: radial-gradient(circle at 100% 100%, #eef2ff 0%, #f6f8fb 100%);
-}
-
-.dark .bg-canvas {
-  background-image: radial-gradient(circle at 100% 100%, #0f172a 0%, #0b1329 100%);
-}
+  background-color: var(--background);
+  background-image: radial-gradient(circle at 100% 100%, var(--bg-grad-a) 0%, var(--background) 100%);
+}

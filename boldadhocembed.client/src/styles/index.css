@@ -1,3 +1,5 @@
+@import './colors.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -159,19 +161,20 @@ body.e-dialog-open {
 
 /* Dialog styling */
 .e-dialog .e-dlg-header {
-  background: #f8f9fa !important;
-  border-bottom: 1px solid #e5e7eb !important;
+  background: var(--neutral-50, #f8f9fa) !important;
+  border-bottom: 1px solid var(--border, #e5e7eb) !important;
+  color: var(--text-strong, #111827) !important;
 }
 
 .e-dialog .e-dlg-content {
   padding: 1.5rem !important;
-  background: #ffffff !important;
-  color: #111827 !important;
+  background: var(--surface, #ffffff) !important;
+  color: var(--text-primary, #111827) !important;
 }
 
 .e-dialog .e-dlg-footer {
-  border-top: 1px solid #e5e7eb !important;
-  background: #f8f9fa !important;
+  border-top: 1px solid var(--border, #e5e7eb) !important;
+  background: var(--neutral-50, #f8f9fa) !important;
 }
 
 /* Buttons in dialogs */
@@ -184,8 +187,8 @@ body.e-dialog-open {
 
 .e-dialog .e-btn.e-primary,
 .e-dialog button.e-primary {
-  background: #4f46e5 !important;
-  border-color: #4f46e5 !important;
+  background: var(--primary, #4f46e5) !important;
+  border-color: var(--primary, #4f46e5) !important;
   color: #ffffff !important;
 }
 
@@ -193,19 +196,21 @@ body.e-dialog-open {
 .e-dialog input,
 .e-dialog .e-input-group {
   border-radius: 6px !important;
-  border: 1px solid #e5e7eb !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  background: var(--surface, #ffffff) !important;
+  color: var(--text-primary, #111827) !important;
 }
 
 .e-dialog input:focus,
 .e-dialog .e-input-group:focus-within {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  border-color: var(--primary, #4f46e5) !important;
+  box-shadow: 0 0 0 3px rgba(var(--brand-500-rgb, 79, 70, 229), 0.15) !important;
 }
 
 /* Labels in dialogs */
 .e-dialog label,
 .e-dialog .e-label {
-  color: #111827 !important;
+  color: var(--text-strong, #111827) !important;
   font-size: 0.875rem !important;
 }
 

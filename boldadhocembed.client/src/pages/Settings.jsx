@@ -7,10 +7,12 @@ import {
   ClipboardDocumentCheckIcon,
   ClipboardDocumentIcon,
   CheckCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 import { reportsAPI } from '../services/apiService';
 import dashboardsAPI from '../services/dashboardService';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('general');
@@ -20,7 +22,7 @@ export default function Settings() {
   const [copiedField, setCopiedField] = useState(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // General Settings States
+  const { theme, setTheme, themes } = useTheme();
   const [notificationConfig, setNotificationConfig] = useState(() => {
     const saved = localStorage.getItem('settings_notifications');
     return saved ? JSON.parse(saved) : {
@@ -28,9 +30,6 @@ export default function Settings() {
       failures: true,
       accessChanges: false
     };
-  });
-  const [appTheme, setAppTheme] = useState(() => {
-    return localStorage.getItem('settings_theme') || 'System Default';
   });
   const [defaultFormat, setDefaultFormat] = useState(() => {
     return localStorage.getItem('settings_default_format') || 'PDF';
@@ -55,23 +54,10 @@ export default function Settings() {
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    const handleThemeChange = () => {
-      setAppTheme(localStorage.getItem('settings_theme') || 'System Default');
-    };
-    window.addEventListener('theme-changed', handleThemeChange);
-    return () => {
-      window.removeEventListener('theme-changed', handleThemeChange);
-    };
-  }, []);
-
   const handleSavePreferences = () => {
     localStorage.setItem('settings_notifications', JSON.stringify(notificationConfig));
-    localStorage.setItem('settings_theme', appTheme);
     localStorage.setItem('settings_default_format', defaultFormat);
-
-    // Dispatch custom event to notify other parts of the app (like App.jsx) of theme changes
-    window.dispatchEvent(new Event('theme-changed'));
+    setTheme(theme);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
@@ -89,34 +75,42 @@ export default function Settings() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-950 font-inter p-6">
+    <div
+      className="flex flex-col h-full font-inter p-6 transition-colors duration-200"
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
+    >
       {/* Page Header */}
       <div className="mb-6 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Manage your application preferences and integration server details.
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-strong)' }}>Settings</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          Manage your application preferences, UI themes, and integration server details.
         </p>
       </div>
 
       {loading ? (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600"></div>
-          <p className="mt-4 text-sm font-medium text-gray-500">Loading settings...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-primary"></div>
+          <p className="mt-4 text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Loading settings...</p>
         </div>
       ) : (
         <div className="flex-1 flex gap-6 min-h-0">
           {/* Settings Sidebar */}
-          <div className="w-64 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3 flex flex-col gap-1.5 h-fit flex-shrink-0 shadow-sm">
+          <div
+            className="w-64 rounded-xl border p-3 flex flex-col gap-1.5 h-fit flex-shrink-0 shadow-sm"
+            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.id
-                      ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white border border-transparent'
-                    }`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-primary/10 text-primary border border-primary/25 shadow-xs font-bold'
+                      : 'hover:bg-neutral-100 border border-transparent'
+                  }`}
+                  style={activeTab !== tab.id ? { color: 'var(--text-secondary)' } : {}}
                 >
                   <Icon className="w-5 h-5" />
                   {tab.name}
@@ -126,7 +120,10 @@ export default function Settings() {
           </div>
 
           {/* Settings Content Area */}
-          <div className="flex-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-800 shadow-sm flex flex-col min-h-0 overflow-y-auto">
+          <div
+            className="flex-1 rounded-xl border shadow-sm flex flex-col min-h-0 overflow-y-auto"
+            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+          >
             {activeTab === 'general' && (
               <div className="p-8 space-y-8">
                 {/* Application Customization */}
@@ -153,17 +150,99 @@ export default function Settings() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-                        Application Theme
+                        Active Theme
                       </label>
                       <select
-                        value={appTheme}
-                        onChange={(e) => setAppTheme(e.target.value)}
-                        className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-gray-200"
+                        value={theme}
+                        onChange={(e) => setTheme(e.target.value)}
+                        className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-gray-800 dark:text-gray-200"
                       >
-                        <option>System Default</option>
-                        <option>Light Theme</option>
-                        <option>Dark Theme</option>
+                        {themes.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.icon} {t.label} ({t.isDark ? 'Dark' : 'Light'})
+                          </option>
+                        ))}
                       </select>
+                    </div>
+                  </div>
+
+                  {/* 6-Theme Visual Palette Selector */}
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-text-strong">
+                        Theme Palette (Select one of 6 Curated Styles)
+                      </label>
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                        Active: {themes.find((t) => t.id === theme)?.label}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {themes.map((t) => {
+                        const isSelected = theme === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setTheme(t.id)}
+                            className={`flex flex-col gap-2.5 p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
+                              isSelected
+                                ? 'border-primary ring-2 ring-primary/30 shadow-md'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                            style={{
+                              backgroundColor: isSelected ? 'var(--primary-soft)' : 'var(--surface)',
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">{t.icon}</span>
+                                <span className="text-sm font-bold" style={{ color: 'var(--text-strong)' }}>
+                                  {t.label}
+                                </span>
+                              </div>
+                              <span
+                                className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                                style={{
+                                  backgroundColor: t.isDark ? '#1e293b' : '#f1f5f9',
+                                  color: t.isDark ? '#cbd5e1' : '#475569',
+                                }}
+                              >
+                                {t.isDark ? 'Dark Mode' : 'Light Mode'}
+                              </span>
+                            </div>
+
+                            {/* Live Color Bar Preview */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <div
+                                className="h-6 flex-1 rounded-md border border-black/10 flex items-center justify-center text-[10px] font-semibold text-white shadow-xs"
+                                style={{ backgroundColor: t.accent }}
+                              >
+                                Accent
+                              </div>
+                              <div
+                                className="h-6 w-20 rounded-md border border-black/10 flex items-center justify-center text-[10px] font-semibold shadow-xs"
+                                style={{
+                                  backgroundColor: t.bg,
+                                  color: t.isDark ? '#ffffff' : '#0f172a',
+                                }}
+                              >
+                                Background
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-0.5">
+                              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                {t.description}
+                              </p>
+                              {isSelected && (
+                                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                                  <CheckIcon className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -222,9 +301,10 @@ export default function Settings() {
                 )}
                 <button
                   onClick={handleSavePreferences}
-                  className="e-primary modern-btn"
+                  className="px-6 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-md hover:opacity-90 transition-all cursor-pointer flex items-center gap-2"
                 >
-                  {savedSuccess ? 'Saved!' : 'Save Preferences'}
+                  <CheckCircleIcon className="w-4 h-4" />
+                  {savedSuccess ? 'Preferences Saved!' : 'Save Preferences'}
                 </button>
               </div>
             )}

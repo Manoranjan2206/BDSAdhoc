@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -16,14 +16,20 @@ export default function Layout({ darkMode, onToggleDarkMode }) {
   };
 
   return (
-    <div className="h-screen flex bg-gray-50 dark:bg-gray-950 overflow-hidden">
+    <div
+      className="h-screen flex overflow-hidden transition-colors duration-200"
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
+    >
       <Sidebar onWidthChange={onWidthChange} />
       <div
-        className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 bg-inherit"
-        style={{ marginLeft: 'var(--sidebar-width, 56px)' }}
+        className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300"
+        style={{ marginLeft: 'var(--sidebar-width, 56px)', backgroundColor: 'var(--background)' }}
       >
         <Header darkMode={darkMode} onToggleDarkMode={onToggleDarkMode} />
-        <main className="flex-1 min-h-0 bg-inherit overflow-y-auto relative flex flex-col custom-scrollbar">
+        <main
+          className="flex-1 min-h-0 overflow-y-auto relative flex flex-col custom-scrollbar"
+          style={{ backgroundColor: 'var(--background)' }}
+        >
           <Outlet />
         </main>
       </div>

@@ -59,7 +59,7 @@
 .kpi-card-enhanced:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  border-color: rgba(91, 76, 230, 0.25);
+  border-color: rgba(var(--brand-500-rgb), 0.25);
 }
 
 .kpi-card-enhanced:hover::before {
@@ -112,13 +112,13 @@
 .quick-action-tile:hover {
   background: #ffffff;
   transform: translateY(-2px);
-  border-color: rgba(91, 76, 230, 0.25);
-  box-shadow: 0 6px 16px rgba(91, 76, 230, 0.08);
+  border-color: rgba(var(--brand-500-rgb), 0.25);
+  box-shadow: 0 6px 16px rgba(var(--brand-500-rgb), 0.08);
 }
 
 .dark .quick-action-tile:hover {
   background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(167, 139, 250, 0.3);
+  border-color: rgba(var(--brand-500-rgb), 0.3);
 }
 
 /* Priority Tags - Semantic */
@@ -165,13 +165,13 @@
 
 /* AI Ticker - Subtle Solid Surface */
 .ai-ticker-badge {
-  background: rgba(91, 76, 230, 0.06);
-  border: 1px solid rgba(91, 76, 230, 0.15);
+  background: rgba(var(--brand-500-rgb), 0.06);
+  border: 1px solid rgba(var(--brand-500-rgb), 0.15);
 }
 
 .dark .ai-ticker-badge {
-  background: rgba(167, 139, 250, 0.08);
-  border-color: rgba(167, 139, 250, 0.15);
+  background: rgba(var(--brand-500-rgb), 0.1);
+  border-color: rgba(var(--brand-500-rgb), 0.2);
 }
 
 .home-dashboard {

@@ -206,7 +206,10 @@ export default function Header({ darkMode, onToggleDarkMode }) {
   const userRole = user?.role || 'Admin';
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000] glass-header bg-[#f8f9ff]/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-b border-glass-border">
+    <header
+      className="h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-[2000] glass-header backdrop-blur-xl border-b"
+      style={{ backgroundColor: 'var(--glass-bg, var(--surface))', borderColor: 'var(--border)' }}
+    >
       {/* Left: Region & Role Badges */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2.5">

@@ -24,11 +24,11 @@
 }
 
 .modern-grid .e-hover > .e-rowcell {
-  background: rgba(255, 72, 0, 0.05); /* Orange tint */
+  background: rgba(var(--brand-500-rgb), 0.06);
 }
 
 .modern-grid .e-active > .e-rowcell {
-  background: rgba(255, 72, 0, 0.12);
+  background: rgba(var(--brand-500-rgb), 0.12);
 }
 
 .modern-grid .e-gridtoolbar {
@@ -51,6 +51,6 @@
 }
 
 .e-commandcolumn .e-flat:hover {
-  background: rgba(255, 72, 0, 0.1) !important;
+  background: rgba(var(--brand-500-rgb), 0.1) !important;
   color: var(--brand-500);
 }
