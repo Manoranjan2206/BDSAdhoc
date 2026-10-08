@@ -615,6 +615,28 @@ namespace BoldAdhocEmbed.Server.Controllers
                         };
                     }
                 }
+                else if (string.Equals(scheduleType, "Yearly", StringComparison.OrdinalIgnoreCase))
+                {
+                    dict["ScheduleType"] = "Yearly";
+                    dict.Remove("HourlySchedule");
+                    dict.Remove("DailySchedule");
+                    dict.Remove("WeeklySchedule");
+                    dict.Remove("MonthlySchedule");
+                    // Pass through YearlySchedule from payload; supply a default if missing
+                    if (!dict.ContainsKey("YearlySchedule") || dict["YearlySchedule"] == null)
+                    {
+                        dict["YearlySchedule"] = new Dictionary<string, object>
+                        {
+                            ["YearInterval"] = 1,
+                            ["RecurrenceType"] = "MonthRecurrence",
+                            ["MonthRecurrence"] = new Dictionary<string, object>
+                            {
+                                ["MonthOfYear"] = "January",
+                                ["DayOfMonth"] = 1
+                            }
+                        };
+                    }
+                }
                 else if (string.Equals(scheduleType, "Daily (weekdays)", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scheduleType, "DailyWeekdays", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scheduleType, "Weekday", StringComparison.OrdinalIgnoreCase))
@@ -876,6 +898,27 @@ namespace BoldAdhocEmbed.Server.Controllers
                             {
                                 ["DayInterval"] = 1,
                                 ["MonthInterval"] = 1
+                            }
+                        };
+                    }
+                }
+                else if (string.Equals(scheduleType, "Yearly", StringComparison.OrdinalIgnoreCase))
+                {
+                    dict["ScheduleType"] = "Yearly";
+                    dict.Remove("HourlySchedule");
+                    dict.Remove("DailySchedule");
+                    dict.Remove("WeeklySchedule");
+                    dict.Remove("MonthlySchedule");
+                    if (!dict.ContainsKey("YearlySchedule") || dict["YearlySchedule"] == null)
+                    {
+                        dict["YearlySchedule"] = new Dictionary<string, object>
+                        {
+                            ["YearInterval"] = 1,
+                            ["RecurrenceType"] = "MonthRecurrence",
+                            ["MonthRecurrence"] = new Dictionary<string, object>
+                            {
+                                ["MonthOfYear"] = "January",
+                                ["DayOfMonth"] = 1
                             }
                         };
                     }
