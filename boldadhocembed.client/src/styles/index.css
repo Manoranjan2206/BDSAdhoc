@@ -111,6 +111,13 @@ select {
   z-index: 1 !important;
 }
 
+/* Hide sample datasource / explore sample data panel */
+.e-rptdesigner-sample-datasource-container,
+#reportdesigner-container_sample_datasource_container,
+[id$="_sample_datasource_container"] {
+  display: none !important;
+}
+
 /* Dialog overlay/backdrop – ABOVE designer, BELOW dialog */
 .e-dlg-overlay,
 .e-popup-overlay,

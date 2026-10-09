@@ -652,7 +652,7 @@ export default function ReportScheduleDrawer({
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
             <div className="min-w-0 pr-3">
               <h2 className="text-base font-bold text-slate-900 dark:text-white truncate">
-                {isExportMode ? `Export ${reportName}` : reportName}
+                {reportName}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -696,10 +696,7 @@ export default function ReportScheduleDrawer({
                   <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">Choose export format to download.</p>
                 </div>
 
-                <div className="space-y-1">
-                  <NLabel>Export Format</NLabel>
-                  <ExportFormatRow />
-                </div>
+                <ExportFormatRow />
 
                 {exportError && (
                   <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-600 dark:text-rose-300 flex items-center gap-2">
@@ -711,11 +708,6 @@ export default function ReportScheduleDrawer({
             ) : (
               /* ════ SCHEDULE MODE (Full Recurrence Configuration) ════ */
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Schedule Report</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Configure automated email deliveries</p>
-                </div>
-
                 <div className="space-y-3.5">
 
                   {/* Schedule Name */}

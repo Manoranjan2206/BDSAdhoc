@@ -481,7 +481,7 @@ export default function Reports() {
         type: 'Default',
         cssClass: 'e-icon e-clock e-reportviewer-icon CustomSchedule',
         id: 'Schedule',
-        tooltip: { header: 'Schedule', content: 'Schedule Report' },
+        tooltip: { header: 'Schedule', content: 'Create a time based Schedule Report' },
       },
     ];
 
@@ -875,7 +875,7 @@ export default function Reports() {
                                 type="button"
                                 onClick={(e) => handleOpenDrawer(report, report.categoryName, 'schedule', e)}
                                 className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
-                                title="Schedule Report"
+                                title="Create a time based Schedule Report"
                               >
                                 <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
                               </button>
@@ -1003,7 +1003,7 @@ export default function Reports() {
                                   <button
                                     onClick={(e) => handleOpenDrawer(report, report.categoryName, 'schedule', e)}
                                     className="p-1 rounded-lg text-slate-400 hover:text-[#FF4800] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Schedule Report"
+                                    title="Create a time based Schedule Report"
                                   >
                                     <ClockIcon className="w-3.5 h-3.5" />
                                   </button>
