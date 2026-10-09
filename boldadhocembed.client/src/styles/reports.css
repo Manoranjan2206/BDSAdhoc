@@ -27,8 +27,7 @@
 }
 
 /* Bold Report Viewer Custom Toolbar Buttons */
-.e-toolbar-item.CustomSchedule,
-.e-toolbar-item.CustomCopy {
+.e-toolbar-item.CustomSchedule {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -36,17 +35,14 @@
 }
 
 /* Suppress pseudo-element on the outer div container */
-.e-toolbar-item.CustomSchedule:before,
-.e-toolbar-item.CustomCopy:before {
+.e-toolbar-item.CustomSchedule:before {
   content: none !important;
   display: none !important;
 }
 
 /* Style the button inside the toolbar item */
 .e-toolbar-item.CustomSchedule button,
-.e-toolbar-item.CustomCopy button,
-.CustomSchedule:not(.e-toolbar-item),
-.CustomCopy:not(.e-toolbar-item) {
+.CustomSchedule:not(.e-toolbar-item) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -62,9 +58,7 @@
 }
 
 .e-toolbar-item.CustomSchedule button:before,
-.e-toolbar-item.CustomCopy button:before,
-.CustomSchedule:not(.e-toolbar-item):before,
-.CustomCopy:not(.e-toolbar-item):before {
+.CustomSchedule:not(.e-toolbar-item):before {
   content: "" !important;
   display: inline-block !important;
   width: 16px !important;
@@ -81,9 +75,7 @@
 }
 
 .dark .e-toolbar-item.CustomSchedule button:before,
-.dark .e-toolbar-item.CustomCopy button:before,
-.dark .CustomSchedule:not(.e-toolbar-item):before,
-.dark .CustomCopy:not(.e-toolbar-item):before {
+.dark .CustomSchedule:not(.e-toolbar-item):before {
   background-color: #CBD5E1 !important;
 }
 
@@ -94,22 +86,10 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E") !important;
 }
 
-/* Copy Report Icon */
-.e-toolbar-item.CustomCopy button:before,
-.CustomCopy:not(.e-toolbar-item):before {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='13' height='13' x='9' y='9' rx='2' ry='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") !important;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='13' height='13' x='9' y='9' rx='2' ry='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") !important;
-}
-
 /* Hover highlights */
 .e-toolbar-item.CustomSchedule:hover button:before,
 .e-toolbar-item.CustomSchedule button:hover:before {
   background-color: var(--brand-500) !important;
-}
-
-.e-toolbar-item.CustomCopy:hover button:before,
-.e-toolbar-item.CustomCopy button:hover:before {
-  background-color: var(--primary) !important;
 }
 
 

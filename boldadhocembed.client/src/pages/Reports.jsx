@@ -485,40 +485,18 @@ export default function Reports() {
       },
     ];
 
-    if (canCopyReports) {
-      customItems.push({
-        groupIndex: 4,
-        index: 2,
-        type: 'Default',
-        cssClass: 'e-icon e-copy e-reportviewer-icon CustomCopy',
-        id: 'CopyReport',
-        tooltip: { header: 'Copy', content: 'Copy Report' },
-      });
-    }
-
     return {
       showToolbar: true,
       items: window.ej?.ReportViewer?.ToolbarItems?.All & ~window.ej?.ReportViewer?.ToolbarItems?.Print,
       customItems,
     };
-  }, [canCopyReports]);
+  }, []);
 
   const onToolBarItemClick = (args) => {
     const value = args?.value || args?.id || args?.target?.id || args?.name;
     if (value === 'Schedule' || value === 'CustomSchedule' || (typeof value === 'string' && value.toLowerCase().includes('schedule'))) {
       if (selectedReportRef.current) {
         handleOpenDrawer(selectedReportRef.current, selectedReportRef.current.categoryName || '', 'schedule');
-      }
-    } else if (value === 'CopyReport' || value === 'CustomCopy' || (typeof value === 'string' && value.toLowerCase().includes('copy'))) {
-      if (selectedReportRef.current) {
-        handleOpenCopyModal(
-          {
-            name: selectedReportRef.current.name || selectedReportRef.current.Name || '',
-            serverReportName: selectedReportRef.current.serverReportName || selectedReportRef.current.ServerReportName || '',
-            description: selectedReportRef.current.description || selectedReportRef.current.Description || '',
-          },
-          selectedReportRef.current.categoryName || ''
-        );
       }
     }
   };
