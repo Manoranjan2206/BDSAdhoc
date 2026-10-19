@@ -9,6 +9,39 @@ import { usePermissions } from '../hooks/usePermissions';
 const ADVENTUREWORKS_DATASOURCE_ID = import.meta.env.VITE_BOLD_DATASOURCE_ID || '49463a51-c475-46eb-be52-8111fc0193ca';
 const ADVENTUREWORKS_NAME = 'crmdata';
 
+// Allowed shared datasets in report designer
+const ALLOWED_SHARED_DATASETS = [
+    'InvoiceAging',
+    'TicketResolutionAnalysis',
+    'InvoiceCollectionPerformance',
+    'TaskMonitoring',
+    'CustomerAcquisitionDataset'
+];
+
+function applySharedDataSetFilter() {
+    if (typeof window !== 'undefined' && window.ej?.ReportDesignerUtility?.SharedDataSet) {
+        window.ej.ReportDesignerUtility.SharedDataSet.prototype.populateDataSets = function (args) {
+            if (args != null && typeof args !== 'string' && args.indexOf('Sf_Exception') === -1) {
+                var filteredData = [];
+                for (var i = 0; i < args.length; i++) {
+                    if (args[i] && ALLOWED_SHARED_DATASETS.includes(args[i].Name)) {
+                        filteredData.push(args[i]);
+                    }
+                }
+                filteredData.sort(function (a, b) {
+                    var name1 = (a.Name || '').toLowerCase();
+                    var name2 = (b.Name || '').toLowerCase();
+                    return name1.localeCompare(name2);
+                });
+                if (this.ejShardDrDwn) {
+                    this.ejShardDrDwn.dataSource = filteredData;
+                    this.ejShardDrDwn.dataBind();
+                }
+            }
+        };
+    }
+}
+
 // Bold Reports designer permission for shared data sources
 function getPermissionForRole() {
     return 'Shared';
@@ -151,6 +184,7 @@ export default function Designer() {
     };
 
     const controlInitialized = () => {
+        applySharedDataSetFilter();
         const designer = getDesigner();
         if (!designer) return;
         designer.showImportData = false;
