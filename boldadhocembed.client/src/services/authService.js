@@ -428,6 +428,19 @@ export const authService = {
   },
 
   /**
+   * Store authentication token (used by Azure AD callback)
+   * @param {string} token - JWT token to store
+   * @returns {void}
+   */
+  setToken: (token) => {
+    if (token) {
+      // Normalize token: remove any leading "Bearer " prefix
+      const normalizedToken = token.replace(/^Bearer\s+/i, '').trim();
+      localStorage.setItem(TOKEN_KEY, normalizedToken);
+    }
+  },
+
+  /**
    * Get stored user information
    * @returns {object|null} User object or null if not logged in
    */
