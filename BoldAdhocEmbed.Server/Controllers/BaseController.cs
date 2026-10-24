@@ -194,7 +194,7 @@ namespace BoldAdhocEmbed.Server.Controllers
             // reserved for the widget embed; side-channel API calls always
             // want this Bearer-style token.
             var realToken = await boldReportsService.GetTokenAsync(
-                targetEmail, reportsSettings?.AdminPassword ?? "Admin@123");
+                targetEmail, reportsSettings?.AdminPassword);
             if (!string.IsNullOrEmpty(realToken))
             {
                 Logger.LogInformation("Generated Bold Reports token via password grant for {Email}", targetEmail);

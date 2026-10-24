@@ -9,6 +9,11 @@ import { usePermissions } from '../hooks/usePermissions';
 const ADVENTUREWORKS_DATASOURCE_ID = import.meta.env.VITE_BOLD_DATASOURCE_ID || '49463a51-c475-46eb-be52-8111fc0193ca';
 const ADVENTUREWORKS_NAME = 'crmdata';
 
+// Bold Reports designer permission for shared data sources
+function getPermissionForRole() {
+    return 'Shared';
+}
+
 // Allowed shared datasets in report designer
 const ALLOWED_SHARED_DATASETS = [
     'InvoiceAging',
@@ -40,11 +45,6 @@ function applySharedDataSetFilter() {
             }
         };
     }
-}
-
-// Bold Reports designer permission for shared data sources
-function getPermissionForRole() {
-    return 'Shared';
 }
 
 export default function Designer() {
@@ -184,10 +184,10 @@ export default function Designer() {
     };
 
     const controlInitialized = () => {
-        applySharedDataSetFilter();
         const designer = getDesigner();
         if (!designer) return;
         designer.showImportData = false;
+        applySharedDataSetFilter();
 
         // Auto-attach AdventureWorks data source on "New Data" click,
         // matching the MVC Design page behaviour.
@@ -228,8 +228,26 @@ export default function Designer() {
         const sourceName = q.get('source');
         const urlName = q.get('name');
         const urlCategory = q.get('category') || '';
+        // Direct open path: ?open=<serverPath> calls designer.openReport
+        // verbatim, mirroring the legacy Bold Reports Designer flow:
+        //
+        //   var designerObj = $('#designer').data('boldReportDesigner');
+        //   designerObj.openReport('/Cat name/Report name');
+        //
+        // Used by Quick Edit's "Open in full designer instead" chip and
+        // by anything else that wants to edit an existing report in
+        // place (not clone it). The serverPath is the Bold Reports
+        // server path, e.g. "/AlphaCorp/Tablix without designer".
+        const openPath = q.get('open');
 
-        if (isClone && sourceName) {
+        if (openPath) {
+            setIsEdit(true);
+            try {
+                designer.openReport(openPath);
+            } catch (e) {
+                console.error('[designer.openReport] failed', e);
+            }
+        } else if (isClone && sourceName) {
             setIsEdit(false);
             openServerReport(sourceName, urlCategory);
             if (urlName) {

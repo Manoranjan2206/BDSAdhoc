@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import SSOCallback from './pages/SSOCallback';
+import AzureLoginCallback from './pages/AzureLoginCallback';
 import { authService } from './services/authService';
 import { DataProvider } from './context/DataContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -59,6 +60,7 @@ function AppRoutes({ isAuthChecked }) {
           {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
+          <Route path="/login-success" element={<AzureLoginCallback />} />
 
           {/* Protected. Collapsed into a single route + a single Layout. */}
           <Route element={<ProtectedRoute />}>

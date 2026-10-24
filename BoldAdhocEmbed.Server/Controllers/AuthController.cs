@@ -177,7 +177,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var email = GetClaimSafely("email", "preferred_username", "sub");
+                var email = GetClaimSafely(System.Security.Claims.ClaimTypes.Email, "email", "preferred_username", "sub");
                 if (!string.IsNullOrEmpty(email))
                 {
                     await _cacheService.RemoveAsync($"bold-reports-exchanged-token-{email}");
@@ -199,7 +199,7 @@ namespace BoldAdhocEmbed.Server.Controllers
         {
             try
             {
-                var userEmail = GetClaimSafely("email", "preferred_username", "sub");
+                var userEmail = GetClaimSafely(System.Security.Claims.ClaimTypes.Email, "email", "preferred_username", "sub");
                 if (string.IsNullOrEmpty(userEmail))
                 {
                     return Unauthorized(ApiResponse<AppUser>.ErrorResponse(
@@ -234,6 +234,35 @@ namespace BoldAdhocEmbed.Server.Controllers
                 if (!string.IsNullOrWhiteSpace(v)) return v;
             }
             return null;
+        }
+
+        /// <summary>
+        /// Maps email prefix to tenant and role based on organizational mapping.
+        /// Email format: {prefix}@domain.com
+        /// Mapping:
+        /// - "alpha" prefix → AlphaCorp (TenantId=1), Role="User"
+        /// - "beta" prefix → BetaSolutions (TenantId=2), Role="User"
+        /// - "gamma" prefix → GammaTech (TenantId=3), Role="User"
+        /// </summary>
+        private (int TenantId, string TenantName, string Role) MapEmailPrefixToTenant(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            {
+                return (1, "AlphaCorp", "User"); // Default fallback
+            }
+
+            var prefix = email.Split('@')[0].ToLowerInvariant();
+            var emailPrefix = prefix.TakeWhile(c => !char.IsDigit(c)).ToString().ToLowerInvariant();
+
+            Logger.LogInformation("Mapping email prefix '{Prefix}' (full: {Email}) to tenant", emailPrefix, email);
+
+            return emailPrefix switch
+            {
+                "alpha" => (1, "AlphaCorp", "User"),
+                "beta" => (2, "BetaSolutions", "User"),
+                "gamma" => (3, "GammaTech", "User"),
+                _ => (1, "AlphaCorp", "User") // Default to AlphaCorp if no match
+            };
         }
 
         /// <summary>
@@ -392,6 +421,174 @@ namespace BoldAdhocEmbed.Server.Controllers
                 expires: DateTime.UtcNow.AddHours(8),
                 signingCredentials: credentials);
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        /// <summary>
+        /// Azure AD OIDC callback handler. Executed after user logs in via Azure AD.
+        /// Converts Azure AD claims to an AppUser and issues an app-specific JWT.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("azure-callback")]
+        public async Task<IActionResult> AzureCallback()
+        {
+            try
+            {
+                if (!User.Identity?.IsAuthenticated ?? false)
+                {
+                    Logger.LogWarning("Azure AD callback: User not authenticated");
+                    return Redirect("/login?error=azure_not_authenticated");
+                }
+
+                // Extract claims from the Azure AD-authenticated principal
+                // Azure AD can return email in different claim types depending on token version and scopes:
+                // - ClaimTypes.Email (http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress)
+                // - preferred_username (newer OIDC, usually has email format)
+                // - mail (legacy)
+                // - upn (User Principal Name, often has email format)
+                var email = User.FindFirst(ClaimTypes.Email)?.Value 
+                    ?? User.FindFirst("preferred_username")?.Value
+                    ?? User.FindFirst("mail")?.Value
+                    ?? User.FindFirst(ClaimTypes.Upn)?.Value;
+
+                // Log all claims for debugging
+                var allClaims = User.Claims?.Select(c => $"{c.Type}={c.Value}").ToList() ?? new List<string>();
+                Logger.LogInformation("Azure AD callback: All claims: {Claims}", string.Join(", ", allClaims));
+
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    Logger.LogWarning("Azure AD callback: Email claim not found. Tried ClaimTypes.Email, preferred_username, mail, upn");
+                    return Redirect("/login?error=no_email_claim");
+                }
+                
+                Logger.LogInformation("Azure AD callback: Successfully extracted email: {Email}", email);
+
+                var name = User.FindFirst(ClaimTypes.Name)?.Value 
+                    ?? User.FindFirst("name")?.Value 
+                    ?? email.Split('@')[0];
+
+                var givenName = User.FindFirst("given_name")?.Value;
+                var familyName = User.FindFirst("family_name")?.Value;
+
+                // Map email prefix to tenant (alpha → AlphaCorp, beta → BetaSolutions, gamma → GammaTech)
+                var (tenantId, tenantName, role) = MapEmailPrefixToTenant(email);
+
+                // Try to find existing user, or provision JIT
+                var user = _userStore.Get(email);
+                if (user == null)
+                {
+                    // JIT provisioning for new Azure AD users with email-prefix-based tenant mapping
+                    user = new AppUser
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Email = email,
+                        Name = name,
+                        FirstName = givenName,
+                        LastName = familyName,
+                        Role = role,
+                        TenantId = tenantId,
+                        TenantName = tenantName,
+                        Region = "North America",
+                        IsActive = true,
+                        CreatedDate = DateTime.UtcNow,
+                        LastLoginDate = DateTime.UtcNow,
+                        Permissions = _userStore.GetPermissionsForRole(role)
+                    };
+                    _userStore.Add(user);
+                    Logger.LogInformation("JIT-provisioned Azure AD user: {Email}, Name: {Name}, Tenant: {TenantName} (ID: {TenantId})", 
+                        email, name, tenantName, tenantId);
+                }
+                else
+                {
+                    // Update last login for existing users
+                    user.LastLoginDate = DateTime.UtcNow;
+                    _userStore.Update(user);
+                }
+
+                if (!user.IsActive)
+                {
+                    Logger.LogWarning("Azure AD user account inactive: {Email}", email);
+                    return Redirect("/login?error=account_inactive");
+                }
+
+                // Generate app-specific JWT from the Azure-authenticated user
+                var sessionToken = GenerateSessionToken(user);
+
+                Logger.LogInformation("Azure AD login successful for user: {Email}, Tenant: {Tenant}", email, user.TenantName);
+
+                // Redirect to frontend with token in query string
+                // Frontend will extract and store it in localStorage
+                return Redirect($"/login-success?token={Uri.EscapeDataString(sessionToken)}&email={Uri.EscapeDataString(email)}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error in Azure AD callback");
+                return Redirect("/login?error=azure_callback_failed");
+            }
+        }
+
+        /// <summary>
+        /// Initiate Azure AD login. Frontend redirects here when user clicks "Login with Azure".
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("login-azure")]
+        public async Task<IActionResult> LoginAzure(string? returnUrl = null)
+        {
+            try
+            {
+                var redirectUri = Url.Action("AzureCallback", "Auth", null, Request.Scheme);
+                var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+                {
+                    RedirectUri = redirectUri
+                };
+
+                // Store the original return URL in properties so we can use it after login
+                if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    properties.Items["returnUrl"] = returnUrl;
+                }
+
+                return Challenge(properties, "AzureAd");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error initiating Azure AD login");
+                return Redirect("/login?error=azure_challenge_failed");
+            }
+        }
+
+        /// <summary>
+        /// Azure AD logout handler. Clears user session and redirects to Azure AD logout endpoint.
+        /// </summary>
+        [Authorize]
+        [HttpPost("logout-azure")]
+        public async Task<IActionResult> LogoutAzure()
+        {
+            try
+            {
+                var email = GetClaimSafely(ClaimTypes.Email, "email", "preferred_username", "sub");
+                if (!string.IsNullOrWhiteSpace(email))
+                {
+                    // Clear cached tokens
+                    await _cacheService.RemoveAsync($"bold-reports-exchanged-token-{email}");
+                    await _cacheService.RemoveAsync($"bold-reports-embed-token-{email}");
+                }
+
+                Logger.LogInformation("Azure AD logout initiated for user: {Email}", email ?? "unknown");
+
+                return SignOut(
+                    new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+                    {
+                        RedirectUri = "/login"
+                    },
+                    "Cookies",
+                    "AzureAd"
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error during Azure AD logout");
+                return Ok(ApiResponse<dynamic>.SuccessResponse(null, "Logout complete"));
+            }
         }
     }
 }

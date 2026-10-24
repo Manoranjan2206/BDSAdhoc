@@ -60,10 +60,15 @@ const serverConfig = {
     // When running Vite on Windows without admin, binding to IPv6 loopback
     // ('::1') fails with EACCES. Force IPv4 loopback unless explicitly
     // overridden via DEV_SERVER_HOST.
-    host: env.DEV_SERVER_HOST || (useHttps ? undefined : '127.0.0.1'),
+    // For E2B sandbox preview, always use 0.0.0.0 with HTTP
+    host: env.DEV_SERVER_HOST || '0.0.0.0',
+    // Accept the E2B public-preview hostname (e.g. 64940-<sandbox>.e2b.app)
+    // so the dev server doesn't 403 when reached through the tunnel.
+    allowedHosts: true,
 };
 
-if (useHttps && fs.existsSync(keyFilePath) && fs.existsSync(certFilePath)) {
+// Only add HTTPS if explicitly enabled and certs exist, and not in preview/tunnel mode
+if (useHttps && env.DEV_SERVER_HOST !== '0.0.0.0' && fs.existsSync(keyFilePath) && fs.existsSync(certFilePath)) {
     serverConfig.https = {
         key: fs.readFileSync(keyFilePath),
         cert: fs.readFileSync(certFilePath),

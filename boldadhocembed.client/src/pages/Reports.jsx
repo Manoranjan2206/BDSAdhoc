@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   ChevronRightIcon,
   ChevronLeftIcon,
@@ -16,6 +16,9 @@ import {
   EyeIcon,
   CheckCircleIcon,
   XMarkIcon,
+  BoltIcon,
+  UserIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -25,6 +28,8 @@ import { authService } from '../services/authService';
 import { usePermissions } from '../hooks/usePermissions';
 import { motion } from 'framer-motion';
 import ReportScheduleDrawer from '../components/ReportScheduleDrawer';
+import QuickEditDialog from '../components/QuickEditDialog';
+import QuickCreateDialog from '../components/QuickCreateDialog';
 import '../styles/reports.css';
 
 import { getCategoryPalette } from '../utils/palette';
@@ -44,22 +49,29 @@ const CUSTOM_GROUPS = [
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { getReports, getViewerSettings, reportsSidebarCollapsed, setReportsSidebarCollapsed } = useData();
+  const { getReports, getViewerSettings, reportsSidebarCollapsed, setReportsSidebarCollapsed, invalidate } = useData();
 
   const [tree, setTree] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // My Reports: dedicated server-side listing for the category whose
+  // name equals the current user's email. Fetched lazily on first toggle
+  // activation; refreshed whenever the user changes (new login).
+  const [myReports, setMyReports] = useState([]);
+  const [myReportsCategoryName, setMyReportsCategoryName] = useState('');
+  const [myReportsFetched, setMyReportsFetched] = useState(false);
+
   const { currentUser, canEditReports, canCopyReports, canExportReports } = usePermissions();
   const canCreateReport = canEditReports || canCopyReports;
   
-  // Copy Report Modal state
-  const [copyModalOpen, setCopyModalOpen] = useState(false);
-  const [copySourceReport, setCopySourceReport] = useState(null);
-  const [copyTargetName, setCopyTargetName] = useState('');
-  const [copyTargetDescription, setCopyTargetDescription] = useState('');
-  const [copyError, setCopyError] = useState('');
+  // Copy / Quick Edit state
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const [quickEditSource, setQuickEditSource] = useState(null);
+
+  // Quick Create (new report from shared dataset) state
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
   // Report-Centric Scheduling & Export Action Drawer (matching Davis reference)
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -67,14 +79,35 @@ export default function Reports() {
   const [drawerInitialTab, setDrawerInitialTab] = useState('schedule');
   const [successToast, setSuccessToast] = useState(null);
 
+  // Single source of truth for the floating "Saved / Created" toast.
+  // Replaces any in-flight toast with the new payload and auto-dismisses
+  // after 3s. Any pending dismissal timer is cleared first so back-to-back
+  // saves don't leave the previous timer running and pop the toast early.
+  const toastTimerRef = useRef(null);
+  const showToast = useCallback((payload, durationMs = 3000) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setSuccessToast(payload);
+    if (durationMs > 0) {
+      toastTimerRef.current = setTimeout(() => {
+        setSuccessToast(null);
+        toastTimerRef.current = null;
+      }, durationMs);
+    }
+  }, []);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
   const handleScheduleSaved = (data) => {
-    setSuccessToast({
+    showToast({
       title: data?.isEdit ? 'Schedule Updated Successfully' : 'Schedule Created Successfully',
       name: data?.name,
       reportName: data?.reportName,
       summary: data?.summary,
     });
-    setTimeout(() => setSuccessToast(null), 5000);
   };
 
   const handleOpenDrawer = (report, category, tab = 'schedule', e) => {
@@ -153,6 +186,132 @@ export default function Reports() {
     });
   };
 
+  const handleDeleteReport = async (report, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (!window.confirm(`Are you sure you want to delete "${report.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Call the delete API — Bold Reports v1.0 endpoint uses ItemId (GUID)
+      // as the primary key; name+category are kept as fallback.
+      const response = await fetch('/api/reports/Delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`,
+        },
+        body: JSON.stringify({
+          id: report.id || report.Id,
+          name: report.serverReportName || report.name,
+          category: report.serverCategory || 'Analytics Reports',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast({
+          title: 'Report Deleted',
+          name: report.name,
+          summary: `"${report.name}" has been successfully deleted.`,
+        });
+        
+        // Refresh the report tree
+        try {
+          const fresh = await reportsAPI.getReportTree();
+          setTree(Array.isArray(fresh) && fresh.length > 0 ? fresh : []);
+        } catch (err) {
+          console.warn('Tree refresh after delete failed', err);
+        }
+        
+        // Refresh My Reports if applicable
+        try { fetchMyReportsRef.current(); } catch (e) { /* noop */ }
+      } else {
+        showToast({
+          title: 'Delete Failed',
+          name: report.name,
+          summary: data.error || 'Failed to delete the report. Please try again.',
+        });
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      showToast({
+        title: 'Delete Error',
+        name: report.name,
+        summary: error.message || 'An error occurred while deleting the report.',
+      });
+    }
+  };
+
+  const handleBulkDeleteCategory = async (categoryName, reportCount, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (!window.confirm(`Delete all ${reportCount} reports in "${categoryName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const reportsInCategory = allReports.filter(r => r.categoryName === categoryName && r.canDelete);
+    if (reportsInCategory.length === 0) {
+      showToast({
+        title: 'No Reports to Delete',
+        summary: 'No reports in this category can be deleted.',
+      });
+      return;
+    }
+
+    let deleted = 0;
+    let failed = 0;
+
+    for (const report of reportsInCategory) {
+      try {
+        const response = await fetch('/api/reports/Delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authService.getToken()}`,
+          },
+          body: JSON.stringify({
+            name: report.serverReportName || report.name,
+            category: report.serverCategory || 'Analytics Reports',
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          deleted++;
+        } else {
+          failed++;
+        }
+      } catch (error) {
+        console.error('Delete error for report:', report.name, error);
+        failed++;
+      }
+    }
+
+    // Refresh UI
+    try {
+      const fresh = await reportsAPI.getReportTree();
+      setTree(Array.isArray(fresh) && fresh.length > 0 ? fresh : []);
+    } catch (e) {
+      console.warn('Tree refresh after bulk delete failed', e);
+    }
+
+    try { fetchMyReportsRef.current(); } catch (e) { /* noop */ }
+
+    showToast({
+      title: 'Bulk Delete Complete',
+      summary: `${deleted} report${deleted !== 1 ? 's' : ''} deleted${failed > 0 ? `, ${failed} failed` : ''}`,
+    });
+  };
+
   const getFormattedDateString = (dateStr) => {
     if (!dateStr) return '-';
     try {
@@ -216,6 +375,11 @@ export default function Reports() {
     // Scope filter
     if (activeScope === 'favorites') {
       result = result.filter(r => starredReports.includes(r.id));
+    } else if (activeScope === 'my') {
+      const userEmail = (currentUser?.email || '').trim().toLowerCase();
+      result = result.filter(r =>
+        userEmail && String(r.categoryName || '').trim().toLowerCase() === userEmail
+      );
     }
 
     // Column Sorting
@@ -230,12 +394,100 @@ export default function Reports() {
     });
 
     return result;
-  }, [allReports, selectedCategoryFilter, activeScope, starredReports, sortColumn, sortDirection]);
+  }, [allReports, selectedCategoryFilter, activeScope, starredReports, sortColumn, sortDirection, currentUser]);
 
   useEffect(() => {
     fetchReports();
     fetchViewerSettings();
   }, []);
+
+  // My Reports: dedicated /api/reports/my fetch. Server returns every
+  // report whose CategoryName equals the caller's email (case-insensitive,
+  // trimmed). Stored behind a ref so the listener and the effect can use
+  // a single stable function reference — otherwise the effect would
+  // re-fire on every render and produce a runaway fetch loop when a save
+  // updates state.
+  const fetchMyReportsRef = useRef(async () => {});
+  fetchMyReportsRef.current = async () => {
+    const userEmail = currentUser?.email;
+    if (!userEmail) return;
+    console.log('[MY-REPORTS] fetchMyReports() for', userEmail);
+    try {
+      const res = await reportsAPI.getMyReports();
+      const categoryName = res?.categoryName ?? userEmail;
+      const reports = Array.isArray(res?.reports) ? res.reports : [];
+      console.log('[MY-REPORTS] fetchMyReports response. categoryName=', categoryName, 'reports.length=', reports.length);
+      setMyReportsCategoryName(categoryName);
+      setMyReports(reports);
+      setMyReportsFetched(true);
+    } catch (err) {
+      console.error('[MY-REPORTS] Failed to load My Reports:', err);
+      setMyReports([]);
+    }
+  };
+
+  // Run only when the tab is entered or the user changes.
+  useEffect(() => {
+    if (activeScope !== 'my') return;
+    if (!currentUser?.email) return;
+    fetchMyReportsRef.current();
+  }, [activeScope, currentUser]);
+
+  // Re-fetch when Designer dispatches `reports:changed` after its Save.
+  // Mounted once with [] — uses the ref so the handler identity is
+  // stable, so adding/removing listeners doesn't loop.
+  useEffect(() => {
+    const handler = () => fetchMyReportsRef.current();
+    window.addEventListener('reports:changed', handler);
+    return () => window.removeEventListener('reports:changed', handler);
+  }, []);
+
+  // When My Reports scope is active, render the server-fetched list
+  // directly — no client-side filter over the tree. Apply only the
+  // sort column/direction on top so the user's chosen order is preserved.
+  const displayReports = useMemo(() => {
+    if (activeScope !== 'my') {
+      console.log('[MY-REPORTS] displayReports: scope=', activeScope, '→ returning filteredReports.length=', filteredReports.length);
+      return filteredReports;
+    }
+    const result = myReports.map(r => ({
+      ...r,
+      id: r.id || r.Id,
+      name: r.name || r.Name,
+      categoryName: r.categoryName || myReportsCategoryName || currentUser?.email,
+      serverCategory: r.serverCategory || r.categoryName || myReportsCategoryName || currentUser?.email,
+      serverReportName: r.serverReportName || r.name || r.Name,
+      description: r.description || '',
+      modifiedDate: r.modifiedDate || r.createdDate || null,
+      createdById: r.createdById,
+      isPublic: r.isPublic ?? true,
+      canDelete: true, // My Reports allows delete
+    }));
+    console.log('[MY-REPORTS] displayReports: scope=my, myReports.length=', myReports.length, '→ result.length=', result.length);
+    if (result.length === 0) return result;
+    result.sort((a, b) => {
+      let valA = a[sortColumn] ?? '';
+      let valB = b[sortColumn] ?? '';
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return result;
+  }, [activeScope, myReports, myReportsCategoryName, filteredReports, sortColumn, sortDirection, currentUser]);
+
+  // Toolbar badge — prefer the server-fetched count when available, fall
+  // back to the client-side estimate over the tree so the badge is never
+  // empty before the first fetch completes.
+  const myReportsCount = useMemo(() => {
+    if (myReportsFetched) return myReports.length;
+    const userEmail = (currentUser?.email || '').trim().toLowerCase();
+    if (!userEmail) return 0;
+    return allReports.filter(r =>
+      String(r.categoryName || '').trim().toLowerCase() === userEmail
+    ).length;
+  }, [myReportsFetched, myReports, allReports, currentUser]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -342,39 +594,152 @@ export default function Reports() {
 
 
   const handleOpenCopyModal = (report, category) => {
+    // Opens the Quick Edit dialog. The old "open in full designer"
+    // behaviour is preserved as an opt-out chip inside the dialog.
     const name = report?.name || report?.Name || '';
-    setCopySourceReport({
+    const serverCategory = report?.serverCategory || category || 'Analytics Reports';
+    const serverReportName = report?.serverReportName || report?.ServerReportName || name;
+    setQuickEditSource({
       name,
-      serverReportName: report?.serverReportName || report?.ServerReportName || name,
-      category: report?.serverCategory || category || 'Analytics Reports',
+      serverPath: serverCategory ? `/${serverCategory}/${serverReportName}` : serverReportName,
+      reportId: report?.itemId || report?.ItemId || report?.id || null,
+      category: serverCategory,
+      serverReportName,
       description: report?.description || report?.Description || '',
     });
-    setCopyTargetName('');
-    setCopyTargetDescription(report?.description || report?.Description || '');
-    setCopyError('');
-    setCopyModalOpen(true);
+    setQuickEditOpen(true);
   };
 
-  const handleConfirmCopy = (e) => {
-    e?.preventDefault();
-    const trimmed = (copyTargetName || '').trim();
-    if (!trimmed) {
-      setCopyError('Report name is required.');
-      return;
+  const handleOpenFullDesignerFromQuickEdit = () => {
+    // Open the source report directly in the Bold Reports designer
+    // (no Quick Edit intermediate). Mirrors the legacy Bold Reports
+    // open-designer flow:
+    //
+    //   var designerObj = $('#designer').data('boldReportDesigner');
+    //   designerObj.openReport('/Cat name/Report name');
+    //
+    // We navigate to /designer?open=<serverPath> so the Designer page
+    // can grab the designer widget instance after init and call
+    // openReport(serverPath) verbatim. serverPath is the Bold Reports
+    // server path ("/<category>/<report-name>") and IS the source
+    // report — not a clone.
+    if (!quickEditSource) return;
+    setQuickEditOpen(false);
+    const serverName = quickEditSource.serverReportName || quickEditSource.name;
+    let serverCategory = quickEditSource.category || 'Analytics Reports';
+
+    // Strip the tenant-name prefix (e.g. "AlphaCorp/") when present.
+    // The tree's serverCategory already includes the tenant at the
+    // front ("AlphaCorp/alpha1@alphacorp.com"), but Bold Reports'
+    // openReport expects the inner category only ("alpha1@alphacorp.com")
+    // — the tenant is implied by the authenticated site. Passing the
+    // tenant-prefixed path makes the designer look up the report under
+    // a category that doesn't exist (the per-user email category is
+    // nested INSIDE the tenant, not a sibling), so it returns nothing.
+    const user = authService.getUser()?.user || authService.getUser();
+    const tenant = user?.tenantName || user?.TenantName || '';
+    if (tenant && serverCategory.toLowerCase().startsWith(`${tenant.toLowerCase()}/`)) {
+        serverCategory = serverCategory.substring(tenant.length + 1);
     }
-    if (copySourceReport?.name && trimmed.toLowerCase() === copySourceReport.name.toLowerCase()) {
-      setCopyError('Please provide a unique name different from the original report.');
-      return;
-    }
-    setCopyModalOpen(false);
+
+    const serverPath = `/${serverCategory}/${serverName}`.replace(/\/{2,}/g, '/');
     const params = new URLSearchParams();
-    params.set('source', copySourceReport.serverReportName || copySourceReport.name);
-    params.set('name', trimmed);
-    params.set('category', copySourceReport.category || 'Analytics Reports');
-    params.set('appCategory', 'My Reports');
-    if (copyTargetDescription) params.set('description', copyTargetDescription);
-    params.set('mode', 'clone');
+    params.set('open', serverPath);
+    params.set('name', serverName);
+    params.set('category', serverCategory);
+    if (quickEditSource.description) params.set('desc', quickEditSource.description);
     navigate(`/designer?${params.toString()}`);
+  };
+
+  const handleQuickEditSaved = (data, opts = {}) => {
+    // Refresh the reports tree. invalidate() schedules a state update,
+    // but reading cache synchronously after it still returns the stale
+    // value (React batches). Calling the API directly bypasses the
+    // cache entirely so the new report shows up in the listing now,
+    // not on the next tick.
+    (async () => {
+      try {
+        if (typeof invalidate === 'function') invalidate('reports');
+        const fresh = await reportsAPI.getReportTree();
+        setTree(Array.isArray(fresh) && fresh.length > 0 ? fresh : []);
+      } catch (e) {
+        console.warn('Tree refresh after Quick Edit save failed', e);
+      }
+    })();
+
+    // My Reports has its own endpoint and its own ref-based fetcher.
+    try { fetchMyReportsRef.current(); } catch (e) { /* noop */ }
+
+    showToast({
+      title: 'Quick Edit saved',
+      name: data?.newReportName,
+      reportName: data?.newReportName,
+      summary: `Saved to “${data?.targetCategory}”.`,
+    });
+
+    // Save & Run: open the new report in the inline Bold Reports
+    // viewer so the user can verify the result without leaving the
+    // Reports page.
+    if (opts.runAfterSave && data?.newReportId) {
+      openNewReportInViewer({
+        id: data.newReportId,
+        name: data.newReportName,
+        serverReportName: data.newReportName,
+        serverCategory: data.targetCategory,
+      });
+    }
+  };
+
+  const handleQuickCreateCreated = (data, opts = {}) => {
+    // Same bypass-the-cache pattern as Quick Edit so the listing is
+    // up-to-date immediately after a Quick Create.
+    (async () => {
+      try {
+        if (typeof invalidate === 'function') invalidate('reports');
+        const fresh = await reportsAPI.getReportTree();
+        setTree(Array.isArray(fresh) && fresh.length > 0 ? fresh : []);
+      } catch (e) {
+        console.warn('Tree refresh after Quick Create save failed', e);
+      }
+    })();
+
+    try { fetchMyReportsRef.current(); } catch (e) { /* noop */ }
+
+    showToast({
+      title: 'Quick Create report saved',
+      name: data?.reportName,
+      reportName: data?.reportName,
+      summary: `Saved to “${data?.categoryName || 'My Reports'}”.`,
+    });
+
+    if (opts.runAfterSave && data?.itemId) {
+      openNewReportInViewer({
+        id: data.itemId,
+        name: data.reportName,
+        serverReportName: data.reportName,
+        serverCategory: data.categoryName || 'My Reports',
+      });
+    }
+  };
+
+  // After Save & Run: open the newly-saved report in the inline Bold
+  // Reports viewer. Builds a synthetic report object shaped like the
+  // tree entries so the existing viewer effect picks it up and the
+  // user immediately sees the rendered report without leaving the page.
+  const openNewReportInViewer = (report) => {
+    if (!report) return;
+    setSelectedReport({
+      id: report.id,
+      name: report.name,
+      serverReportName: report.serverReportName,
+      serverCategory: report.serverCategory,
+      categoryName: report.serverCategory,
+      isPublic: true,
+      canRead: true,
+      canWrite: true,
+    });
+    setSelectedCategory(report.serverCategory);
+    setViewerKey((prev) => prev + 1);
   };
 
   // Destroy the jQuery-based Bold Reports viewer before unmounting so it does
@@ -709,9 +1074,34 @@ export default function Reports() {
                     >
                       Favorites ({starredReports.length})
                     </button>
+                    <button
+                      onClick={() => {
+                        console.log('[MY-REPORTS] button clicked → setActiveScope(my). currentUser.email=', currentUser?.email);
+                        setActiveScope('my');
+                      }}
+                      title={currentUser?.email ? `Reports in category "${currentUser.email}"` : 'My Reports'}
+                      className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                        activeScope === 'my'
+                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-semibold'
+                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <UserIcon className="w-3.5 h-3.5" />
+                      My Reports ({myReportsCount})
+                    </button>
                   </div>
 
-                  {selectedCategoryFilter !== 'all' && (
+                  {/* When "My Reports" is active, surface the user's email as
+                      the resolved category name (the Bold Reports category the
+                      toggle is filtering to) so it's obvious what category is
+                      being shown. Falls back to the sidebar's category filter
+                      indicator when the user has drilled in further. */}
+                  {activeScope === 'my' && currentUser?.email && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Filtering by: <strong className="text-slate-800 dark:text-slate-200">{currentUser.email}</strong>
+                    </span>
+                  )}
+                  {activeScope !== 'my' && selectedCategoryFilter !== 'all' && (
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       Filtering by: <strong className="text-slate-800 dark:text-slate-200">{selectedCategoryFilter}</strong>
                     </span>
@@ -746,13 +1136,23 @@ export default function Reports() {
                   </div>
 
                   {canCreateReport && (
-                    <button
-                      onClick={() => navigate('/designer')}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
-                    >
-                      <PlusIcon className="w-4 h-4 stroke-[2.5]" />
-                      New Report
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setQuickCreateOpen(true)}
+                        title="Quick Create — build a report from a shared dataset"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-[#FF4800] bg-white border border-[#FF4800]/40 hover:bg-orange-50 dark:bg-transparent dark:hover:bg-orange-950/30 rounded-xl transition-all shadow-sm cursor-pointer"
+                      >
+                        <BoltIcon className="w-4 h-4" />
+                        Quick Create
+                      </button>
+                      <button
+                        onClick={() => navigate('/designer')}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl transition-all shadow-sm cursor-pointer"
+                      >
+                        <PlusIcon className="w-4 h-4 stroke-[2.5]" />
+                        New Report
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -764,7 +1164,7 @@ export default function Reports() {
                     <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-[#FF4800] animate-spin mb-3" />
                     <p className="text-xs text-slate-500">Loading Reports...</p>
                   </div>
-                ) : filteredReports.length === 0 ? (
+                ) : displayReports.length === 0 ? (
                   <div className="bg-white dark:bg-[#181c2c] rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center max-w-md mx-auto space-y-3 mt-12">
                     <DocumentIcon className="w-12 h-12 text-slate-300 mx-auto" />
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">No Reports Found</h3>
@@ -781,7 +1181,7 @@ export default function Reports() {
                 ) : viewMode === 'grid' ? (
                   /* GRID VIEW */
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredReports.map(report => {
+                    {displayReports.map(report => {
                       const isStarred = starredReports.includes(report.id);
                       const palette = getCategoryPalette(report.categoryName);
                       const isDrawerActive = drawerOpen && drawerReport?.id === report.id;
@@ -799,7 +1199,7 @@ export default function Reports() {
                           }`}
                         >
                           <div className="space-y-2">
-                            {/* Top row with Title and Star/Menu actions */}
+                            {/* Title and Star/Menu actions */}
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-[#FF4800] transition-colors truncate min-w-0 flex-1">
                                 {report.name}
@@ -833,6 +1233,12 @@ export default function Reports() {
                                           <DocumentDuplicateIcon className="w-3.5 h-3.5 text-purple-500" /> Copy
                                         </button>
                                       )}
+                                      <button
+                                        onClick={() => handleDeleteReport(report)}
+                                        className="w-full text-left px-3 py-1.5 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 text-red-600 dark:text-red-400"
+                                      >
+                                        <TrashIcon className="w-3.5 h-3.5" /> Delete
+                                      </button>
                                     </div>
                                   )}
                                 </div>
@@ -879,6 +1285,16 @@ export default function Reports() {
                               >
                                 <ClockIcon className="w-3.5 h-3.5 text-[#FF4800]" />
                               </button>
+                              {report.canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteReport(report, e)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 text-[11px] font-medium"
+                                  title="Delete Report"
+                                >
+                                  <TrashIcon className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -937,7 +1353,7 @@ export default function Reports() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
-                        {filteredReports.map(report => {
+                        {displayReports.map(report => {
                           const isStarred = starredReports.includes(report.id);
                           const palette = getCategoryPalette(report.categoryName);
                           const isDrawerActive = drawerOpen && drawerReport?.id === report.id;
@@ -1023,6 +1439,15 @@ export default function Reports() {
                                       <DocumentDuplicateIcon className="w-3.5 h-3.5" />
                                     </button>
                                   )}
+                                  {report.canDelete && (
+                                    <button
+                                      onClick={(e) => handleDeleteReport(report, e)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                      title="Delete Report"
+                                    >
+                                      <TrashIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1038,91 +1463,22 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Copy Report Modal Dialog */}
-      {copyModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100000] p-4">
-          <div className="bg-white dark:bg-[#181c2c] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Copy Report</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Save a personalized version under <strong className="text-indigo-600 dark:text-indigo-400">My Reports</strong>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCopyModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmCopy} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Source Template
-                </label>
-                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 truncate">
-                  {copySourceReport?.name}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  New Report Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={copyTargetName}
-                  onChange={(e) => {
-                    setCopyTargetName(e.target.value);
-                    setCopyError('');
-                  }}
-                  placeholder="e.g. My Custom Sales Summary"
-                  className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF4800]/50"
-                />
-                {copyError && (
-                  <p className="text-[11px] text-red-500 mt-1 font-medium">{copyError}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Description <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={copyTargetDescription}
-                  onChange={(e) => setCopyTargetDescription(e.target.value)}
-                  placeholder="Brief description of this report..."
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF4800]/50 resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setCopyModalOpen(false)}
-                  className="px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF4800] hover:bg-[#e03f00] rounded-xl shadow-sm transition-all cursor-pointer"
-                >
-                  Create Copy & Open Designer
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* Quick Edit Report Dialog (replaces the old Copy modal) */}
+      <QuickEditDialog
+        isOpen={quickEditOpen}
+        onClose={() => setQuickEditOpen(false)}
+        source={quickEditSource}
+        targetCategory={(authService.getUser()?.user || authService.getUser())?.email || ''}
+        onSaved={handleQuickEditSaved}
+        onOpenFullDesigner={handleOpenFullDesignerFromQuickEdit}
+      />
+      {/* Quick Create (build-from-shared-dataset) wizard */}
+      <QuickCreateDialog
+        isOpen={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+        targetCategory={(authService.getUser()?.user || authService.getUser())?.email || ''}
+        onCreated={handleQuickCreateCreated}
+      />
       {/* Report-Centric Scheduling Action Drawer */}
       <ReportScheduleDrawer
         isOpen={drawerOpen}

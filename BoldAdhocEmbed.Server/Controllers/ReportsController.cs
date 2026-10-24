@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using BoldAdhocEmbed.Server.Services;
 using BoldAdhocEmbed.Server.Models;
 using BoldAdhocEmbed.Server.Validators;
+using BoldAdhocEmbed.Server.Services.ReportBuilder;
 
 namespace BoldAdhocEmbed.Server.Controllers
 {
@@ -21,6 +22,9 @@ namespace BoldAdhocEmbed.Server.Controllers
         private readonly ICacheService _cacheService;
         private readonly IAuthenticatedUser _auth;
         private readonly ICrmDataService _crmDataService;
+        private readonly Services.ReportBuilder.IDatasetCatalogService _datasetCatalog;
+        private readonly Services.ReportBuilder.IRdlGenerator _rdlGenerator;
+        private readonly Services.QuickEdit.IBoldItemsClient _itemsClient;
 
         private static readonly HashSet<string> StandardReportNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -39,7 +43,10 @@ namespace BoldAdhocEmbed.Server.Controllers
             BoldReportsSettings settings,
             ICacheService cacheService,
             IAuthenticatedUser auth,
-            ICrmDataService crmDataService)
+            ICrmDataService crmDataService,
+            Services.ReportBuilder.IDatasetCatalogService datasetCatalog,
+            Services.ReportBuilder.IRdlGenerator rdlGenerator,
+            Services.QuickEdit.IBoldItemsClient itemsClient)
             : base(logger)
         {
             _boldReportsService = boldReportsService ?? throw new ArgumentNullException(nameof(boldReportsService));
@@ -47,6 +54,9 @@ namespace BoldAdhocEmbed.Server.Controllers
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
             _auth = auth ?? throw new ArgumentNullException(nameof(auth));
             _crmDataService = crmDataService ?? throw new ArgumentNullException(nameof(crmDataService));
+            _datasetCatalog = datasetCatalog ?? throw new ArgumentNullException(nameof(datasetCatalog));
+            _rdlGenerator = rdlGenerator ?? throw new ArgumentNullException(nameof(rdlGenerator));
+            _itemsClient = itemsClient ?? throw new ArgumentNullException(nameof(itemsClient));
         }
 
         /// <summary>
@@ -379,12 +389,25 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var domainCustomReports = customReports.Where(BelongsToCallerDomain).ToList();
 
                 // Within the tenant:
-                // Admins see all reports belonging to their domain.
-                // Non-admins see reports they created OR reports created without specific personal owner restriction in their domain.
-                var myReports = domainCustomReports.Where(r =>
-                    isAdmin ||
-                    (!string.IsNullOrEmpty(userEmail) && r.Description != null && r.Description.Contains($"[Owner: {userEmail}]", StringComparison.OrdinalIgnoreCase)) ||
-                    (r.Description == null || !r.Description.Contains("[Owner:"))
+                // "My Reports" = every report whose Bold Reports category name
+                // equals the caller's email. This is the authoritative filter:
+                // the Bold Reports category IS the user's "My Reports" folder.
+                //
+                // IMPORTANT: this MUST filter over the full, unfiltered `reports`
+                // list — NOT `domainCustomReports`. `domainCustomReports` has
+                // already been narrowed by BelongsToCallerDomain(), which only
+                // keeps reports carrying an [Owner: {email}] / [Tenant: ...]
+                // description tag (or a DB match). Only 3 of alpha1's 9 reports
+                // carry that tag, so filtering the narrowed list silently hid 6.
+                // Membership in the per-email category is the sole source of
+                // truth here — no created-by, owner-tag, or domain filtering.
+                // This matches the /api/reports/my endpoint exactly so the
+                // sidebar tree and the toolbar toggle always agree.
+                var myReports = reports.Where(r =>
+                    !string.IsNullOrEmpty(userEmail) &&
+                    !string.IsNullOrEmpty(r.CategoryName) &&
+                    string.Equals(r.CategoryName.Trim(), userEmail.Trim(),
+                        StringComparison.OrdinalIgnoreCase)
                 ).ToList();
 
                 var restructured = new List<(string Id, string Name, IEnumerable<BoldAdhocEmbed.Server.Services.BoldReport> Reports)>();
@@ -443,6 +466,9 @@ namespace BoldAdhocEmbed.Server.Controllers
                             }
                         }
 
+                        // For "My Reports", all users can delete their own reports by default
+                        var canDelete = string.Equals(g.Name, "My Reports", StringComparison.OrdinalIgnoreCase);
+
                         return new
                         {
                             r.Id,
@@ -455,6 +481,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                             CategoryName = g.Name,
                             r.CanRead,
                             r.CanWrite,
+                            CanDelete = canDelete,
                             CreatedById = r.CreatedById,
                             IsPublic = r.IsPublic,
                             ModifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : (!string.IsNullOrEmpty(r.ModifiedDateString) ? r.ModifiedDateString : (!string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso)),
@@ -720,7 +747,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse.UnauthorizedResponse());
                 }
 
-                var deleted = await _boldReportsService.DeleteReportAsync(token, request.Name, request.Category);
+                var deleted = await _boldReportsService.DeleteReportAsync(token, request.Name, request.Category, request.Id);
                 if (deleted)
                 {
                     var authUser = _auth.GetAuthContext();
@@ -840,6 +867,328 @@ namespace BoldAdhocEmbed.Server.Controllers
                 return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to ensure category"));
             }
         }
+
+        // ---------------------------------------------------------------- New Report builder
+
+        /// <summary>
+        /// Lists the shared datasets available for building a new report.
+        /// Filtered to the same allow-list the full designer enforces.
+        /// </summary>
+        [HttpGet("datasets")]
+        public async Task<IActionResult> GetDatasets()
+        {
+            try
+            {
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var datasets = await _datasetCatalog.ListDatasetsAsync(token);
+                return Ok(ApiResponse<dynamic>.SuccessResponse(datasets, "Datasets retrieved"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error listing datasets");
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to list datasets"));
+            }
+        }
+
+        /// <summary>
+        /// Returns the columns (fields) of a shared dataset so the wizard can
+        /// present a checklist of columns to include in the new report.
+        /// </summary>
+        [HttpGet("datasets/{id}/fields")]
+        public async Task<IActionResult> GetDatasetFields(string id)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse("Dataset id is required"));
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var detail = await _datasetCatalog.GetDatasetDetailAsync(token, id);
+                if (detail == null)
+                {
+                    return NotFound(ApiResponse<dynamic>.ErrorResponse(
+                        $"Dataset '{id}' not found or has no readable definition", "Dataset not available"));
+                }
+
+                return Ok(ApiResponse<dynamic>.SuccessResponse(detail, "Dataset fields retrieved"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error retrieving dataset fields for {Id}", id);
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to retrieve dataset fields"));
+            }
+        }
+
+        /// <summary>
+        /// Generates a plain-tablix RDL from the selected dataset + columns,
+        /// creates it as a report in the caller's per-user "My Reports"
+        /// folder, registers it in the tenant DB, and returns the new item's
+        /// id + serverPath so the client can preview it in the existing
+        /// viewer flow.
+        /// </summary>
+        [HttpPost("build")]
+        public async Task<IActionResult> BuildReport([FromBody] BuildReportRequest request)
+        {
+            try
+            {
+                if (request == null
+                    || string.IsNullOrWhiteSpace(request.DatasetId)
+                    || string.IsNullOrWhiteSpace(request.ReportName)
+                    || request.Columns == null || request.Columns.Count == 0)
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse(
+                        "DatasetId, ReportName and at least one column are required"));
+                }
+
+                var authUser = _auth.GetAuthContext();
+                if (authUser == null || string.IsNullOrWhiteSpace(authUser.Email))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                // 1. Resolve the dataset so we bind the generated report to a
+                //    real shared dataset + its data source. We also use the
+                //    dataset's own field metadata to type each selected column.
+                var detail = await _datasetCatalog.GetDatasetDetailAsync(token, request.DatasetId);
+                if (detail == null)
+                {
+                    return NotFound(ApiResponse<dynamic>.ErrorResponse(
+                        $"Dataset '{request.DatasetId}' not found", "Dataset not available"));
+                }
+
+                var typeByName = detail.Columns
+                    .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().TypeName, StringComparer.OrdinalIgnoreCase);
+
+                // Keep only columns that actually exist in the dataset,
+                // preserving the order the user selected them in.
+                var selectedFields = request.Columns
+                    .Where(c => !string.IsNullOrWhiteSpace(c) && typeByName.ContainsKey(c.Trim()))
+                    .Select(c => new Services.ReportBuilder.ReportField
+                    {
+                        Name = c.Trim(),
+                        TypeName = typeByName[c.Trim()],
+                    })
+                    .ToList();
+
+                if (selectedFields.Count == 0)
+                {
+                    return BadRequest(ApiResponse<dynamic>.ErrorResponse(
+                        "None of the selected columns exist in the dataset"));
+                }
+
+                // 2. Generate the RDL.
+                var tenantName = !string.IsNullOrWhiteSpace(authUser.TenantName) ? authUser.TenantName : "AlphaCorp";
+                var cleanName = request.ReportName.Trim();
+                var serverReportName = cleanName.StartsWith($"{tenantName}_", StringComparison.OrdinalIgnoreCase)
+                    ? cleanName.Substring(tenantName.Length + 1)
+                    : cleanName;
+
+                var rdl = _rdlGenerator.Generate(new Services.ReportBuilder.ReportGenerationRequest
+                {
+                    ReportName = serverReportName,
+                    SharedDataSetId = detail.Id,
+                    DataSetName = detail.Name,
+                    DataSourceId = detail.DataSourceId ?? string.Empty,
+                    Fields = selectedFields,
+                    Filters = request.Filters ?? new(),
+                    Sorts = request.Sorts ?? new(),
+                });
+
+                // 3. Resolve the per-user "My Reports" folder (their email is
+                //    the category name in Bold Reports). We deliberately use the
+                //    simpler ResolveCategoryIdAsync path (same one
+                //    CustomizeService uses) instead of EnsureNestedUserCategoryAsync:
+                //    that one requires a parent "tenant" category to exist, which
+                //    isn't always present on this site, and silently returned null
+                //    → empty CategoryId → "Current request is empty." 400.
+                var categoryPath = authUser.Email;
+                var categoryId = await _itemsClient.ResolveCategoryIdAsync(token, categoryPath);
+                if (string.IsNullOrWhiteSpace(categoryId))
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway,
+                        ApiResponse<dynamic>.ErrorResponse(
+                            $"Could not resolve or create a Bold Reports category named '{categoryPath}'.",
+                            "Failed to create report"));
+                }
+
+                // 4. Build description with the tenant/owner tags the tree
+                //    builder relies on to scope reports to this user.
+                var description = request.Description?.Trim() ?? string.Empty;
+                if (!description.Contains("[Tenant:", StringComparison.OrdinalIgnoreCase))
+                    description = $"[Tenant: {tenantName}] {description}".Trim();
+                if (!description.Contains("[Owner:", StringComparison.OrdinalIgnoreCase))
+                    description = $"[Owner: {authUser.Email}] {description}".Trim();
+
+                // 5. Create the report in Bold Reports.
+                var created = await _itemsClient.CreateReportAsync(
+                    token,
+                    serverPath: string.Empty,
+                    categoryId: categoryId ?? string.Empty,
+                    description: description,
+                    reportName: serverReportName,
+                    rdlBytes: System.Text.Encoding.UTF8.GetBytes(rdl));
+
+                if (!created.Success)
+                {
+                    Logger.LogWarning("BuildReport create failed status={Status} error={Error}",
+                        created.StatusCode, created.Error);
+                    return StatusCode(StatusCodes.Status502BadGateway,
+                        ApiResponse<dynamic>.ErrorResponse(
+                            created.Error ?? "Create failed", "Failed to create report"));
+                }
+
+                // 6. Register in tenant DB so it shows under My Reports.
+                try
+                {
+                    await _crmDataService.RegisterCustomReportAsync(
+                        authUser, serverReportName, description, categoryPath, serverReportName);
+                    await _cacheService.RemoveAsync($"report_tree_{authUser.TenantName}_{authUser.Email}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "BuildReport: tenant DB register failed for {Report}", serverReportName);
+                }
+
+                var serverPath = $"/{categoryPath}/{serverReportName}".Replace("//", "/");
+                return Ok(ApiResponse<dynamic>.SuccessResponse(new
+                {
+                    itemId = created.ItemId,
+                    reportName = serverReportName,
+                    categoryName = categoryPath,
+                    serverPath,
+                }, "Report created"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error building report {ReportName}", request?.ReportName);
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to build report"));
+            }
+        }
+
+        // ---------------------------------------------------------------- My Reports (server-side list)
+
+        /// <summary>
+        /// Dedicated endpoint for the "My Reports" view.
+        ///
+        /// Pulls every report from Bold Reports v1.0 /items?itemtype=Report
+        /// and returns the subset whose CategoryName equals the caller's
+        /// email (case-insensitive, trimmed). Server-side filter — no
+        /// client-side scope toggle over the full tree payload.
+        ///
+        /// Matches the requirement: "list all available reports in the
+        /// category whose name is the user email".
+        /// </summary>
+        [HttpGet("my")]
+        public async Task<IActionResult> GetMyReports()
+        {
+            try
+            {
+                var authUser = _auth.GetAuthContext();
+                if (authUser == null || string.IsNullOrWhiteSpace(authUser.Email))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var token = await GetBoldReportsTokenAsync(_boldReportsService);
+                if (string.IsNullOrEmpty(token))
+                {
+                    return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
+                }
+
+                var sessionUser = authUser.Email.Trim();
+
+                var (allReports, sourceStatus, sourceBody) =
+                    await _boldReportsService.GetReportsWithStatusAsync(token);
+
+                if (sourceStatus is null or >= 400)
+                {
+                    Logger.LogWarning(
+                        "GetMyReports upstream failed. status={Status} body={Body}",
+                        sourceStatus, sourceBody);
+                    var detail = $"Bold Reports items fetch failed with status {sourceStatus?.ToString() ?? "n/a"}";
+                    if (!string.IsNullOrWhiteSpace(sourceBody))
+                        detail += $" | body: {(sourceBody.Length > 300 ? sourceBody.Substring(0, 300) + "…" : sourceBody)}";
+                    return StatusCode(
+                        StatusCodes.Status502BadGateway,
+                        ApiResponse<dynamic>.ErrorResponse(detail, "My Reports unavailable"));
+                }
+
+                // Server-side filter: every report whose CategoryName
+                // exactly equals the caller's email. Matches the
+                // "category name is equal to the user email" requirement.
+                var userReports = allReports
+                    .Where(r => !string.IsNullOrWhiteSpace(r.CategoryName)
+                                && string.Equals(r.CategoryName.Trim(), sessionUser,
+                                    StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var reports = userReports.Select(r => new
+                {
+                    id = r.Id,
+                    reportId = r.Id,
+                    reportPath = r.Id,
+                    name = r.Name,
+                    serverReportName = r.Name,
+                    serverCategory = r.CategoryName,
+                    description = r.Description ?? string.Empty,
+                    categoryName = sessionUser,
+                    r.CanRead,
+                    r.CanWrite,
+                    createdById = r.CreatedById,
+                    isPublic = r.IsPublic,
+                    modifiedDate = !string.IsNullOrEmpty(r.ModifiedDate) ? r.ModifiedDate : nowIso,
+                    createdDate = !string.IsNullOrEmpty(r.CreatedDate) ? r.CreatedDate : nowIso,
+                }).ToList();
+
+                return Ok(ApiResponse<dynamic>.SuccessResponse(new
+                {
+                    categoryName = sessionUser,
+                    count = reports.Count,
+                    reports,
+                }, "My Reports retrieved"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error retrieving My Reports");
+                return StatusCode(500, ApiResponse<dynamic>.ErrorResponse(ex.Message, "Failed to retrieve My Reports"));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Request model for building a new report from a shared dataset.
+    /// </summary>
+    public class BuildReportRequest
+    {
+        public string DatasetId { get; set; } = string.Empty;
+        public string ReportName { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        /// <summary>Field names to include, in display order.</summary>
+        public List<string> Columns { get; set; } = new();
+        // Optional. Tablix-level filters + matching report parameters.
+        public List<ReportFilter> Filters { get; set; } = new();
+        // Optional. Tablix-level sort expressions.
+        public List<ReportSort> Sorts { get; set; } = new();
     }
 
     /// <summary>
@@ -882,17 +1231,26 @@ namespace BoldAdhocEmbed.Server.Controllers
     }
 
     /// <summary>
-    /// Request model for deleting reports
+    /// Request model for deleting reports. Per the Bold Reports v1.0
+    /// REST spec, items are deleted by ItemId (GUID) — not by
+    /// Name/Category. Name + Category are kept as a fallback so older
+    /// callers and the v5.0 serverPath-based delete still work.
     /// </summary>
     public class DeleteReportRequest
     {
         /// <summary>
-        /// Report name or serverPath
+        /// Bold Reports ItemId (GUID). Preferred — used directly against
+        /// the v1.0 endpoint: DELETE /api/site/{tenant}/v1.0/items/{id}.
+        /// </summary>
+        public string? Id { get; set; }
+
+        /// <summary>
+        /// Report name (used as fallback when Id is missing).
         /// </summary>
         public string? Name { get; set; }
 
         /// <summary>
-        /// Optional category name used to build serverPath
+        /// Optional category name (used together with Name as fallback).
         /// </summary>
         public string? Category { get; set; }
     }

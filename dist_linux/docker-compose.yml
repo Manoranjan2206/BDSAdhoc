@@ -1,0 +1,117 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: bdsadhoc-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Password123!}
+      POSTGRES_INITDB_ARGS: "-c max_connections=200"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "0.0.0.0:5432:5432"
+    networks:
+      - bdsadhoc-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # 2. BDSAdhoc Application (Frontend + Backend in Single Image)
+  # ---------------------------------------------------------------------------
+  bdsadhoc:
+    image: bdsadhoc-app:latest
+    container_name: bdsadhoc-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+
+      # Postgres connection parameters
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Password123!}
+
+      # Bold Reports Configuration
+      BoldReports__ReportRootUrl: ${BR_ReportRootUrl}
+      BoldReports__ReportsSiteIdentifier: ${BR_SiteIdentifier}
+      BoldReports__AdminUser: ${BR_AdminUser}
+      BoldReports__AdminPassword: ${BR_AdminPassword}
+      BoldReports__EmbedSecret: ${BR_EmbedSecret}
+
+      # Bold BI Configuration
+      BoldBI__ServerUrl: ${BBI_ServerUrl}
+      BoldBI__SiteIdentifier: ${BBI_SiteIdentifier}
+      BoldBI__AdminUser: ${BBI_AdminUser}
+      BoldBI__AdminPassword: ${BBI_AdminPassword}
+      BoldBI__EmbedSecret: ${BBI_EmbedSecret}
+      BoldBI__UserEmail: ${BBI_UserEmail}
+      BoldBI__Environment: ${BBI_Environment:-onpremise}
+    networks:
+      - bdsadhoc-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/crm/home-summary?email=alpha1@alphacorp.com"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # 3. Nginx Reverse Proxy
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bdsadhoc-nginx
+    restart: always
+    depends_on:
+      - bdsadhoc
+    ports:
+      - "127.0.0.1:8085:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - bdsadhoc-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bdsadhoc-net:
+    name: bdsadhoc-net
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: bdsadhoc-postgres-data
+  nginx_cache:
+    name: bdsadhoc-nginx-cache

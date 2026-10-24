@@ -1,0 +1,1 @@
+This project previously referenced Syncfusion CDN theme switching. The integration has been removed as per request.

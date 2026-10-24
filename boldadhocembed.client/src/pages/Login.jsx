@@ -35,11 +35,11 @@ const TENANT_USERS = [
 // Sample login data shown at the bottom of the right column when the
 // "Show sample logins" checkbox is enabled.
 const SAMPLE_LOGINS_TABLE = [
-  { username: 'alpha1@alphacorp.com', password: 'Password123!', tenant: 'AlphaCorp', access: 'Admin / All', filters: 'North America' },
-  { username: 'alpha2@alphacorp.com', password: 'Password123!', tenant: 'AlphaCorp', access: 'Sales / Pipeline', filters: 'Europe' },
-  { username: 'beta1@betasolutions.com', password: 'Password123!', tenant: 'BetaSolutions', access: 'Admin / All', filters: 'North America' },
-  { username: 'gamma1@gammaindustries.com', password: 'Password123!', tenant: 'GammaIndustries', access: 'Admin / All', filters: 'North America' },
-  { username: 'delta1@deltaenterprises.com', password: 'Password123!', tenant: 'DeltaEnterprises', access: 'Admin / All', filters: 'North America' },
+  { username: 'alpha1@alphacorp.com', password: 'alpha1', tenant: 'AlphaCorp', access: 'Admin / All', filters: 'North America' },
+  { username: 'alpha2@alphacorp.com', password: 'alpha2', tenant: 'AlphaCorp', access: 'Sales / Pipeline', filters: 'Europe' },
+  { username: 'beta1@betasolutions.com', password: 'beta1', tenant: 'BetaSolutions', access: 'Admin / All', filters: 'North America' },
+  { username: 'gamma1@gammaindustries.com', password: 'gamma1', tenant: 'GammaIndustries', access: 'Admin / All', filters: 'North America' },
+  { username: 'delta1@deltaenterprises.com', password: 'delta1', tenant: 'DeltaEnterprises', access: 'Admin / All', filters: 'North America' },
 ];
 
 export default function Login() {
@@ -91,6 +91,17 @@ export default function Login() {
     } catch (err) {
       console.error('SSO login failed to start:', err);
       setError('SSO login could not be started. Please try again.');
+    }
+  };
+
+  const handleAzureLogin = () => {
+    try {
+      // Redirect to backend Azure AD login endpoint
+      // The backend will handle the OIDC flow and redirect back with a token
+      window.location.href = '/api/auth/login-azure';
+    } catch (err) {
+      console.error('Azure AD login failed to start:', err);
+      setError('Azure AD login could not be started. Please try again.');
     }
   };
 
@@ -295,18 +306,26 @@ export default function Login() {
                 <div className="flex-grow border-t border-outline-variant/30"></div>
               </div>
 
-              {/* SSO button */}
-              <div className="relative mt-2">
-                <div className="flex items-center gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={handleSsoLogin}
-                    className="w-full bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
-                  >
-                    <span className="material-symbols-outlined text-primary text-[18px]">key</span>
-                    Sign In with Keycloak SSO
-                  </button>
-                </div>
+              {/* SSO buttons */}
+              <div className="relative mt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={handleSsoLogin}
+                  className="w-full bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                >
+                  <span className="material-symbols-outlined text-primary text-[18px]">key</span>
+                  Sign In with Keycloak SSO
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAzureLogin}
+                  className="w-full bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:border-blue-400 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
+                  </svg>
+                  Sign In with Azure AD
+                </button>
               </div>
 
               {/* Sample logins enable + table */}

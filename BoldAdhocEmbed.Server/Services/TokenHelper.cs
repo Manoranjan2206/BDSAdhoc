@@ -10,6 +10,7 @@ namespace BoldAdhocEmbed.Server.Services
     public interface ITokenHelper
     {
         Task<string> GetAdminTokenAsync();
+        Task<string> GetPasswordTokenAsync();
     }
 
     public class TokenHelper : ITokenHelper
@@ -47,6 +48,33 @@ namespace BoldAdhocEmbed.Server.Services
             }
 
             // Fall back to password authentication
+            if (string.IsNullOrEmpty(adminUser) || string.IsNullOrEmpty(adminPassword))
+            {
+                _logger.LogError("Missing required Bold Reports credentials (AdminUser and AdminPassword)");
+                return null;
+            }
+
+            var passwordToken = await _boldReportsService.GetTokenAsync(adminUser, adminPassword);
+            if (string.IsNullOrEmpty(passwordToken))
+            {
+                _logger.LogError("Failed to obtain token using password authentication");
+                return null;
+            }
+
+            _logger.LogInformation("Successfully obtained token using password authentication");
+            return passwordToken;
+        }
+
+        /// <summary>
+        /// Force a password-grant token. Needed for Bold Reports v5.0
+        /// administrative endpoints (e.g. /items/download) that the
+        /// embed-token grant does not have permission to call.
+        /// </summary>
+        public async Task<string> GetPasswordTokenAsync()
+        {
+            var adminUser = _configuration["BoldReports:AdminUser"];
+            var adminPassword = _configuration["BoldReports:AdminPassword"];
+
             if (string.IsNullOrEmpty(adminUser) || string.IsNullOrEmpty(adminPassword))
             {
                 _logger.LogError("Missing required Bold Reports credentials (AdminUser and AdminPassword)");

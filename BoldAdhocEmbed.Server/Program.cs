@@ -1,9 +1,16 @@
 using BoldAdhocEmbed.Server.Services;
 using BoldAdhocEmbed.Server.Middleware;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Bind to 0.0.0.0 to allow external access from E2B tunnel
+// Use port 5274 for E2B exposed applications
+builder.WebHost.UseUrls("http://0.0.0.0:5274");
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -35,8 +42,14 @@ if (!builder.Environment.IsDevelopment() && effectiveSigningKey == "local-develo
     throw new InvalidOperationException("FATAL: Default JWT signing key detected in non-development environment. Configure 'Jwt:Key' or 'Jwt:SigningKey' securely.");
 }
 
-builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// ===== Cookie Authentication (for OIDC session management) =====
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = "AzureAd";
+})
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddJwtBearer(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
@@ -66,6 +79,85 @@ builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer
                 return Task.CompletedTask;
             }
         };
+    })
+    .AddOpenIdConnect("AzureAd", options =>
+    {
+        // ===== Azure AD OIDC Configuration =====
+        options.Authority = builder.Configuration["AzureAd:Authority"] ?? "https://login.microsoftonline.com/common";
+        options.ClientId = builder.Configuration["AzureAd:ClientId"] ?? "";
+        options.ClientSecret = Environment.GetEnvironmentVariable("AZURE_AD_CLIENT_SECRET") 
+            ?? builder.Configuration["AzureAd:ClientSecret"] ?? "";
+        options.ResponseType = "code";
+        options.SaveTokens = true;
+        options.UseTokenLifetime = true;
+
+        // Redirect URIs (must match app registration in Azure Portal)
+        var callbackPath = builder.Configuration["AzureAd:CallbackPath"] ?? "/signin-oidc";
+        options.CallbackPath = new PathString(callbackPath);
+
+        // Map Azure AD claims to standard claim types for easier consumption
+        // CRITICAL: Configure issuer validation for Azure AD token validation
+        // Azure AD can return issuers in multiple formats:
+        // - https://login.microsoftonline.com/{tenantid}/v2.0
+        // - https://sts.windows.net/{tenantid}/
+        // We disable ValidateIssuer to allow Azure AD's issuer discovery to work properly
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = "name",
+            RoleClaimType = "roles",
+            ValidateIssuer = false,  // Let Azure AD handle issuer validation via MetadataAddress
+            SaveSigninToken = true
+        };
+
+        // Events for logging and custom handling
+        options.Events = new Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("Azure AD token validated for user: {Email}", 
+                    context.Principal?.FindFirst("preferred_username")?.Value ?? "unknown");
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(context.Exception, "Azure AD authentication failed");
+                context.HandleResponse();
+                context.Response.Redirect("/login?error=azure_auth_failed");
+                return Task.CompletedTask;
+            },
+            OnRedirectToIdentityProvider = context =>
+            {
+                // CRITICAL: Force HTTPS for redirect_uri sent to Azure AD
+                // Azure AD requires exact match of redirect URI scheme (http != https)
+                var redirectUri = context.ProtocolMessage.RedirectUri;
+                
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("OnRedirectToIdentityProvider - Original redirect_uri: {Uri}", redirectUri);
+                
+                if (redirectUri != null && redirectUri.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                {
+                    var host = context.HttpContext.Request.Host.Host;
+                    bool isLocalhost = host.Contains("localhost") || host.Contains("127.0.0.1");
+                    
+                    if (!isLocalhost)  // Only convert for non-localhost
+                    {
+                        var httpsUri = redirectUri.Replace("http://", "https://", StringComparison.OrdinalIgnoreCase);
+                        context.ProtocolMessage.RedirectUri = httpsUri;
+                        
+                        logger.LogWarning("Azure AD: Forced HTTPS - Old: {OldUri}, New: {NewUri}", 
+                            redirectUri, httpsUri);
+                    }
+                }
+                else
+                {
+                    logger.LogInformation("Redirect URI already HTTPS or null");
+                }
+                
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -91,7 +183,7 @@ string GetRequiredEnv(string key, string configKey, string? devDefault = null)
 // Configure Bold Reports settings with secure credential resolution.
 // Distinct from BoldBI secrets — one leak must not compromise both products.
 var boldReportsPassword = GetRequiredEnv("BOLD_REPORTS_PASSWORD", "BoldReports:AdminPassword",
-    isDevelopment ? builder.Configuration["BoldReports:AdminPassword"] ?? "Admin@123" : null);
+    isDevelopment ? builder.Configuration["BoldReports:AdminPassword"] : null);
 var boldReportsSecret = GetRequiredEnv("BOLD_REPORTS_SECRET", "BoldReports:EmbedSecret",
     isDevelopment ? builder.Configuration["BoldReports:EmbedSecret"] ?? "" : null);
 
@@ -166,6 +258,33 @@ builder.Services.AddScoped<IDatabaseBootstrapper, DatabaseBootstrapper>();
 // through this rather than reading client-supplied X-User-* headers.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthenticatedUser, AuthenticatedUser>();
+
+// Quick Edit / Customize services (Phase 1)
+builder.Services.AddScoped<BoldAdhocEmbed.Server.Services.QuickEdit.IRdlParser,
+    BoldAdhocEmbed.Server.Services.QuickEdit.RdlParser>();
+builder.Services.AddScoped<BoldAdhocEmbed.Server.Services.QuickEdit.IRdlDependencyChecker,
+    BoldAdhocEmbed.Server.Services.QuickEdit.RdlDependencyChecker>();
+builder.Services.AddScoped<BoldAdhocEmbed.Server.Services.QuickEdit.IRdlRebuilder,
+    BoldAdhocEmbed.Server.Services.QuickEdit.RdlRebuilder>();
+builder.Services.AddHttpClient<BoldAdhocEmbed.Server.Services.QuickEdit.IBoldItemsClient,
+    BoldAdhocEmbed.Server.Services.QuickEdit.BoldItemsClient>();
+builder.Services.AddScoped<BoldAdhocEmbed.Server.Services.QuickEdit.ICustomizeService,
+    BoldAdhocEmbed.Server.Services.QuickEdit.CustomizeService>();
+
+// Session store is a singleton so the in-memory dictionary survives
+// across HTTP requests. A scoped CustomizeService would create a new
+// dictionary per request — the sessionId minted by /load would be
+// unknown to the /save call a few seconds later. The 20-minute TTL
+// inside QuickEditSessionStore handles cleanup.
+builder.Services.AddSingleton<BoldAdhocEmbed.Server.Services.QuickEdit.IQuickEditSessionStore,
+    BoldAdhocEmbed.Server.Services.QuickEdit.QuickEditSessionStore>();
+
+// New Report builder services. The RDL generator is stateless (singleton);
+// the dataset catalog needs its own HttpClient for the Bold Reports REST API.
+builder.Services.AddSingleton<BoldAdhocEmbed.Server.Services.ReportBuilder.IRdlGenerator,
+    BoldAdhocEmbed.Server.Services.ReportBuilder.RdlGenerator>();
+builder.Services.AddHttpClient<BoldAdhocEmbed.Server.Services.ReportBuilder.IDatasetCatalogService,
+    BoldAdhocEmbed.Server.Services.ReportBuilder.DatasetCatalogService>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -250,6 +369,43 @@ if (app.Environment.IsDevelopment())
 
 // Use CORS before other middleware
 app.UseCors("AllowFrontend");
+
+// Configure ForwardedHeaders for X-Forwarded-Proto, X-Forwarded-For, X-Forwarded-Host
+// This is standard practice when running behind a reverse proxy (e.g., E2B's nginx)
+// The proxy sends X-Forwarded-Proto: https even though the connection to Kestrel is HTTP
+// Without this, the OIDC middleware sees the request scheme as HTTP and constructs
+// redirect_uri as http://, which doesn't match Azure Portal's https:// registration
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto 
+                     | ForwardedHeaders.XForwardedHost
+                     | ForwardedHeaders.XForwardedFor
+};
+// Allow proxy headers from the E2B reverse proxy
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+forwardedHeadersOptions.AllowedHosts.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
+// Force HTTPS scheme for OIDC redirect_uri construction as a fallback
+// In case the X-Forwarded-Proto header is missing or can't be relied upon
+app.Use(async (context, next) =>
+{
+    // For non-localhost environments (E2B, production), force request scheme to HTTPS if not already set
+    var host = context.Request.Host.Host;
+    bool isLocalhost = host.Contains("localhost") || host.Contains("127.0.0.1");
+    
+    if (!isLocalhost && context.Request.Scheme == "http")
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning("Fallback: Forcing HTTPS scheme for OIDC - Original: {Scheme}://{Host}{Path}", 
+            context.Request.Scheme, context.Request.Host, context.Request.Path);
+        
+        context.Request.Scheme = "https";
+    }
+    
+    await next(context);
+});
 
 // Use error handling middleware
 app.UseMiddleware<ErrorHandlingMiddleware>();

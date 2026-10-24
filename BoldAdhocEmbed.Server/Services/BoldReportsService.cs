@@ -32,7 +32,7 @@ namespace BoldAdhocEmbed.Server.Services
         /// broken" instead of silently returning 200 with data: [].
         /// </summary>
         Task<(List<BoldReport> Reports, int? SourceStatusCode, string? SourceErrorBody)> GetReportsWithStatusAsync(string token);
-        Task<bool> DeleteReportAsync(string token, string reportName, string categoryName = null);
+        Task<bool> DeleteReportAsync(string token, string reportName, string categoryName = null, string itemId = null);
         Task<List<BoldSchedule>> GetSchedulesAsync(string token);
         Task<BoldScheduleDetail> GetScheduleDetailAsync(string token, string scheduleIdOrName);
         Task<bool> RunScheduleNowAsync(string token, string scheduleIdOrName);
@@ -533,27 +533,51 @@ namespace BoldAdhocEmbed.Server.Services
             }
         }
 
-        public async Task<bool> DeleteReportAsync(string token, string reportName, string categoryName = null)
+        public async Task<bool> DeleteReportAsync(string token, string reportName, string categoryName = null, string itemId = null)
         {
             try
             {
-                // Construct serverPath per Bold Reports API: '/{category}/{reportName}' or just reportName
-                var serverPath = string.IsNullOrWhiteSpace(categoryName) ? reportName : $"/{categoryName.Trim()}/{reportName.Trim()}";
-
-                // Use items delete endpoint
-                var url = GetV5ApiUrl($"/items?itemType=Report&serverPath={Uri.EscapeDataString(serverPath)}");
-                using var request = new HttpRequestMessage(HttpMethod.Delete, url);
-                request.Headers.Add("Authorization", NormalizeAuthHeader(token));
-
-                var response = await _httpClient.SendAsync(request);
-                var respBody = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode)
+                // Per Bold Reports v1.0 API spec: DELETE /api/site/{tenant}/v1.0/items/{id}
+                // The {id} is the ItemId (GUID), not the report name.
+                // Falls back to the v5.0 query-string form when only name+category are available.
+                if (!string.IsNullOrWhiteSpace(itemId))
                 {
-                    _logger.LogWarning("Delete report failed for {Report} with status {Status}: {Resp}", serverPath, response.StatusCode, respBody);
+                    var url = GetApiUrl($"/items/{Uri.EscapeDataString(itemId.Trim())}");
+                    using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+                    request.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                    var response = await _httpClient.SendAsync(request);
+                    var respBody = await response.Content.ReadAsStringAsync();
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("Deleted report via v1.0 items/{Id}", itemId);
+                        return true;
+                    }
+
+                    _logger.LogWarning(
+                        "Delete report via v1.0 items/{Id} failed with status {Status}: {Resp}. Falling back to v5.0 serverPath form.",
+                        itemId, (int)response.StatusCode, respBody);
+                }
+
+                // Fallback: v5.0 query-string form keyed by serverPath
+                var serverPath = string.IsNullOrWhiteSpace(categoryName)
+                    ? reportName
+                    : $"/{categoryName.Trim()}/{reportName.Trim()}";
+                var fallbackUrl = GetV5ApiUrl($"/items?itemType=Report&serverPath={Uri.EscapeDataString(serverPath)}");
+                using var fallbackRequest = new HttpRequestMessage(HttpMethod.Delete, fallbackUrl);
+                fallbackRequest.Headers.Add("Authorization", NormalizeAuthHeader(token));
+
+                var fallbackResp = await _httpClient.SendAsync(fallbackRequest);
+                var fallbackBody = await fallbackResp.Content.ReadAsStringAsync();
+                if (!fallbackResp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "Delete report fallback failed for {Report} with status {Status}: {Resp}",
+                        serverPath, (int)fallbackResp.StatusCode, fallbackBody);
                     return false;
                 }
 
-                _logger.LogInformation("Deleted report {Report}", serverPath);
+                _logger.LogInformation("Deleted report {Report} via v5.0 fallback", serverPath);
                 return true;
             }
             catch (Exception ex)
@@ -1335,6 +1359,9 @@ namespace BoldAdhocEmbed.Server.Services
         
         [JsonProperty("CanRead")]
         public bool CanRead { get; set; }
+
+        [JsonProperty("CanDelete")]
+        public bool CanDelete { get; set; }
 
         [JsonProperty("CreatedById")]
         public int CreatedById { get; set; }

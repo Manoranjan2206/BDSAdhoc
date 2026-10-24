@@ -1,0 +1,6 @@
+# Production deployment secrets — never commit
+.env.prod
+*.pem
+*.key
+!nginx/certs/.gitkeep
+deploy/secrets/

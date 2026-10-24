@@ -80,7 +80,11 @@ async function apiRequest(endpoint, options = {}) {
       return null;
     }
 
-    return await response.json();
+    const json = await response.json();
+    if (url.endsWith('/reports/my')) {
+      console.log('[API] /reports/my raw response:', JSON.stringify(json).substring(0, 300));
+    }
+    return json;
   } catch (error) {
     console.error('[API] Request failed:', error.message);
     throw error;
@@ -113,6 +117,18 @@ export const reportsAPI = {
    * @returns {Promise<Array>} Array of report categories with reports
    */
   getReportTree: async () => unwrapResponse(await apiRequest('/reports/tree')),
+
+  /**
+   * Dedicated My Reports endpoint. The server fetches every report from
+   * Bold Reports v1.0 /items?itemtype=Report and returns the subset whose
+   * CategoryName equals the caller's email — case-insensitive, trimmed.
+   * No client-side filtering: the listing is authoritative and always
+   * matches what is in the user's per-email category.
+   *
+   * Response shape: { categoryName, count, reports: [...] }
+   * where each report carries the same field names as the /tree output.
+   */
+  getMyReports: async () => unwrapResponse(await apiRequest('/reports/my')),
 
   /**
    * Get specific report details

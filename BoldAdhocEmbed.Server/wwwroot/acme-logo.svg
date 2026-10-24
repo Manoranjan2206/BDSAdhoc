@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+
+    <!-- Top facet (Emerald / Teal) -->
+    <linearGradient id="topFacet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Left facet (Indigo / Purple) -->
+    <linearGradient id="leftFacet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+
+    <!-- Right facet (Cyan / Blue) -->
+    <linearGradient id="rightFacet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <!-- Front facet (Violet / Fuchsia) -->
+    <linearGradient id="frontFacet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="cubeGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#6366F1" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Dark Rounded Squircle Base -->
+  <rect x="8" y="8" width="104" height="104" rx="28" fill="url(#bgGrad)" filter="url(#cubeGlow)" stroke="#334155" stroke-width="1.5" />
+
+  <!-- Isometric Multi-Tenant Data Cube (4 quadrants) -->
+  <g transform="translate(60, 60)">
+    <!-- Top Top Isometric Rhombus -->
+    <polygon points="0,-32 26,-17 0,-2 -26,-17" fill="url(#topFacet)" fill-opacity="0.95" stroke="#6EE7B7" stroke-width="1" />
+
+    <!-- Top Left Face -->
+    <polygon points="-26,-17 0,-2 0,28 -26,13" fill="url(#leftFacet)" fill-opacity="0.95" stroke="#A5B4FC" stroke-width="1" />
+
+    <!-- Top Right Face -->
+    <polygon points="0,-2 26,-17 26,13 0,28" fill="url(#rightFacet)" fill-opacity="0.95" stroke="#7DD3FC" stroke-width="1" />
+
+    <!-- Center core glow cube -->
+    <polygon points="0,-12 10,-6 0,0 -10,-6" fill="#FFFFFF" fill-opacity="0.9" />
+    <polygon points="-10,-6 0,0 0,12 -10,6" fill="url(#frontFacet)" fill-opacity="0.9" />
+    <polygon points="0,0 10,-6 10,6 0,12" fill="url(#rightFacet)" fill-opacity="0.9" />
+  </g>
+</svg>
