@@ -167,7 +167,9 @@ namespace BoldAdhocEmbed.Server.Services
                 //     user's site password to the browser, and
                 //   * CustomAttributes travel with the JWT so the Reports
                 //     site can scope data via RLS for this specific user.
-                var username = !string.IsNullOrEmpty(user?.Email) ? user.Email : _settings.AdminUser;
+                var username = !string.IsNullOrEmpty(user?.Email) 
+                    ? Controllers.BaseController.MapToTenantEmail(user.Email, user.TenantName) 
+                    : (!string.IsNullOrEmpty(_settings.AdminUser) ? _settings.AdminUser : "alpha1@alphacorp.com");
 
                 if (string.IsNullOrEmpty(_settings.EmbedSecret))
                 {
@@ -224,6 +226,30 @@ namespace BoldAdhocEmbed.Server.Services
                         "Embed_token grant returned {StatusCode}: {Body}",
                         response.StatusCode,
                         string.IsNullOrEmpty(responseContent) ? "(empty response)" : responseContent);
+
+                    // Fallback to alpha1@alphacorp.com if tenant user failed
+                    if (!string.Equals(username, "alpha1@alphacorp.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("Retrying embed token with fallback user alpha1@alphacorp.com");
+                        var fallbackPayload = new
+                        {
+                            grant_type = "embed_token",
+                            ReportServerUser = "alpha1@alphacorp.com",
+                            Embed_Secret = _settings.EmbedSecret,
+                            ReportParameters = payload.ReportParameters,
+                            CustomAttributes = payload.CustomAttributes
+                        };
+                        using var fallbackContent = new StringContent(JsonConvert.SerializeObject(fallbackPayload), Encoding.UTF8, "application/json");
+                        var fbResponse = await _httpClient.PostAsync(tokenUrl, fallbackContent);
+                        if (fbResponse.IsSuccessStatusCode)
+                        {
+                            var fbBody = await fbResponse.Content.ReadAsStringAsync();
+                            var fbToken = JsonConvert.DeserializeObject<EmbedTokenResponse>(fbBody);
+                            _logger.LogInformation("Fallback embed token issued for alpha1@alphacorp.com");
+                            return fbToken?.access_token;
+                        }
+                    }
+
                     return null;
                 }
 

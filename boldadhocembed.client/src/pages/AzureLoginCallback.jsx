@@ -23,15 +23,24 @@ export default function AzureLoginCallback() {
     if (token && email) {
       try {
         console.log('[AzureLoginCallback] Step 1: Storing token...');
-        // Store the token and user info
-        authService.setToken(token);
+        // Store the token safely
+        const normalizedToken = token.replace(/^Bearer\s+/i, '').trim();
+        localStorage.setItem('boldreports_token', normalizedToken);
+        if (typeof authService?.setToken === 'function') {
+          try { authService.setToken(token); } catch (_) {}
+        }
         console.log('[AzureLoginCallback] Step 1: Token stored successfully');
         
         console.log('[AzureLoginCallback] Step 2: Creating user object...');
         const user = {
           email,
           name: searchParams.get('name') || email,
-          tenant: searchParams.get('tenant') || 'AlphaCorp'
+          firstName: searchParams.get('firstName') || (searchParams.get('name') ? searchParams.get('name').split(' ')[0] : ''),
+          lastName: searchParams.get('lastName') || (searchParams.get('name') ? searchParams.get('name').split(' ').slice(1).join(' ') : ''),
+          tenant: searchParams.get('tenant') || 'AlphaCorp',
+          tenantName: searchParams.get('tenant') || 'AlphaCorp',
+          role: searchParams.get('role') || 'Admin',
+          region: searchParams.get('region') || 'North America'
         };
         console.log('[AzureLoginCallback] Step 2: User object created:', user);
         

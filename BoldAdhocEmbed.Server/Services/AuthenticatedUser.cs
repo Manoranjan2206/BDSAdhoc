@@ -58,7 +58,7 @@ namespace BoldAdhocEmbed.Server.Services
             string? region = FindClaim(principal,
                 "region", "Region", "user_region");
             string? tenant = FindClaim(principal,
-                "tenant", "tenant_name", "org_id", "organization");
+                "tenant", "tenant_name", "tenantName", "org_id", "organization");
             string? tenantIdRaw = FindClaim(principal,"tenant_id", "tenantId");
             int parsedTenantId = int.TryParse(tenantIdRaw, out var parsed) ? parsed : 0;
 

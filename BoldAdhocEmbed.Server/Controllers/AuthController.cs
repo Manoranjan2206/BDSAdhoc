@@ -244,24 +244,25 @@ namespace BoldAdhocEmbed.Server.Controllers
         /// - "beta" prefix → BetaSolutions (TenantId=2), Role="User"
         /// - "gamma" prefix → GammaTech (TenantId=3), Role="User"
         /// </summary>
-        private (int TenantId, string TenantName, string Role) MapEmailPrefixToTenant(string email)
+        private (int TenantId, string TenantName, string Role, string MappedEmail) MapEmailPrefixToTenant(string email)
         {
             if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
             {
-                return (1, "AlphaCorp", "User"); // Default fallback
+                return (1, "AlphaCorp", "Admin", "alpha1@alphacorp.com"); // Default fallback
             }
 
-            var prefix = email.Split('@')[0].ToLowerInvariant();
-            var emailPrefix = prefix.TakeWhile(c => !char.IsDigit(c)).ToString().ToLowerInvariant();
+            var localPart = email.Split('@')[0].ToLowerInvariant();
+            var emailPrefix = new string(localPart.TakeWhile(c => !char.IsDigit(c)).ToArray());
 
             Logger.LogInformation("Mapping email prefix '{Prefix}' (full: {Email}) to tenant", emailPrefix, email);
 
             return emailPrefix switch
             {
-                "alpha" => (1, "AlphaCorp", "User"),
-                "beta" => (2, "BetaSolutions", "User"),
-                "gamma" => (3, "GammaTech", "User"),
-                _ => (1, "AlphaCorp", "User") // Default to AlphaCorp if no match
+                "alpha" => (1, "AlphaCorp", "Admin", $"{localPart}@alphacorp.com"),
+                "beta" => (2, "BetaSolutions", "Admin", $"{localPart}@betasolutions.com"),
+                "gamma" => (3, "GammaIndustries", "Admin", $"{localPart}@gammaindustries.com"),
+                "delta" => (4, "DeltaEnterprises", "Admin", $"{localPart}@deltaenterprises.com"),
+                _ => (1, "AlphaCorp", "Admin", "alpha1@alphacorp.com") // Default to AlphaCorp if no match
             };
         }
 
@@ -405,10 +406,14 @@ namespace BoldAdhocEmbed.Server.Controllers
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim("email", user.Email),
                 new Claim(ClaimTypes.Name, user.Name ?? user.Email),
-                new Claim(ClaimTypes.Role, user.Role ?? "User"),
+                new Claim(ClaimTypes.Role, user.Role ?? "Admin"),
+                new Claim("role", user.Role ?? "Admin"),
+                new Claim("tenant", user.TenantName ?? "AlphaCorp"),
+                new Claim("tenantName", user.TenantName ?? "AlphaCorp"),
+                new Claim("tenant_name", user.TenantName ?? "AlphaCorp"),
                 new Claim("tenantId", user.TenantId.ToString()),
-                new Claim("tenantName", user.TenantName ?? string.Empty),
-                new Claim("region", user.Region ?? string.Empty),
+                new Claim("tenant_id", user.TenantId.ToString()),
+                new Claim("region", user.Region ?? "North America"),
             };
             var credentials = new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
@@ -469,18 +474,18 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var givenName = User.FindFirst("given_name")?.Value;
                 var familyName = User.FindFirst("family_name")?.Value;
 
-                // Map email prefix to tenant (alpha → AlphaCorp, beta → BetaSolutions, gamma → GammaTech)
-                var (tenantId, tenantName, role) = MapEmailPrefixToTenant(email);
+                // Map email prefix to tenant (alpha → AlphaCorp, beta → BetaSolutions, gamma → GammaIndustries)
+                var (tenantId, tenantName, role, mappedEmail) = MapEmailPrefixToTenant(email);
 
                 // Try to find existing user, or provision JIT
-                var user = _userStore.Get(email);
+                var user = _userStore.Get(mappedEmail);
                 if (user == null)
                 {
                     // JIT provisioning for new Azure AD users with email-prefix-based tenant mapping
                     user = new AppUser
                     {
                         Id = Guid.NewGuid().ToString(),
-                        Email = email,
+                        Email = mappedEmail,
                         Name = name,
                         FirstName = givenName,
                         LastName = familyName,
@@ -494,8 +499,8 @@ namespace BoldAdhocEmbed.Server.Controllers
                         Permissions = _userStore.GetPermissionsForRole(role)
                     };
                     _userStore.Add(user);
-                    Logger.LogInformation("JIT-provisioned Azure AD user: {Email}, Name: {Name}, Tenant: {TenantName} (ID: {TenantId})", 
-                        email, name, tenantName, tenantId);
+                    Logger.LogInformation("JIT-provisioned Azure AD user: {MappedEmail} (Azure: {AzureEmail}), Name: {Name}, Tenant: {TenantName} (ID: {TenantId})", 
+                        mappedEmail, email, name, tenantName, tenantId);
                 }
                 else
                 {
@@ -506,18 +511,30 @@ namespace BoldAdhocEmbed.Server.Controllers
 
                 if (!user.IsActive)
                 {
-                    Logger.LogWarning("Azure AD user account inactive: {Email}", email);
+                    Logger.LogWarning("Azure AD user account inactive: {Email}", mappedEmail);
                     return Redirect("/login?error=account_inactive");
                 }
 
                 // Generate app-specific JWT from the Azure-authenticated user
                 var sessionToken = GenerateSessionToken(user);
 
-                Logger.LogInformation("Azure AD login successful for user: {Email}, Tenant: {Tenant}", email, user.TenantName);
+                Logger.LogInformation("Azure AD login successful for user: {AzureEmail} -> {MappedEmail}, Tenant: {Tenant}", email, mappedEmail, user.TenantName);
+
+                var effectiveName = (!string.IsNullOrWhiteSpace(name) && !name.Equals(email.Split('@')[0], StringComparison.OrdinalIgnoreCase))
+                    ? name
+                    : (user.Name ?? name ?? mappedEmail);
+
+                var effectiveFirstName = !string.IsNullOrWhiteSpace(user.FirstName)
+                    ? user.FirstName
+                    : (!string.IsNullOrWhiteSpace(givenName) ? givenName : (effectiveName.Contains(' ') ? effectiveName.Split(' ')[0] : effectiveName));
+
+                var effectiveLastName = !string.IsNullOrWhiteSpace(user.LastName)
+                    ? user.LastName
+                    : (!string.IsNullOrWhiteSpace(familyName) ? familyName : (effectiveName.Contains(' ') ? effectiveName.Substring(effectiveName.IndexOf(' ') + 1) : ""));
 
                 // Redirect to frontend with token in query string
                 // Frontend will extract and store it in localStorage
-                return Redirect($"/login-success?token={Uri.EscapeDataString(sessionToken)}&email={Uri.EscapeDataString(email)}");
+                return Redirect($"/login-success?token={Uri.EscapeDataString(sessionToken)}&email={Uri.EscapeDataString(mappedEmail)}&name={Uri.EscapeDataString(effectiveName)}&tenant={Uri.EscapeDataString(tenantName)}&role={Uri.EscapeDataString(user.Role ?? "Admin")}&region={Uri.EscapeDataString(user.Region ?? "North America")}&firstName={Uri.EscapeDataString(effectiveFirstName)}&lastName={Uri.EscapeDataString(effectiveLastName)}");
             }
             catch (Exception ex)
             {

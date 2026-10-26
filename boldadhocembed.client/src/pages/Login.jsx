@@ -45,7 +45,7 @@ const SAMPLE_LOGINS_TABLE = [
 export default function Login() {
   const navigate = useNavigate();
   const [selectedUserEmail, setSelectedUserEmail] = useState('alpha1@alphacorp.com');
-  const [activeTab, setActiveTab] = useState('user'); // user | jwt
+  const [showJwtInput, setShowJwtInput] = useState(false);
   const [jwtToken, setJwtToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -65,14 +65,10 @@ export default function Login() {
     setError('');
 
     try {
-      if (activeTab === 'jwt') {
+      if (showJwtInput) {
         if (!jwtToken.trim()) throw new Error('Please paste a valid JWT token');
         await authService.loginWithToken(jwtToken);
       } else {
-        // Authenticate against the server. The server returns a signed JWT
-        // containing the selected user's email, tenant, role, and region.
-        // That same identity is then used by /reports/viewer-settings to
-        // mint the Bold Reports embed token for this user.
         await authService.login(selectedUser.email, selectedUser.pwd);
       }
 
@@ -187,100 +183,87 @@ export default function Login() {
           </div>
 
           {/* Right Login Card (7 cols) */}
-          <div className="md:col-span-7 glass-card rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-center">
-            {/* Tabs */}
-            <div className="flex border-b border-glass-border mb-4">
-              <button
-                onClick={() => setActiveTab('user')}
-                className={`pb-2.5 text-xs font-bold border-b-2 mr-6 transition-colors ${
-                  activeTab === 'user'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Select User Account
-              </button>
-              <button
-                onClick={() => setActiveTab('jwt')}
-                className={`pb-2.5 text-xs font-bold border-b-2 transition-colors ${
-                  activeTab === 'jwt'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Custom JWT Token
-              </button>
-            </div>
-
+          <div className="md:col-span-7 glass-card rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-center space-y-4">
             {error && (
-              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 text-xs mb-3 border border-red-200">
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 text-xs mb-1 border border-red-200">
                 {error}
               </div>
             )}
 
+            {/* Direct Demo / Local Account Login */}
             <form onSubmit={handleLogin} className="space-y-3">
-              {activeTab === 'user' ? (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                      Choose Enterprise User
-                    </label>
-                    <select
-                      value={selectedUserEmail}
-                      onChange={(e) => setSelectedUserEmail(e.target.value)}
-                      className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-primary"
-                    >
-                      {['AlphaCorp', 'BetaSolutions', 'GammaIndustries', 'DeltaEnterprises'].map(tenant => (
-                        <optgroup key={tenant} label={tenant}>
-                          {TENANT_USERS.filter(u => u.tenantName === tenant).map(u => (
-                            <option key={u.email} value={u.email}>
-                              {u.name} ({u.role}) — {u.region} [{u.email}]
-                            </option>
-                          ))}
-                        </optgroup>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                  Choose Enterprise User (Direct Sign-In)
+                </label>
+                <select
+                  value={selectedUserEmail}
+                  onChange={(e) => setSelectedUserEmail(e.target.value)}
+                  className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-primary"
+                >
+                  {['AlphaCorp', 'BetaSolutions', 'GammaIndustries', 'DeltaEnterprises'].map(tenant => (
+                    <optgroup key={tenant} label={tenant}>
+                      {TENANT_USERS.filter(u => u.tenantName === tenant).map(u => (
+                        <option key={u.email} value={u.email}>
+                          {u.name} ({u.role}) — {u.region} [{u.email}]
+                        </option>
                       ))}
-                    </select>
-                  </div>
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
 
-                  {/* Selected User Preview Card */}
-                  <div className="p-2.5 rounded-xl bg-surface-container-high border border-glass-border flex items-center gap-2.5">
-                    <img
-                      src={selectedUser.avatar}
-                      alt={selectedUser.name}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-primary shadow-sm flex-shrink-0"
-                    />
-                    <div className="flex-1 overflow-hidden">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-on-surface truncate">{selectedUser.name}</h4>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${getRoleBadge(selectedUser.role)}`}>
-                          {selectedUser.role}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-on-surface-variant truncate">{selectedUser.email}</p>
-                      <p className="text-[11px] text-primary font-medium">{selectedUser.tenantName} • Region: {selectedUser.region}</p>
-                    </div>
+              {/* Selected User Preview Card */}
+              <div className="p-2.5 rounded-xl bg-surface-container-high border border-glass-border flex items-center gap-2.5">
+                <img
+                  src={selectedUser.avatar}
+                  alt={selectedUser.name}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-primary shadow-sm flex-shrink-0"
+                />
+                <div className="flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-on-surface truncate">{selectedUser.name}</h4>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${getRoleBadge(selectedUser.role)}`}>
+                      {selectedUser.role}
+                    </span>
                   </div>
+                  <p className="text-[11px] text-on-surface-variant truncate">{selectedUser.email}</p>
+                  <p className="text-[11px] text-primary font-medium">{selectedUser.tenantName} • Region: {selectedUser.region}</p>
+                </div>
+              </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">Password</label>
-                    <input
-                      type="password"
-                      readOnly
-                      value="••••••••••••"
-                      className="w-full bg-surface-container/60 border border-outline-variant/40 rounded-xl px-3 py-2 text-xs text-on-surface cursor-not-allowed"
-                    />
-                  </div>
-                </>
-              ) : (
+              {showJwtInput ? (
                 <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">JWT Token Payload</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-on-surface-variant">Custom JWT Token</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowJwtInput(false)}
+                      className="text-[11px] text-primary hover:underline cursor-pointer"
+                    >
+                      Use Demo Password
+                    </button>
+                  </div>
                   <textarea
-                    rows={3}
+                    rows={2}
                     placeholder="Paste encoded JWT token here..."
                     value={jwtToken}
                     onChange={(e) => setJwtToken(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl p-2.5 text-xs font-mono text-on-surface focus:ring-primary"
+                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl p-2 text-xs font-mono text-on-surface focus:ring-primary"
                   />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-on-surface-variant font-medium">
+                    Password: <span className="font-mono text-on-surface">••••••••••••</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowJwtInput(true)}
+                    className="text-primary hover:underline font-medium cursor-pointer"
+                  >
+                    Paste Custom JWT
+                  </button>
                 </div>
               )}
 
@@ -298,77 +281,135 @@ export default function Login() {
                   </>
                 )}
               </button>
+            </form>
 
-              {/* SSO Divider */}
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-outline-variant/30"></div>
-                <span className="flex-shrink mx-3 text-[11px] text-on-surface-variant uppercase font-semibold">Or continue with</span>
-                <div className="flex-grow border-t border-outline-variant/30"></div>
-              </div>
+            {/* SSO Divider */}
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-outline-variant/30"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">
+                Enterprise Single Sign-On
+              </span>
+              <div className="flex-grow border-t border-outline-variant/30"></div>
+            </div>
 
-              {/* SSO buttons */}
-              <div className="relative mt-2 space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSsoLogin}
-                  className="w-full bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 hover:border-primary/50 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
-                >
-                  <span className="material-symbols-outlined text-primary text-[18px]">key</span>
-                  Sign In with Keycloak SSO
-                </button>
+            {/* Enterprise SSO Options */}
+            <div className="space-y-3">
+              {/* Microsoft Azure AD Option (Corporate - NO sample logins) */}
+              <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-800/60 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-white dark:bg-slate-900 shadow-xs flex items-center justify-center p-1 border border-blue-200/50">
+                      <svg className="w-full h-full" viewBox="0 0 24 24">
+                        <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                        <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+                        <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+                        <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        Microsoft Azure AD / Entra ID
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">Corporate</span>
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleAzureLogin}
-                  className="w-full bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:border-blue-400 text-xs py-2.5 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                  className="w-full bg-[#0078D4] hover:bg-[#006cbd] text-white text-xs py-2 font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.99]"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                    <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+                    <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+                    <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
                   </svg>
-                  Sign In with Azure AD
+                  <span>Sign In with Microsoft Azure AD</span>
                 </button>
               </div>
 
-              {/* Sample logins enable + table */}
-              <div className="mt-3 pt-3 border-t border-glass-border">
-                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-on-surface-variant hover:text-on-surface">
-                  <input
-                    type="checkbox"
-                    checked={showSampleLogins}
-                    onChange={(e) => setShowSampleLogins(e.target.checked)}
-                    className="w-4 h-4 accent-primary cursor-pointer rounded"
-                    aria-label="Show sample logins"
-                  />
-                  <span>Show sample logins</span>
-                </label>
+              {/* Keycloak SSO Option (With Sample Logins strictly inside / next to it) */}
+              <div className="p-3 rounded-xl bg-surface-container/60 border border-outline-variant/40 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[16px]">key</span>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                        Keycloak SSO
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-primary/15 text-primary">Federated Realm</span>
+                      </h4>
+                    </div>
+                  </div>
+                </div>
 
+                {/* Keycloak Action Row: Sign In Button + Show Keycloak Sample Logins Button */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSsoLogin}
+                    className="flex-1 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 hover:border-primary/60 text-xs py-2 font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99]"
+                  >
+                    <span className="material-symbols-outlined text-primary text-[17px]">login</span>
+                    <span>Sign In with Keycloak SSO</span>
+                  </button>
+
+                  {/* Button placed right next to Keycloak button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowSampleLogins(!showSampleLogins)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap ${
+                      showSampleLogins
+                        ? 'bg-primary text-white border-primary shadow-xs'
+                        : 'bg-surface-container hover:bg-surface-container-high text-primary border-primary/40 hover:border-primary'
+                    }`}
+                    title="Keycloak-only test credentials"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">
+                      {showSampleLogins ? 'visibility_off' : 'badge'}
+                    </span>
+                    <span>{showSampleLogins ? 'Hide Sample Logins' : 'Show Sample Logins (Keycloak only)'}</span>
+                  </button>
+                </div>
+
+                {/* Keycloak Sample Logins Table (Strictly inside Keycloak card) */}
                 {showSampleLogins && (
-                  <div className="mt-2 overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container">
-                    <table className="w-full text-[11px] text-on-surface">
-                      <thead className="bg-surface-container-high text-on-surface-variant">
-                        <tr>
-                          <th className="px-2 py-1.5 text-left font-semibold">Username</th>
-                          <th className="px-2 py-1.5 text-left font-semibold">Password</th>
-                          <th className="px-2 py-1.5 text-left font-semibold">Tenant</th>
-                          <th className="px-2 py-1.5 text-left font-semibold">Access</th>
-                          <th className="px-2 py-1.5 text-left font-semibold">Filters</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {SAMPLE_LOGINS_TABLE.map((row) => (
-                          <tr key={row.username} className="border-t border-outline-variant/20 even:bg-surface-container-high/40">
-                            <td className="px-2 py-1.5 font-mono">{row.username}</td>
-                            <td className="px-2 py-1.5 font-mono">{row.password}</td>
-                            <td className="px-2 py-1.5">{row.tenant}</td>
-                            <td className="px-2 py-1.5">{row.access}</td>
-                            <td className="px-2 py-1.5">{row.filters}</td>
+                  <div className="mt-2 overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container-high/90 p-2.5 animate-fadeIn">
+                    <div className="flex items-center gap-1.5 text-[11px] text-primary font-semibold mb-1">
+                      <span className="material-symbols-outlined text-[14px]">info</span>
+                      <span>Keycloak Test Credentials (enter on Keycloak screen):</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] text-on-surface">
+                        <thead className="bg-surface-container text-on-surface-variant">
+                          <tr>
+                            <th className="px-2 py-1 text-left font-semibold">Keycloak Username</th>
+                            <th className="px-2 py-1 text-left font-semibold">Password</th>
+                            <th className="px-2 py-1 text-left font-semibold">Tenant</th>
+                            <th className="px-2 py-1 text-left font-semibold">Access</th>
+                            <th className="px-2 py-1 text-left font-semibold">Filters</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {SAMPLE_LOGINS_TABLE.map((row) => (
+                            <tr key={row.username} className="border-t border-outline-variant/20 even:bg-surface-container/40">
+                              <td className="px-2 py-1 font-mono text-primary font-medium">{row.username}</td>
+                              <td className="px-2 py-1 font-mono">{row.password}</td>
+                              <td className="px-2 py-1">{row.tenant}</td>
+                              <td className="px-2 py-1">{row.access}</td>
+                              <td className="px-2 py-1">{row.filters}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </div>

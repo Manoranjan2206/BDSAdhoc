@@ -88,7 +88,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                     return Unauthorized(ApiResponse<dynamic>.UnauthorizedResponse());
                 }
 
-                var callerEmail = auth.Email;
+                var callerEmail = BaseController.MapToTenantEmail(auth.Email, auth.TenantName);
                 var cacheKey = $"bold-reports-embed-token-{callerEmail}";
                 var embedToken = await _cacheService.GetAsync<string>(cacheKey);
 
@@ -96,7 +96,7 @@ namespace BoldAdhocEmbed.Server.Controllers
                 {
                     var user = new AppUser
                     {
-                        Email = auth.Email,
+                        Email = callerEmail,
                         TenantId = auth.TenantId,
                         TenantName = auth.TenantName,
                         Role = auth.Role,
@@ -248,10 +248,11 @@ namespace BoldAdhocEmbed.Server.Controllers
                 var nowIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                 var authUser = _auth.GetAuthContext();
-                var userEmail = authUser?.Email ?? "";
+                var rawEmail = authUser?.Email ?? "";
                 var userRole = authUser?.Role ?? "";
                 var tenantName = authUser?.TenantName ?? "";
-                var tenantDomain = userEmail.Contains('@') ? userEmail.Substring(userEmail.IndexOf('@') + 1).ToLowerInvariant() : "";
+                var userEmail = BaseController.MapToTenantEmail(rawEmail, tenantName);
+                var tenantDomain = userEmail.Contains('@') ? userEmail.Substring(userEmail.IndexOf('@') + 1).ToLowerInvariant() : "alphacorp.com";
                 var isAdmin = string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase);
 
                 var cacheKey = $"report_tree_{tenantName}_{userEmail}";
