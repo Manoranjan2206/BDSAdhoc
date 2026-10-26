@@ -63,6 +63,9 @@ services:
       BoldBI__EmbedSecret: ${BBI_EmbedSecret}
       BoldBI__UserEmail: ${BBI_UserEmail}
       BoldBI__Environment: ${BBI_Environment:-onpremise}
+
+      # Microsoft Azure AD Corporate SSO
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET:-}
     networks:
       - bdsadhoc-net
     healthcheck:

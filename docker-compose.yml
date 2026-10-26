@@ -102,6 +102,7 @@ services:
       - Jwt__Issuer=${JWT_ISSUER:-BoldAdhoc}
       - Jwt__Audience=${JWT_AUDIENCE:-BoldAdhocUsers}
       - Jwt__Authority=${JWT_AUTHORITY:-https://keycloak.boldbidemo.com/realms/master}
+      - AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

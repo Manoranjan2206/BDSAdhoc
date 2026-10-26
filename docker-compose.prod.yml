@@ -87,6 +87,10 @@ services:
       Jwt__Audience: ${JWT_AUDIENCE:-BoldAdhocUsers}
       Jwt__Authority: ${JWT_AUTHORITY:-https://keycloak.boldbidemo.com/realms/master}
 
+      # ---- Microsoft Azure AD Corporate SSO ----
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET:-}
+
+
     networks:
       - bdsadhoc-t1-net
     healthcheck:
