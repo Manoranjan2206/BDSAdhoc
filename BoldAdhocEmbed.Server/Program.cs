@@ -5,12 +5,41 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
+using System.IO;
+
+// Load environment variables from .env file if present
+for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir != null; dir = dir.Parent)
+{
+    var envPath = Path.Combine(dir.FullName, ".env");
+    if (File.Exists(envPath))
+    {
+        foreach (var rawLine in File.ReadAllLines(envPath))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
+            var idx = line.IndexOf('=');
+            if (idx <= 0) continue;
+            var key = line.Substring(0, idx).Trim();
+            var val = line.Substring(idx + 1).Trim().Trim('"', '\'');
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+            {
+                Environment.SetEnvironmentVariable(key, val);
+            }
+        }
+        break;
+    }
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Bind to 0.0.0.0 to allow external access from E2B tunnel
-// Use port 5274 for E2B exposed applications
-builder.WebHost.UseUrls("http://0.0.0.0:5274");
+// Bind to port 5274 only if ASPNETCORE_URLS or DOTNET_URLS is not explicitly configured.
+// In production container environments, ASPNETCORE_URLS (e.g. http://+:8080) takes precedence.
+var configuredUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
+    ?? Environment.GetEnvironmentVariable("DOTNET_URLS");
+if (string.IsNullOrWhiteSpace(configuredUrls))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5274");
+}
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -42,26 +71,46 @@ if (!builder.Environment.IsDevelopment() && effectiveSigningKey == "local-develo
     throw new InvalidOperationException("FATAL: Default JWT signing key detected in non-development environment. Configure 'Jwt:Key' or 'Jwt:SigningKey' securely.");
 }
 
-// ===== Cookie Authentication (for OIDC session management) =====
+// ===== Dual Authentication: JWT Bearer (for API) + Cookie/OIDC (for Azure AD login flow) =====
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = "AzureAd";
+    options.DefaultScheme = "SmartScheme";
+    options.DefaultAuthenticateScheme = "SmartScheme";
+    options.DefaultChallengeScheme = "SmartScheme";
 })
+    .AddPolicyScheme("SmartScheme", "Bearer or Cookie", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                return Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+            }
+
+            // For Azure AD OIDC callback, use Cookie auth
+            if (context.Request.Path.StartsWithSegments("/api/auth/azure-callback") ||
+                context.Request.Cookies.ContainsKey(".AspNetCore.Cookies"))
+            {
+                return CookieAuthenticationDefaults.AuthenticationScheme;
+            }
+
+            // Default to JWT Bearer so unauthorized API calls return 401 instead of redirecting
+            return Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+        };
+    })
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
-        // Configure correlation cookie to survive OAuth redirect flow
-        options.CorrelationCookie.SameSite = SameSiteMode.None;
-        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.HttpOnly = true;
-        options.CorrelationCookie.Expiration = TimeSpan.FromMinutes(15);
-        
-        // Session cookie settings
+        // Session cookie settings - use MemoryCacheTicketStore so authentication tickets
+        // are kept in server memory instead of serializing large claims into the Set-Cookie header.
+        // This keeps HTTP response headers well under 500 bytes and avoids Nginx 502 "upstream sent too big header".
         options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.HttpOnly = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(1);
         options.SlidingExpiration = true;
+        options.SessionStore = new MemoryCacheTicketStore(new Microsoft.Extensions.Caching.Memory.MemoryCache(
+            new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
     })
     .AddJwtBearer(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme, options =>
     {
@@ -97,30 +146,32 @@ builder.Services.AddAuthentication(options =>
     .AddOpenIdConnect("AzureAd", options =>
     {
         // ===== Azure AD OIDC Configuration =====
+        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
         options.Authority = builder.Configuration["AzureAd:Authority"] ?? "https://login.microsoftonline.com/common";
         options.ClientId = builder.Configuration["AzureAd:ClientId"] ?? "";
         options.ClientSecret = Environment.GetEnvironmentVariable("AZURE_AD_CLIENT_SECRET") 
             ?? builder.Configuration["AzureAd:ClientSecret"] ?? "";
         options.ResponseType = "code";
-        options.SaveTokens = true;
+        // Do NOT serialize raw OAuth tokens into the session cookie (prevents large Set-Cookie headers)
+        options.SaveTokens = false;
         options.UseTokenLifetime = true;
+
+        // Configure correlation cookie to survive OAuth redirect flow
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.CorrelationCookie.HttpOnly = true;
 
         // Redirect URIs (must match app registration in Azure Portal)
         var callbackPath = builder.Configuration["AzureAd:CallbackPath"] ?? "/signin-oidc";
         options.CallbackPath = new PathString(callbackPath);
 
         // Map Azure AD claims to standard claim types for easier consumption
-        // CRITICAL: Configure issuer validation for Azure AD token validation
-        // Azure AD can return issuers in multiple formats:
-        // - https://login.microsoftonline.com/{tenantid}/v2.0
-        // - https://sts.windows.net/{tenantid}/
-        // We disable ValidateIssuer to allow Azure AD's issuer discovery to work properly
         options.TokenValidationParameters = new TokenValidationParameters
         {
             NameClaimType = "name",
             RoleClaimType = "roles",
             ValidateIssuer = false,  // Let Azure AD handle issuer validation via MetadataAddress
-            SaveSigninToken = true
+            SaveSigninToken = false  // Do not retain raw sign-in token to keep ticket small
         };
 
         // Events for logging and custom handling
