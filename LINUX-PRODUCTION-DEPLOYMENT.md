@@ -147,7 +147,18 @@ BBI_AdminPassword=Admin@123
 BBI_EmbedSecret=e0jXV3jpdNDoEtsEfHQdR1dzxV6zGaCw
 BBI_UserEmail=manoranjan.rajendran@syncfusion.com
 BBI_Environment=onpremise
+
+# ---- Microsoft Azure AD Corporate SSO ----
+AZURE_AD_CLIENT_SECRET=<AZURE_AD_CLIENT_SECRET>
 ```
+
+### Azure AD App Registration (Production Portal)
+In Microsoft Entra ID (Azure Portal) for Client ID `d2fdfa17-5486-4681-b701-57f597e5562e`:
+- **Redirect URIs (Web)**:
+  - `https://app.boldreportsdemo.com:8443/signin-oidc`
+- **Front-channel logout URL**:
+  - `https://app.boldreportsdemo.com:8443/signout-oidc`
+- **Supported Account Types**: Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)
 
 ### Important rules
 
